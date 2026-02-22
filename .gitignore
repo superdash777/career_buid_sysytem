@@ -1,0 +1,16 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.cache/
+.idea/
+.DS_Store
+.env
+*.pdf
+.gradio/
+
+# Virtual env
+.venv/
+venv/
