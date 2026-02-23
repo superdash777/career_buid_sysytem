@@ -29,7 +29,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const skills = state.skills;
-  const setSkills = (s: Skill[]) => onChange({ skills: s });
+  const setSkills = useCallback((s: Skill[]) => onChange({ skills: s }), [onChange]);
 
   useEffect(() => {
     if (state.profession) {

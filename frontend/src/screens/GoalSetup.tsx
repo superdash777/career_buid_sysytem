@@ -21,11 +21,12 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetchProfessions()
-      .then((p) => setProfessions(p))
-      .catch(() => setApiError('Не получилось загрузить данные. Проверьте соединение и попробуйте ещё раз.'))
-      .finally(() => setLoading(false));
+      .then((p) => { if (!cancelled) setProfessions(p); })
+      .catch(() => { if (!cancelled) setApiError('Не получилось загрузить данные. Проверьте соединение и попробуйте ещё раз.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const handleNext = () => {

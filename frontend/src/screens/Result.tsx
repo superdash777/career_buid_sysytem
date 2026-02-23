@@ -23,19 +23,22 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!contentRef.current) return;
-    const headings = contentRef.current.querySelectorAll('h2, h3');
-    const items: TocItem[] = [];
-    headings.forEach((h, i) => {
-      const id = `heading-${i}`;
-      h.id = id;
-      items.push({
-        id,
-        text: h.textContent || '',
-        level: h.tagName === 'H2' ? 2 : 3,
+    const el = contentRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const headings = el.querySelectorAll('h2, h3');
+      const items: TocItem[] = [];
+      headings.forEach((h, i) => {
+        const id = `heading-${i}`;
+        h.id = id;
+        items.push({
+          id,
+          text: h.textContent || '',
+          level: h.tagName === 'H2' ? 2 : 3,
+        });
       });
+      setToc(items);
     });
-    setToc(items);
   }, [plan.markdown]);
 
   const handleCopy = async () => {
