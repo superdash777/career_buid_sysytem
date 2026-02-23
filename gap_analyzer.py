@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Анализ разрывов: атлас-параметры (5-level ordinal) и навыки (3-level) с нормализацией."""
+
+"""Анализ разрывов: атлас-параметров и навыков с нормализацией."""
 
 from data_loader import PARAM_ORDINAL_NAMES, SKILL_LEVEL_NAMES
 
