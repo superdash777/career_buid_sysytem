@@ -135,7 +135,8 @@ class PlanRequest(BaseModel):
 
 
 def _skills_table_to_user_skills(skills: List[dict]) -> dict:
-    user_skills = {}
+    """Конвертирует навыки фронтенда (float 0..2) во внутренние уровни (0..3) с нормализацией имён."""
+    raw = {}
     for item in skills:
         name = (item.get("name") or "").strip()
         if not name or name == "Навык" or name.startswith("⚠️"):
@@ -146,16 +147,31 @@ def _skills_table_to_user_skills(skills: List[dict]) -> dict:
             continue
         if level != level:
             continue
-        if level < 1:
+        if level < 0.5:
             internal_level = 0
+        elif level < 1:
+            internal_level = 1
         elif level == 1:
             internal_level = 1
         elif level == 1.5:
             internal_level = 2
         else:
             internal_level = 3
-        user_skills[name] = internal_level
-    return user_skills
+        raw[name] = internal_level
+
+    # Нормализуем имена навыков через skill_normalizer
+    try:
+        from skill_normalizer import resolve_to_canonical, get_canonical_skills_set
+        canonical_set = get_canonical_skills_set()
+        normalized = {}
+        for name, level in raw.items():
+            canonical = resolve_to_canonical(name, canonical_set)
+            key = canonical if canonical else name
+            if key not in normalized or level > normalized[key]:
+                normalized[key] = level
+        return normalized
+    except Exception:
+        return raw
 
 
 def _dedupe_opportunities(opportunities):

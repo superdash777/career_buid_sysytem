@@ -1,22 +1,39 @@
 # -*- coding: utf-8 -*-
-"""Анализ разрывов: атлас-параметры и навыки."""
+"""Анализ разрывов: атлас-параметры и навыки с нормализацией."""
 
-from config import Config
+LEVEL_NAMES = {0: "Нет", 1: "Базовый", 2: "Продвинутый", 3: "Эксперт"}
 
-# Уровни для отображения
-LEVEL_NAMES = {1: "Базовый", 2: "Продвинутый", 3: "Эксперт"}
+
+def _normalize_skill_set(user_skills: dict, canonical_set: set = None) -> dict:
+    """Нормализует ключи user_skills через skill_normalizer, если доступен."""
+    if not user_skills:
+        return {}
+    try:
+        from skill_normalizer import resolve_to_canonical, get_canonical_skills_set
+        if canonical_set is None:
+            canonical_set = get_canonical_skills_set()
+        normalized = {}
+        for name, level in user_skills.items():
+            canonical = resolve_to_canonical(name, canonical_set)
+            key = canonical if canonical else name
+            if key not in normalized or level > normalized[key]:
+                normalized[key] = level
+        return normalized
+    except Exception:
+        return dict(user_skills)
 
 
 class GapAnalyzer:
     @staticmethod
     def analyze(user_skills, target_requirements):
-        """Классический формат (обратная совместимость)."""
+        """Классический формат (обратная совместимость) с нормализацией."""
+        norm = _normalize_skill_set(user_skills)
         missing = []
         gaps = []
         strong = []
 
         for skill, req_level in target_requirements.items():
-            curr_level = user_skills.get(skill, 0)
+            curr_level = norm.get(skill, 0)
             if curr_level == 0:
                 missing.append((skill, req_level))
             elif curr_level < req_level:
@@ -34,17 +51,16 @@ class GapAnalyzer:
 
     @staticmethod
     def analyze_structured(user_skills, target_requirements, atlas_param_names, atlas_map):
-        """
-        Разделение на разрывы по параметрам атласа и по навыкам.
-        Приоритет: по величине разрыва (required - current).
-        """
+        """Разделение на разрывы по параметрам атласа и по навыкам с нормализацией."""
+        norm = _normalize_skill_set(user_skills)
+
         atlas_gaps = []
         atlas_strong = []
         skill_gaps = []
         skill_strong = []
 
         for name, req_level in target_requirements.items():
-            curr = user_skills.get(name, 0)
+            curr = norm.get(name, 0)
             delta = req_level - curr
             is_atlas = name in atlas_param_names
 
@@ -71,7 +87,6 @@ class GapAnalyzer:
                 else:
                     skill_gaps.append(item)
 
-        # Сортируем по приоритету (сначала большие разрывы)
         atlas_gaps.sort(key=lambda x: (-x["delta"], x["name"]))
         skill_gaps.sort(key=lambda x: (-x["delta"], x["name"]))
 

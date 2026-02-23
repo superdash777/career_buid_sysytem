@@ -105,8 +105,14 @@ def build_switch_comparison(
     """
     Детерминированно: baseline_level, match_score по baseline_skillset,
     matched_skills top 8 (с snippets из RAG), missing_skills top 12.
-    suggested_tracks — 2–3 трека по категориям missing (если есть категории в данных).
     """
+    # Нормализуем навыки пользователя
+    try:
+        from gap_analyzer import _normalize_skill_set
+        norm = _normalize_skill_set(user_skills)
+    except Exception:
+        norm = dict(user_skills)
+
     baseline = get_baseline_target_level(target_level)
     reqs = data_loader.get_role_requirements(target_role, baseline)
     if not reqs:
@@ -114,8 +120,8 @@ def build_switch_comparison(
 
     skill_reqs = {k: v for k, v in reqs.items() if k not in data_loader.atlas_map}
     total = len(skill_reqs) or 1
-    matched_names = [s for s in skill_reqs if s in user_skills and user_skills.get(s, 0) >= skill_reqs[s]]
-    missing_names = [s for s in skill_reqs if s not in user_skills or user_skills.get(s, 0) < skill_reqs[s]]
+    matched_names = [s for s in skill_reqs if s in norm and norm.get(s, 0) >= skill_reqs[s]]
+    missing_names = [s for s in skill_reqs if s not in norm or norm.get(s, 0) < skill_reqs[s]]
     match_score = len(matched_names) / total
 
     matched_top = matched_names[:8]
