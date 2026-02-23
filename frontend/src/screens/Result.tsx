@@ -63,7 +63,7 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
   };
 
   return (
-    <Layout step={4}>
+    <Layout step={4} wide>
       <div className="space-y-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">

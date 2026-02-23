@@ -279,6 +279,24 @@ def health():
     return {"status": "ok"}
 
 
+# ---------- Serve React frontend (production build) ----------
+
+FRONTEND_DIR = PROJECT_DIR / "frontend" / "dist"
+
+if FRONTEND_DIR.is_dir():
+    from fastapi.responses import FileResponse
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = FRONTEND_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        index = FRONTEND_DIR / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        return {"detail": "Not found"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
