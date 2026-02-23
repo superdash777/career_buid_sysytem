@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
+
 """
-Сценарий «Переход на следующий грейд»: параметры атласа первыми, ожидания из RAG,
-навыки как поддержка параметров. Все тексты ожиданий/delta из данных, не из LLM.
+Сценарий «Переход на следующий грейд».
 """
 
 from dataclasses import dataclass, field
@@ -61,8 +60,8 @@ def build_next_grade_narrative(
     atlas_map: Dict,
 ) -> ExpectationsSummary:
     """
-    Narrative «что значит следующий грейд»: для каждого параметра — ожидание на target_level
-    и delta vs current (тексты только из atlas).
+    Описание «что значит следующий грейд»: для каждого параметра — ожидание на target_level
+    и delta vs current.
     """
     current_key = GRADE_TO_ATLAS_LEVEL.get(current_grade, "Специалист")
     target_key = GRADE_TO_ATLAS_LEVEL.get(target_grade, "Старший")
