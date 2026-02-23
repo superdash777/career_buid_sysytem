@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { ArrowRight, ArrowLeft, Upload, Search, Plus, FileText } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Search, Plus, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import SkillCard from '../components/SkillCard';
 import Spinner from '../components/Spinner';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
+import { showToast } from '../components/toastStore';
 import { analyzeResume, suggestSkills, fetchSkillsForRole } from '../api/client';
 import { ApiError } from '../api/client';
 import type { AppState, Skill } from '../types';
@@ -18,6 +19,37 @@ interface Props {
   onBack: () => void;
 }
 
+const RECOMMENDED_VISIBLE = 6;
+
+function SkillQualityBar({ count }: { count: number }) {
+  const pct = Math.min(count / 7, 1) * 100;
+  const color =
+    count === 0 ? 'bg-(--color-border)'
+    : count < 3 ? 'bg-red-400'
+    : count < 5 ? 'bg-amber-400'
+    : 'bg-emerald-400';
+  const label =
+    count === 0 ? 'Добавьте навыки для точного плана'
+    : count < 3 ? 'Маловато — добавьте ещё для точности'
+    : count < 5 ? 'Хорошо, можно добавить ещё'
+    : count < 7 ? 'Отлично!'
+    : 'Превосходно!';
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-(--color-text-muted)">{label}</span>
+        <span className="text-(--color-text-muted) font-medium">{count} навык(ов)</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-(--color-border)/50 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function Skills({ state, onChange, onNext, onBack }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
@@ -27,16 +59,26 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
   const [roleSkills, setRoleSkills] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
+  const [newSkillNames, setNewSkillNames] = useState<Set<string>>(new Set());
+  const [showAllRecommended, setShowAllRecommended] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestAbortRef = useRef<AbortController | null>(null);
+  const roleAbortRef = useRef<AbortController | null>(null);
 
   const skills = state.skills;
   const setSkills = useCallback((s: Skill[]) => onChange({ skills: s }), [onChange]);
 
   useEffect(() => {
     if (state.profession) {
-      fetchSkillsForRole(state.profession).then(setRoleSkills).catch(() => {});
+      roleAbortRef.current?.abort();
+      roleAbortRef.current = new AbortController();
+      fetchSkillsForRole(state.profession, roleAbortRef.current.signal)
+        .then(setRoleSkills)
+        .catch(() => {});
     }
+    return () => { roleAbortRef.current?.abort(); };
   }, [state.profession]);
 
   useEffect(() => {
@@ -49,28 +91,55 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Clear highlight from new skills after 3s
+  useEffect(() => {
+    if (newSkillNames.size === 0) return;
+    const t = setTimeout(() => setNewSkillNames(new Set()), 3000);
+    return () => clearTimeout(t);
+  }, [newSkillNames]);
+
   const addSkill = useCallback(
     (name: string, level: number = 1) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       if (skills.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) return;
       setSkills([...skills, { name: trimmed, level }]);
+      setNewSkillNames((prev) => new Set(prev).add(trimmed.toLowerCase()));
       setQuery('');
       setSuggestions([]);
       setShowSuggestions(false);
+      setHighlightedIdx(-1);
+    },
+    [skills, setSkills],
+  );
+
+  const removeSkill = useCallback(
+    (index: number) => {
+      const removed = skills[index];
+      const next = skills.filter((_, j) => j !== index);
+      setSkills(next);
+      showToast(`Навык «${removed.name}» удалён`, {
+        label: 'Отменить',
+        onClick: () => setSkills([...next.slice(0, index), removed, ...next.slice(index)]),
+      });
     },
     [skills, setSkills],
   );
 
   const handleQueryChange = (val: string) => {
     setQuery(val);
+    setHighlightedIdx(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    suggestAbortRef.current?.abort();
     if (val.trim().length >= 2) {
       debounceRef.current = setTimeout(() => {
-        suggestSkills(val).then((s) => {
-          setSuggestions(s);
-          setShowSuggestions(s.length > 0);
-        }).catch(() => {});
+        suggestAbortRef.current = new AbortController();
+        suggestSkills(val, suggestAbortRef.current.signal)
+          .then((s) => {
+            setSuggestions(s);
+            setShowSuggestions(s.length > 0);
+          })
+          .catch(() => {});
       }, 250);
     } else {
       setSuggestions([]);
@@ -79,9 +148,30 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && query.trim()) {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter' && query.trim()) {
+        e.preventDefault();
+        addSkill(query);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      addSkill(query);
+      setHighlightedIdx((h) => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIdx((h) => Math.max(h - 1, -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedIdx >= 0 && suggestions[highlightedIdx]) {
+        addSkill(suggestions[highlightedIdx]);
+      } else if (query.trim()) {
+        addSkill(query);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setHighlightedIdx(-1);
     }
   };
 
@@ -102,13 +192,16 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           setUploadMsg('Не удалось найти навыки. Попробуйте другой файл или добавьте вручную.');
         } else {
           const newSkills = [...skills];
+          const addedNames = new Set<string>();
           for (const s of result.skills) {
             if (!newSkills.some((x) => x.name.toLowerCase() === s.name.toLowerCase())) {
               newSkills.push(s);
+              addedNames.add(s.name.toLowerCase());
             }
           }
           setSkills(newSkills);
-          setUploadMsg(`Извлечено навыков: ${result.skills.length}`);
+          setNewSkillNames(addedNames);
+          setUploadMsg(`Добавлено ${addedNames.size} из ${result.skills.length} найденных навыков`);
         }
       } catch (err) {
         if (err instanceof ApiError) {
@@ -150,6 +243,9 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
   const existingNames = new Set(skills.map((s) => s.name.toLowerCase()));
   const filteredRoleSkills = roleSkills.filter((s) => !existingNames.has(s.toLowerCase()));
+  const visibleRecommended = showAllRecommended
+    ? filteredRoleSkills
+    : filteredRoleSkills.slice(0, RECOMMENDED_VISIBLE);
 
   return (
     <Layout step={2}>
@@ -202,7 +298,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           )}
 
           {uploadMsg && !uploadError && (
-            <Alert variant={uploadMsg.startsWith('Извлечено') ? 'success' : 'info'}>
+            <Alert variant={uploadMsg.startsWith('Добавлено') ? 'success' : 'info'}>
               {uploadMsg}
             </Alert>
           )}
@@ -236,6 +332,9 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="SQL, коммуникации, roadmap…"
                 className="input-field pl-10 pr-12"
+                role="combobox"
+                aria-expanded={showSuggestions}
+                aria-autocomplete="list"
               />
               {query.trim() && (
                 <button
@@ -249,12 +348,22 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             </div>
 
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full rounded-xl border border-(--color-border) bg-(--color-surface-raised) shadow-lg max-h-60 overflow-y-auto">
-                {suggestions.map((s) => (
+              <div
+                className="absolute z-20 mt-1 w-full rounded-xl border border-(--color-border) bg-(--color-surface-raised) shadow-lg max-h-60 overflow-y-auto"
+                role="listbox"
+                aria-live="polite"
+              >
+                {suggestions.map((s, i) => (
                   <button
                     key={s}
                     onClick={() => addSkill(s)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-(--color-text-secondary) hover:bg-(--color-accent-light) transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    role="option"
+                    aria-selected={i === highlightedIdx}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                      i === highlightedIdx
+                        ? 'bg-(--color-accent-light) text-(--color-accent) font-medium'
+                        : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+                    }`}
                   >
                     {s}
                   </button>
@@ -269,7 +378,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                 Рекомендуемые для «{state.profession}»:
               </p>
               <div className="flex flex-wrap gap-2">
-                {filteredRoleSkills.slice(0, 15).map((s) => (
+                {visibleRecommended.map((s) => (
                   <button
                     key={s}
                     onClick={() => addSkill(s)}
@@ -279,6 +388,18 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                   </button>
                 ))}
               </div>
+              {filteredRoleSkills.length > RECOMMENDED_VISIBLE && (
+                <button
+                  onClick={() => setShowAllRecommended(!showAllRecommended)}
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
+                >
+                  {showAllRecommended ? (
+                    <>Свернуть <ChevronUp className="h-3 w-3" /></>
+                  ) : (
+                    <>Показать все ({filteredRoleSkills.length}) <ChevronDown className="h-3 w-3" /></>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -292,6 +413,8 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             )}
           </h2>
 
+          <SkillQualityBar count={skills.length} />
+
           {skills.length === 0 ? (
             <div className="card flex flex-col items-center justify-center py-10 text-center">
               <FileText className="h-10 w-10 text-(--color-text-muted)/40 mb-3" />
@@ -300,17 +423,18 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2" aria-live="polite">
               {skills.map((skill, i) => (
                 <SkillCard
                   key={`${skill.name}-${i}`}
                   skill={skill}
+                  isNew={newSkillNames.has(skill.name.toLowerCase())}
                   onChange={(updated) => {
                     const next = [...skills];
                     next[i] = updated;
                     setSkills(next);
                   }}
-                  onRemove={() => setSkills(skills.filter((_, j) => j !== i))}
+                  onRemove={() => removeSkill(i)}
                 />
               ))}
             </div>

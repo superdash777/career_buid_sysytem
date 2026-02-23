@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Download, RotateCcw, ArrowLeft, ChevronRight, Check } from 'lucide-react';
+import { Copy, Download, RotateCcw, ArrowLeft, ChevronRight, Check, List, X } from 'lucide-react';
 import Layout from '../components/Layout';
+import FeedbackRating from '../components/FeedbackRating';
 import type { PlanResponse } from '../types';
 
 interface TocItem {
@@ -21,6 +22,7 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [toc, setToc] = useState<TocItem[]>([]);
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,11 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
     setTimeout(() => setDownloaded(false), 2000);
   };
 
+  const scrollToHeading = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    setMobileTocOpen(false);
+  };
+
   const scrollToFirstAction = () => {
     if (!contentRef.current) return;
     const lists = contentRef.current.querySelectorAll('ol li, ul li');
@@ -84,16 +91,61 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
         <div className="flex flex-wrap gap-2">
           <button onClick={handleCopy} className="btn-secondary text-sm">
             {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'План скопирован' : 'Скопировать'}
+            {copied ? 'Скопирован' : 'Скопировать'}
           </button>
           <button onClick={handleDownload} className="btn-secondary text-sm">
             {downloaded ? <Check className="h-4 w-4 text-emerald-500" /> : <Download className="h-4 w-4" />}
-            {downloaded ? 'Файл сохранён' : 'Скачать .md'}
+            {downloaded ? 'Сохранён' : 'Скачать .md'}
           </button>
           <button onClick={onReset} className="btn-secondary text-sm">
-            <RotateCcw className="h-4 w-4" /> Начать заново
+            <RotateCcw className="h-4 w-4" /> Заново
           </button>
+          {/* Mobile TOC trigger */}
+          {toc.length > 2 && (
+            <button
+              onClick={() => setMobileTocOpen(true)}
+              className="btn-secondary text-sm lg:hidden"
+            >
+              <List className="h-4 w-4" /> Оглавление
+            </button>
+          )}
         </div>
+
+        {/* Feedback */}
+        <FeedbackRating />
+
+        {/* Mobile TOC overlay */}
+        {mobileTocOpen && toc.length > 2 && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileTocOpen(false)} />
+            <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] rounded-t-2xl bg-(--color-surface-raised) border-t border-(--color-border) overflow-y-auto slide-up">
+              <div className="sticky top-0 flex items-center justify-between px-5 py-4 border-b border-(--color-border) bg-(--color-surface-raised)">
+                <p className="text-sm font-semibold text-(--color-text-primary)">Оглавление</p>
+                <button
+                  onClick={() => setMobileTocOpen(false)}
+                  className="p-1 text-(--color-text-muted) hover:text-(--color-text-secondary)"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="p-4 space-y-1">
+                {toc.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => scrollToHeading(item.id)}
+                    className={`block w-full text-left text-sm py-2 px-3 rounded-lg truncate transition-colors hover:bg-(--color-accent-light) hover:text-(--color-accent) ${
+                      item.level === 3
+                        ? 'pl-7 text-(--color-text-muted)'
+                        : 'text-(--color-text-secondary) font-medium'
+                    }`}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
 
         {/* Role titles */}
         {plan.role_titles && plan.role_titles.length > 0 && (
@@ -114,7 +166,7 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
           </div>
         )}
 
-        {/* Markdown + TOC */}
+        {/* Markdown + Desktop TOC */}
         <div className="flex gap-8">
           <div className="card flex-1 min-w-0">
             <div ref={contentRef} className="markdown-body">
@@ -135,7 +187,7 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
                       href={`#${item.id}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                        scrollToHeading(item.id);
                       }}
                       className={`block text-sm truncate transition-colors hover:text-(--color-accent) ${
                         item.level === 3 ? 'pl-4 text-(--color-text-muted)' : 'text-(--color-text-secondary) font-medium'

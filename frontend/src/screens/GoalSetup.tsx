@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
-import Spinner from '../components/Spinner';
 import ScenarioCard from '../components/ScenarioCard';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
+import SearchableSelect from '../components/SearchableSelect';
+import { SkeletonForm } from '../components/Skeleton';
 import { fetchProfessions } from '../api/client';
 import type { AppState, Scenario, Grade } from '../types';
 import { GRADES, SCENARIOS } from '../types';
@@ -17,19 +18,32 @@ interface Props {
   onBack: () => void;
 }
 
+const GRADE_DESCRIPTIONS: Record<Grade, string> = {
+  'Младший (Junior)': 'Начинающий специалист, выполняет задачи под руководством',
+  'Специалист (Middle)': 'Самостоятельно решает типовые задачи',
+  'Старший (Senior)': 'Решает сложные задачи, менторит коллег',
+  'Ведущий (Lead)': 'Руководит командой или техническим направлением',
+  'Эксперт (Expert)': 'Определяет стратегию, влияет на всю организацию',
+};
+
 export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   const [professions, setProfessions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState('');
   const [validationError, setValidationError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchProfessions()
-      .then((p) => { if (!cancelled) setProfessions(p); })
-      .catch(() => { if (!cancelled) setApiError('Не получилось загрузить данные. Проверьте соединение и попробуйте ещё раз.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    abortRef.current = new AbortController();
+    fetchProfessions(abortRef.current.signal)
+      .then(setProfessions)
+      .catch((err) => {
+        if (err?.name !== 'AbortError') {
+          setApiError('Не получилось загрузить данные. Проверьте соединение и попробуйте ещё раз.');
+        }
+      })
+      .finally(() => setLoading(false));
+    return () => { abortRef.current?.abort(); };
   }, []);
 
   const handleNext = () => {
@@ -52,10 +66,13 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   if (loading) {
     return (
       <Layout step={1}>
-        <Spinner text="Загружаем данные..." />
+        <SkeletonForm />
       </Layout>
     );
   }
+
+  const showScenario = !!state.profession;
+  const showGrade = !!state.scenario;
 
   return (
     <Layout step={1}>
@@ -86,40 +103,35 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
           {/* Profession */}
           <div>
             <label className="label">Ваша текущая профессия</label>
-            <div className="relative">
-              <select
-                value={state.profession}
-                onChange={(e) => onChange({ profession: e.target.value })}
-                className="input-field appearance-none pr-10"
-              >
-                <option value="">Выберите профессию</option>
-                {professions.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
-            </div>
+            <SearchableSelect
+              options={professions}
+              value={state.profession}
+              onChange={(v) => onChange({ profession: v })}
+              placeholder="Начните вводить или выберите из списка"
+            />
             <p className="helper">Мы подтянем релевантные навыки и требования для этой роли.</p>
           </div>
 
-          {/* Scenario cards */}
-          <div>
-            <label className="label">Направление</label>
-            <div className="space-y-3">
-              {SCENARIOS.map((s) => (
-                <ScenarioCard
-                  key={s.value}
-                  value={s.value}
-                  label={s.label}
-                  description={s.description}
-                  selected={state.scenario === s.value}
-                  onSelect={() => onChange({ scenario: s.value as Scenario })}
-                />
-              ))}
+          {/* Scenario cards — progressive disclosure */}
+          {showScenario && (
+            <div className="fade-in">
+              <label className="label">Направление</label>
+              <div className="space-y-3">
+                {SCENARIOS.map((s) => (
+                  <ScenarioCard
+                    key={s.value}
+                    value={s.value}
+                    label={s.label}
+                    description={s.description}
+                    selected={state.scenario === s.value}
+                    onSelect={() => onChange({ scenario: s.value as Scenario })}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {state.scenario && (
+          {showScenario && state.scenario && (
             <SoftOnboardingHint id="goal_scenario">
               Отлично! Теперь настроим детали.
             </SoftOnboardingHint>
@@ -129,40 +141,35 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
           {state.scenario === 'Смена профессии' && (
             <div className="fade-in">
               <label className="label">Целевая профессия</label>
-              <div className="relative">
-                <select
-                  value={state.targetProfession}
-                  onChange={(e) => onChange({ targetProfession: e.target.value })}
-                  className="input-field appearance-none pr-10"
-                >
-                  <option value="">Выберите роль</option>
-                  {professions.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
-              </div>
+              <SearchableSelect
+                options={professions}
+                value={state.targetProfession}
+                onChange={(v) => onChange({ targetProfession: v })}
+                placeholder="Начните вводить или выберите роль"
+              />
               <p className="helper">Выберите роль, в которую хотите перейти.</p>
             </div>
           )}
 
-          {/* Grade */}
-          <div>
-            <label className="label">Текущий грейд</label>
-            <div className="relative">
-              <select
-                value={state.grade}
-                onChange={(e) => onChange({ grade: e.target.value as Grade })}
-                className="input-field appearance-none pr-10"
-              >
-                {GRADES.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
+          {/* Grade — progressive disclosure */}
+          {showGrade && (
+            <div className="fade-in">
+              <label className="label">Текущий грейд</label>
+              <div className="relative">
+                <select
+                  value={state.grade}
+                  onChange={(e) => onChange({ grade: e.target.value as Grade })}
+                  className="input-field appearance-none pr-10"
+                >
+                  {GRADES.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
+              </div>
+              <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
             </div>
-            <p className="helper">Уровень нужен, чтобы корректно оценить «шаг вверх».</p>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2">

@@ -11,8 +11,12 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${url}`, init);
+async function request<T>(
+  url: string,
+  init?: RequestInit,
+  signal?: AbortSignal,
+): Promise<T> {
+  const res = await fetch(`${BASE}${url}`, { ...init, signal });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -24,41 +28,59 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export async function fetchProfessions(): Promise<string[]> {
-  const data = await request<{ professions: string[] }>('/api/professions');
+export async function fetchProfessions(signal?: AbortSignal): Promise<string[]> {
+  const data = await request<{ professions: string[] }>('/api/professions', undefined, signal);
   return data.professions;
 }
 
-export async function fetchSkillsForRole(profession: string): Promise<string[]> {
+export async function fetchSkillsForRole(
+  profession: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
   const data = await request<{ skills: string[] }>(
     `/api/skills-for-role?profession=${encodeURIComponent(profession)}`,
+    undefined,
+    signal,
   );
   return data.skills;
 }
 
-export async function suggestSkills(q: string): Promise<string[]> {
+export async function suggestSkills(q: string, signal?: AbortSignal): Promise<string[]> {
   if (q.trim().length < 2) return [];
   const data = await request<{ suggestions: string[] }>(
     `/api/suggest-skills?q=${encodeURIComponent(q.trim())}`,
+    undefined,
+    signal,
   );
   return data.suggestions;
 }
 
-export async function analyzeResume(file: File): Promise<{ skills: Skill[]; error?: string }> {
+export async function analyzeResume(
+  file: File,
+  signal?: AbortSignal,
+): Promise<{ skills: Skill[]; error?: string }> {
   const form = new FormData();
   form.append('file', file);
-  return request<{ skills: Skill[]; error?: string }>('/api/analyze-resume', {
-    method: 'POST',
-    body: form,
-  });
+  return request<{ skills: Skill[]; error?: string }>(
+    '/api/analyze-resume',
+    { method: 'POST', body: form },
+    signal,
+  );
 }
 
-export async function buildPlan(req: PlanRequest): Promise<PlanResponse> {
-  return request<PlanResponse>('/api/plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  });
+export async function buildPlan(
+  req: PlanRequest,
+  signal?: AbortSignal,
+): Promise<PlanResponse> {
+  return request<PlanResponse>(
+    '/api/plan',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    },
+    signal,
+  );
 }
 
 export async function healthCheck(): Promise<boolean> {

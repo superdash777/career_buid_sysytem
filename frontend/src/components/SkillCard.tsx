@@ -4,21 +4,33 @@ import { SKILL_LEVELS } from '../types';
 
 interface Props {
   skill: Skill;
+  isNew?: boolean;
   onChange: (updated: Skill) => void;
   onRemove: () => void;
 }
 
-export default function SkillCard({ skill, onChange, onRemove }: Props) {
+export default function SkillCard({ skill, isNew, onChange, onRemove }: Props) {
   return (
-    <div className="slide-up flex flex-col gap-3 rounded-xl border border-(--color-border) bg-(--color-surface-raised) p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div
+      className={`skill-card-enter flex flex-col gap-3 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md ${
+        isNew
+          ? 'border-(--color-accent)/40 bg-(--color-accent-light)/30 ring-2 ring-(--color-accent)/20'
+          : 'border-(--color-border) bg-(--color-surface-raised)'
+      }`}
+    >
       <div className="flex items-center gap-3">
         <span className="flex-1 font-medium text-(--color-text-primary) truncate" title={skill.name}>
           {skill.name}
+          {isNew && (
+            <span className="ml-2 inline-block text-[10px] font-semibold text-(--color-accent) bg-(--color-accent-light) px-1.5 py-0.5 rounded">
+              новый
+            </span>
+          )}
         </span>
         <button
           onClick={onRemove}
           className="shrink-0 text-(--color-text-muted) hover:text-red-500 transition-colors p-1"
-          aria-label="Удалить навык"
+          aria-label={`Удалить навык ${skill.name}`}
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -35,7 +47,8 @@ export default function SkillCard({ skill, onChange, onRemove }: Props) {
                 : 'text-(--color-text-muted) hover:bg-(--color-accent-light) hover:text-(--color-text-secondary)'
             }`}
           >
-            {l.label}
+            <span className="hidden sm:inline">{l.label}</span>
+            <span className="sm:hidden">{l.short}</span>
           </button>
         ))}
       </div>
