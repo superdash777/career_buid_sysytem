@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""AI Career Pathfinder — персональный план карьерного развития."""
+"""Основной файл для запуска."""
 
 import os
 import sys
