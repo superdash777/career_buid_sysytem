@@ -5,7 +5,7 @@ from gap_analyzer import level_display
 
 
 def _build_skill_context(data_loader, skill_gaps, grade):
-    """Собирает описания уровней + примеры задач для навыков из gap-списка."""
+    """Собирает описания уровней + примеры задач для навыков из gap-списка (для LLM)."""
     parts = []
     for g in skill_gaps[:15]:
         detail = data_loader.get_skill_detail(g["name"], grade)
@@ -18,6 +18,57 @@ def _build_skill_context(data_loader, skill_gaps, grade):
             block += f"\nПримеры задач на развитие: {detail['tasks']}"
         parts.append(block)
     return "\n\n".join(parts)
+
+
+def _params_table(gaps, strong):
+    """Markdown-таблица разрывов по параметрам атласа."""
+    if not gaps and not strong:
+        return "Нет данных по параметрам.\n\n"
+    out = "| Параметр | Текущий | Требуемый | Разрыв |\n"
+    out += "|---|---|---|---|\n"
+    for g in gaps:
+        curr = level_display(g["current"], is_atlas=True)
+        req = level_display(g["required"], is_atlas=True)
+        out += f"| **{g['name']}** | {curr} | {req} | {g['delta']} |\n"
+    for s in strong:
+        lvl = level_display(s["level"], is_atlas=True)
+        out += f"| {s['name']} | {lvl} | {lvl} | 0 |\n"
+    out += "\n"
+    return out
+
+
+def _skills_table(gaps, strong):
+    """Markdown-таблица разрывов по навыкам (без описаний — они идут ниже)."""
+    if not gaps and not strong:
+        return "Нет данных по навыкам.\n\n"
+    out = "| Навык | Текущий | Требуемый | Разрыв |\n"
+    out += "|---|---|---|---|\n"
+    for g in gaps:
+        curr = level_display(g["current"], is_atlas=False)
+        req = level_display(g["required"], is_atlas=False)
+        out += f"| **{g['name']}** | {curr} | {req} | {g['delta']} |\n"
+    for s in strong[:5]:
+        lvl = level_display(s["level"], is_atlas=False)
+        out += f"| {s['name']} | {lvl} | {lvl} | 0 |\n"
+    out += "\n"
+    return out
+
+
+def _skill_details_blocks(data_loader, skill_gaps, grade):
+    """Структурированные блоки с описанием уровня и задачами на развитие."""
+    out = ""
+    for g in skill_gaps[:12]:
+        detail = data_loader.get_skill_detail(g["name"], grade)
+        if not detail:
+            continue
+        if not detail["description"] and not detail["tasks"]:
+            continue
+        out += f"#### {g['name']}\n\n"
+        if detail["description"]:
+            out += f"> **Целевой уровень ({detail['level_key']}):** {detail['description']}\n\n"
+        if detail["tasks"]:
+            out += f"**Задачи на развитие:**\n\n{detail['tasks']}\n\n"
+    return out
 
 
 class OutputFormatter:
@@ -54,88 +105,70 @@ class OutputFormatter:
                           current_grade=None, target_grade=None, profession_internal=None):
         atlas_gaps = structured.get("atlas_gaps", [])
         skill_gaps = structured.get("skill_gaps", [])
+        atlas_strong = structured.get("atlas_strong", [])
+        skill_strong = structured.get("skill_strong", [])
         match_percent = structured.get("match_percent", 0)
 
         all_gaps = sorted(atlas_gaps + skill_gaps, key=lambda x: -x["delta"])
         top_blockers = all_gaps[:5]
         focus_str = ", ".join(b["name"] for b in top_blockers) if top_blockers else "—"
 
-        out = f"# Цель: Перейти на следующий грейд\n\n"
-        out += f"**Целевая роль:** {target_role_name}\n\n"
-        out += f"**Сводка:** совпадение с целевым профилем — {match_percent}%. Фокус роста: {focus_str}\n\n---\n\n"
-
-        out += "## Шаг 1 — Ожидания уровня и диагностика\n\n"
-        out += f"**1. Цель:** целевой грейд — {target_role_name}\n\n"
-
         cur_grade = current_grade or "Middle"
         tgt_grade = target_grade or "Senior"
-        try:
-            from next_grade_service import build_next_grade_narrative, build_skill_support, build_next_grade_rag_context
-            narrative = build_next_grade_narrative(cur_grade, tgt_grade, self.data.atlas_map)
-            out += "**2. Что значит следующий грейд (параметры атласа)**\n\n"
-            for pe in narrative.param_expectations:
-                desc = pe.get('description', '')
-                out += f"- **{pe['param_name']}**: {desc}\n"
-                if pe.get("target_text"):
-                    out += f"  *Ожидание на целевом уровне:* {pe['target_text']}\n\n"
-        except Exception:
-            pass
 
-        out += "**3. Разрыв по параметрам (атлас)**\n\n"
-        if atlas_gaps:
-            try:
-                from rag_service import get_rag_explanation_for_gap
-                for g in atlas_gaps:
-                    curr = level_display(g["current"], is_atlas=True)
-                    req = level_display(g["required"], is_atlas=True)
-                    out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}, разрыв: {g['delta']}\n"
-                    expl = get_rag_explanation_for_gap(g["name"], is_skill=False)
-                    why_text = expl or g.get('why', '—')
-                    out += f"  *Из базы:* {why_text}\n\n"
-            except Exception:
-                for g in atlas_gaps:
-                    curr = level_display(g["current"], is_atlas=True)
-                    req = level_display(g["required"], is_atlas=True)
-                    out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}, разрыв: {g['delta']}\n"
-                    out += f"  *Из базы:* {g.get('why', '—')}\n\n"
-        else:
-            out += "Нет критичных разрывов по параметрам атласа.\n\n"
-
-        try:
-            role_internal = profession_internal or self.data.get_internal_role_name(profession_display)
-            priority_params = [g["name"] for g in atlas_gaps[:5]]
-            if role_internal and priority_params:
-                support = build_skill_support(priority_params, role_internal, tgt_grade, self.data, top_per_param=4)
-                out += "**4. Навыки, поддерживающие параметры (из базы)**\n\n"
-                for param, skills in support.items():
-                    if skills:
-                        out += f"- *{param}:* {', '.join(skills[:5])}\n"
-                out += "\n"
-        except Exception:
-            pass
-
-        out += "**5. Разрыв по навыкам**\n\n"
-        if skill_gaps:
-            for g in skill_gaps[:15]:
-                curr = level_display(g["current"], is_atlas=False)
-                req = level_display(g["required"], is_atlas=False)
-                out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}\n"
-                detail = self.data.get_skill_detail(g["name"], tgt_grade)
-                if detail:
-                    if detail["description"]:
-                        out += f"  *Целевой уровень:* {detail['description']}\n"
-                    if detail["tasks"]:
-                        out += f"  *Задачи на развитие:* {detail['tasks']}\n"
-                out += "\n"
-        else:
-            out += "Нет критичных разрывов по навыкам.\n\n"
-
-        out += "**6. Сводка**\n\n"
-        if top_blockers:
-            out += "Фокус: " + ", ".join(b["name"] for b in top_blockers) + ".\n\n"
+        # --- Header ---
+        out = f"# Цель: Перейти на следующий грейд\n\n"
+        out += f"| | |\n|---|---|\n"
+        out += f"| **Целевая роль** | {target_role_name} |\n"
+        out += f"| **Совпадение** | {match_percent}% |\n"
+        out += f"| **Фокус роста** | {focus_str} |\n\n"
         out += "---\n\n"
 
-        out += "## Шаг 2 — План развития\n\n"
+        # --- Section 1: Atlas narrative ---
+        out += "## Ожидания целевого грейда\n\n"
+        try:
+            from next_grade_service import build_next_grade_narrative, build_next_grade_rag_context
+            narrative = build_next_grade_narrative(cur_grade, tgt_grade, self.data.atlas_map)
+            for pe in narrative.param_expectations:
+                if pe.get("target_text"):
+                    out += f"**{pe['param_name']}**\n\n"
+                    if pe.get("current_text"):
+                        out += f"> *Сейчас ({cur_grade}):* {pe['current_text']}\n\n"
+                    out += f"> *Цель ({tgt_grade}):* {pe['target_text']}\n\n"
+        except Exception:
+            pass
+
+        # --- Section 2: Param gaps table ---
+        out += "## Разрывы по параметрам\n\n"
+        if atlas_gaps:
+            out += _params_table(atlas_gaps, [])
+        else:
+            out += "Нет разрывов по параметрам — текущий грейд соответствует требованиям.\n\n"
+
+        # --- Section 3: Skill gaps table ---
+        out += "## Разрывы по навыкам\n\n"
+        if skill_gaps:
+            out += _skills_table(skill_gaps[:15], skill_strong[:5] if len(skill_gaps) < 10 else [])
+        else:
+            out += "Нет разрывов по навыкам.\n\n"
+
+        # --- Section 4: Skill detail blocks ---
+        if skill_gaps:
+            details = _skill_details_blocks(self.data, skill_gaps, tgt_grade)
+            if details:
+                out += "## Описание навыков и задачи на развитие\n\n"
+                out += details
+
+        # --- Summary ---
+        out += "## Сводка\n\n"
+        if top_blockers:
+            out += "**Приоритет развития:** " + ", ".join(b["name"] for b in top_blockers) + "\n\n"
+        if skill_strong:
+            out += "**Сильные стороны:** " + ", ".join(s["name"] for s in skill_strong[:8]) + "\n\n"
+        out += "---\n\n"
+
+        # --- Step 2: Plan ---
+        out += "## План развития\n\n"
         gen = self._get_plan_generator()
         if gen and gen.client:
             rag_context = ""
@@ -181,42 +214,49 @@ class OutputFormatter:
         focus_names = [m.get("name", "") for m in vm.missing_skills[:5] if m.get("name")]
         focus_str = ", ".join(focus_names) if focus_names else "—"
 
+        # --- Header ---
         out = f"# Цель: Сменить профессию\n\n"
-        out += f"**Целевая профессия:** {target_profession_display}\n\n"
-        out += f"**Сводка:** совпадение с baseline — {match_pct}%. В приоритете: {focus_str}\n\n"
-        out += f"**Уровень для сравнения (baseline):** {vm.baseline_level}\n\n---\n\n"
-
-        out += "## Шаг 1 — Оценка соответствия\n\n"
-        out += f"**1. Совпадение:** {match_pct}%\n\n"
-
-        out += "**2. Что уже совпадает:**\n\n"
-        for m in vm.matched_skills[:8]:
-            snip = (m.get("snippet") or "").strip()
-            out += f"- **{m.get('name', '')}**" + (f" — {snip}" if snip else "") + "\n"
-        if not vm.matched_skills:
-            out += "Пока мало пересечений — фокус на ключевых навыках целевой роли.\n"
-        out += "\n"
-
-        out += "**3. Чего не хватает:**\n\n"
-        for m in vm.missing_skills[:12]:
-            imp = m.get("importance", "")
-            out += f"- **{m.get('name', '')}** — {imp}\n"
-            detail = self.data.get_skill_detail(m.get("name", ""), "Middle")
-            if detail:
-                if detail["description"]:
-                    out += f"  *Описание уровня:* {detail['description']}\n"
-                if detail["tasks"]:
-                    out += f"  *Задачи на развитие:* {detail['tasks']}\n"
-            expl = (m.get("explanation") or "").strip()
-            if expl:
-                out += f"  *Из базы:* {expl}\n"
-        out += "\n"
-
-        if vm.suggested_tracks:
-            out += "**4. Возможные треки:** " + " | ".join(vm.suggested_tracks[:3]) + "\n\n"
+        out += f"| | |\n|---|---|\n"
+        out += f"| **Целевая профессия** | {target_profession_display} |\n"
+        out += f"| **Совпадение** | {match_pct}% |\n"
+        out += f"| **Baseline** | {vm.baseline_level} |\n"
+        out += f"| **В приоритете** | {focus_str} |\n\n"
         out += "---\n\n"
 
-        out += "## Шаг 2 — План развития\n\n"
+        # --- Matched skills ---
+        out += "## Что уже совпадает\n\n"
+        if vm.matched_skills:
+            out += "| Навык | Описание |\n|---|---|\n"
+            for m in vm.matched_skills[:8]:
+                snip = (m.get("snippet") or "").strip()
+                out += f"| **{m.get('name', '')}** | {snip} |\n"
+            out += "\n"
+        else:
+            out += "Пока мало пересечений — фокус на ключевых навыках целевой роли.\n\n"
+
+        # --- Missing skills ---
+        out += "## Чего не хватает\n\n"
+        if vm.missing_skills:
+            out += "| Навык | Приоритет |\n|---|---|\n"
+            for m in vm.missing_skills[:12]:
+                out += f"| **{m.get('name', '')}** | {m.get('importance', '')} |\n"
+            out += "\n"
+
+            details = _skill_details_blocks(self.data,
+                [{"name": m.get("name", "")} for m in vm.missing_skills[:8]], "Middle")
+            if details:
+                out += "### Описание навыков и задачи на развитие\n\n"
+                out += details
+
+        if vm.suggested_tracks:
+            out += "## Рекомендуемые треки\n\n"
+            for t in vm.suggested_tracks[:3]:
+                out += f"- {t}\n"
+            out += "\n"
+        out += "---\n\n"
+
+        # --- Plan ---
+        out += "## План развития\n\n"
         focus_names_for_plan = [m.get("name", "") for m in vm.missing_skills[:7] if m.get("name")]
         gen = self._get_plan_generator()
         if gen and gen.client and focus_names_for_plan:
@@ -253,15 +293,20 @@ class OutputFormatter:
 
         out = f"# Цель: Сменить профессию\n\n"
         out += f"**Целевая профессия/роль:** {target_role_name}\n\n---\n\n"
-        out += "## Шаг 1 — Оценка соответствия\n\n"
+        out += "## Оценка соответствия\n\n"
         out += f"**Совпадение:** {match_percent}%\n\n"
         if strong:
+            out += "| Навык | Уровень |\n|---|---|\n"
             for s, lvl in strong[:20]:
-                out += f"- {s} (уровень {lvl})\n"
+                out += f"| {s} | {lvl} |\n"
+            out += "\n"
         work = [(m[0], m[1]) for m in missing] + [(g[0], g[2]) for g in gaps if len(g) == 3]
-        for name, req in work[:15]:
-            out += f"- {name} (требуется {req})\n"
-        out += "\n---\n\n## Шаг 2 — План развития\n\n"
+        if work:
+            out += "| Навык | Требуется |\n|---|---|\n"
+            for name, req in work[:15]:
+                out += f"| {name} | {req} |\n"
+            out += "\n"
+        out += "---\n\n## План развития\n\n"
         gen = self._get_plan_generator()
         if gen and gen.client:
             try:
