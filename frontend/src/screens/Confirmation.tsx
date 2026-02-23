@@ -5,6 +5,7 @@ import Alert from '../components/Alert';
 import Spinner from '../components/Spinner';
 import { buildPlan, ApiError } from '../api/client';
 import type { AppState, PlanResponse, Scenario } from '../types';
+import { skillLevelLabel } from '../types';
 
 interface Props {
   state: AppState;
@@ -119,7 +120,7 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
               >
                 {s.name}
                 <span className="text-xs text-indigo-400">
-                  {s.level === 1 ? 'базовый' : s.level === 1.5 ? 'уверенный' : 'продвинутый'}
+                  {skillLevelLabel(s.level).toLowerCase()}
                 </span>
               </span>
             ))}

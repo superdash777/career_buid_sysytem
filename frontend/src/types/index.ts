@@ -1,6 +1,18 @@
 export interface Skill {
   name: string;
-  level: number; // 1 = Базовый, 1.5 = Уверенный, 2 = Продвинутый
+  level: number; // 0..2, шаг 0.5
+}
+
+export const SKILL_LEVELS = [
+  { value: 0,   label: 'Нет навыка',    short: '0' },
+  { value: 0.5, label: 'Начальный',     short: '0.5' },
+  { value: 1,   label: 'Базовый',       short: '1' },
+  { value: 1.5, label: 'Продвинутый',   short: '1.5' },
+  { value: 2,   label: 'Эксперт',       short: '2' },
+] as const;
+
+export function skillLevelLabel(level: number): string {
+  return SKILL_LEVELS.find((l) => l.value === level)?.label ?? `${level}`;
 }
 
 export type Scenario =
