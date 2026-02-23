@@ -13,9 +13,9 @@ def _build_skill_context(data_loader, skill_gaps, grade):
             continue
         block = f"[Навык: {g['name']}] Требуемый уровень: {detail['level_key']}"
         if detail["description"]:
-            block += f"\nОписание уровня: {detail['description'][:300]}"
+            block += f"\nОписание уровня: {detail['description']}"
         if detail["tasks"]:
-            block += f"\nПримеры задач на развитие: {detail['tasks'][:400]}"
+            block += f"\nПримеры задач на развитие: {detail['tasks']}"
         parts.append(block)
     return "\n\n".join(parts)
 
@@ -35,7 +35,6 @@ class OutputFormatter:
         return self._plan_gen
 
     def format_plan(self, gap_analysis, target_role_name):
-        """Старый формат (обратная совместимость)."""
         work = gap_analysis.get("missing", []) + [
             (g[0], g[2]) if len(g) == 3 else (g[0], g[1]) for g in gap_analysis.get("gaps", [])
         ]
@@ -55,11 +54,8 @@ class OutputFormatter:
                           current_grade=None, target_grade=None, profession_internal=None):
         atlas_gaps = structured.get("atlas_gaps", [])
         skill_gaps = structured.get("skill_gaps", [])
-        atlas_strong = structured.get("atlas_strong", [])
-        skill_strong = structured.get("skill_strong", [])
         match_percent = structured.get("match_percent", 0)
 
-        # #4: Growth Focus — top-5 by delta
         all_gaps = sorted(atlas_gaps + skill_gaps, key=lambda x: -x["delta"])
         top_blockers = all_gaps[:5]
         focus_str = ", ".join(b["name"] for b in top_blockers) if top_blockers else "—"
@@ -78,9 +74,10 @@ class OutputFormatter:
             narrative = build_next_grade_narrative(cur_grade, tgt_grade, self.data.atlas_map)
             out += "**2. Что значит следующий грейд (параметры атласа)**\n\n"
             for pe in narrative.param_expectations:
-                out += f"- **{pe['param_name']}**: {pe.get('description', '')[:120]}\n"
+                desc = pe.get('description', '')
+                out += f"- **{pe['param_name']}**: {desc}\n"
                 if pe.get("target_text"):
-                    out += f"  *Ожидание на целевом уровне:* {pe['target_text'][:250]}\n\n"
+                    out += f"  *Ожидание на целевом уровне:* {pe['target_text']}\n\n"
         except Exception:
             pass
 
@@ -93,7 +90,8 @@ class OutputFormatter:
                     req = LEVEL_NAMES.get(g["required"], str(g["required"]))
                     out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}, разрыв: {g['delta']}\n"
                     expl = get_rag_explanation_for_gap(g["name"], is_skill=False)
-                    out += f"  *Из базы:* {expl or g.get('why', '—')}\n\n"
+                    why_text = expl or g.get('why', '—')
+                    out += f"  *Из базы:* {why_text}\n\n"
             except Exception:
                 for g in atlas_gaps:
                     curr = LEVEL_NAMES.get(g["current"], str(g["current"]))
@@ -116,7 +114,6 @@ class OutputFormatter:
         except Exception:
             pass
 
-        # #6: Skill gaps with descriptions and tasks
         out += "**5. Разрыв по навыкам**\n\n"
         if skill_gaps:
             for g in skill_gaps[:15]:
@@ -126,9 +123,9 @@ class OutputFormatter:
                 detail = self.data.get_skill_detail(g["name"], tgt_grade)
                 if detail:
                     if detail["description"]:
-                        out += f"  *Целевой уровень:* {detail['description'][:200]}\n"
+                        out += f"  *Целевой уровень:* {detail['description']}\n"
                     if detail["tasks"]:
-                        out += f"  *Задачи на развитие:* {detail['tasks'][:250]}\n"
+                        out += f"  *Задачи на развитие:* {detail['tasks']}\n"
                 out += "\n"
         else:
             out += "Нет критичных разрывов по навыкам.\n\n"
@@ -138,7 +135,6 @@ class OutputFormatter:
             out += "Фокус: " + ", ".join(b["name"] for b in top_blockers) + ".\n\n"
         out += "---\n\n"
 
-        # Step 2 — plan
         out += "## Шаг 2 — План развития\n\n"
         gen = self._get_plan_generator()
         if gen and gen.client:
@@ -196,7 +192,7 @@ class OutputFormatter:
         out += "**2. Что уже совпадает:**\n\n"
         for m in vm.matched_skills[:8]:
             snip = (m.get("snippet") or "").strip()
-            out += f"- **{m.get('name', '')}**" + (f" — {snip[:150]}" if snip else "") + "\n"
+            out += f"- **{m.get('name', '')}**" + (f" — {snip}" if snip else "") + "\n"
         if not vm.matched_skills:
             out += "Пока мало пересечений — фокус на ключевых навыках целевой роли.\n"
         out += "\n"
@@ -205,16 +201,15 @@ class OutputFormatter:
         for m in vm.missing_skills[:12]:
             imp = m.get("importance", "")
             out += f"- **{m.get('name', '')}** — {imp}\n"
-            # #6: add skill descriptions
             detail = self.data.get_skill_detail(m.get("name", ""), "Middle")
             if detail:
                 if detail["description"]:
-                    out += f"  *Описание уровня:* {detail['description'][:200]}\n"
+                    out += f"  *Описание уровня:* {detail['description']}\n"
                 if detail["tasks"]:
-                    out += f"  *Задачи на развитие:* {detail['tasks'][:250]}\n"
+                    out += f"  *Задачи на развитие:* {detail['tasks']}\n"
             expl = (m.get("explanation") or "").strip()
             if expl:
-                out += f"  *Из базы:* {expl[:150]}\n"
+                out += f"  *Из базы:* {expl}\n"
         out += "\n"
 
         if vm.suggested_tracks:

@@ -238,6 +238,13 @@ def build_plan_api(req: PlanRequest):
     atlas_param_names = list(data.atlas_map.keys())
     role_titles = []
 
+    # Проставляем atlas-параметры по текущему грейду пользователя
+    from data_loader import GRADE_TO_SKILL_LEVEL
+    current_atlas_level = GRADE_TO_SKILL_LEVEL.get(grade_key, 2)
+    for param_name in atlas_param_names:
+        if param_name not in user_skills:
+            user_skills[param_name] = current_atlas_level
+
     try:
         if req.scenario == "Следующий грейд":
             profession_internal = data.get_internal_role_name(req.profession)

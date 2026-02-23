@@ -73,7 +73,7 @@ class GapAnalyzer:
                 why = ""
                 if is_atlas and name in atlas_map:
                     desc = (atlas_map[name].get("Описание") or atlas_map[name].get("Description") or "")
-                    why = (desc[:200] + "…") if len(desc) > 200 else (desc or "Важно для целевого грейда.")
+                    why = desc or "Важно для целевого грейда."
                 item = {
                     "name": name,
                     "current": curr,

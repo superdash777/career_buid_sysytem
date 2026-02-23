@@ -73,13 +73,13 @@ def build_next_grade_narrative(
         desc = (atlas_map.get(param_name) or {}).get("Описание") or (atlas_map.get(param_name) or {}).get("Description") or ""
         delta_note = ""
         if current_text and target_text:
-            delta_note = f"Сейчас: {current_text[:150]}… → Цель: {target_text[:150]}…"
+            delta_note = f"Сейчас: {current_text} → Цель: {target_text}"
         param_expectations.append({
             "param_name": param_name,
             "target_text": target_text or "",
             "current_text": current_text or "",
             "delta_note": delta_note,
-            "description": (desc[:200] + "…") if len(desc) > 200 else desc,
+            "description": desc,
         })
     return ExpectationsSummary(
         target_level=target_grade,
