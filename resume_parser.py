@@ -39,7 +39,7 @@ class ResumeParser:
                 "OPENAI_API_KEY не задан. Добавьте ключ в .env для распознавания навыков из PDF."
             )
         model = getattr(Config, "RESUME_PARSER_MODEL", "gpt-4o")
-        skills_str = ", ".join(allowed_skills[:100])  # ограничение длины для промпта
+        skills_str = ", ".join(allowed_skills)
 
         system_prompt = f"""
 Ты HR-аналитик. Извлеки навыки из резюме, сопоставь со списком: [{skills_str}].
