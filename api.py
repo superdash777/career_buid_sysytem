@@ -297,7 +297,19 @@ if FRONTEND_DIR.is_dir():
         return {"detail": "Not found"}
 
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("career-pathfinder")
+
+@app.on_event("startup")
+async def on_startup():
+    port = os.environ.get("PORT", "?")
+    fe = "YES" if FRONTEND_DIR.is_dir() else "NO"
+    logger.info(f"=== Career Pathfinder started === PORT={port}, frontend={fe}")
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
+    logger.info(f"Starting uvicorn on 0.0.0.0:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
