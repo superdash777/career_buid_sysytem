@@ -19,6 +19,7 @@ interface Props {
 
 export default function Result({ plan, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [toc, setToc] = useState<TocItem[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -55,6 +56,8 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
     a.download = 'career-plan.md';
     a.click();
     URL.revokeObjectURL(url);
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 2000);
   };
 
   const scrollToFirstAction = () => {
@@ -67,13 +70,13 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
 
   return (
     <Layout step={4} wide>
-      <div className="space-y-8">
+      <div className="space-y-8 slide-up">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-            Ваш план готов
+          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mb-2">
+            Ваш индивидуальный план развития
           </h1>
-          <p className="text-slate-500">
-            Сохраните результат и выберите один шаг, который сделаете сегодня.
+          <p className="text-(--color-text-secondary)">
+            Сохраните результат и выберите первый шаг.
           </p>
         </div>
 
@@ -81,50 +84,48 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
         <div className="flex flex-wrap gap-2">
           <button onClick={handleCopy} className="btn-secondary text-sm">
             {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Скопировано' : 'Скопировать'}
+            {copied ? 'План скопирован' : 'Скопировать'}
           </button>
           <button onClick={handleDownload} className="btn-secondary text-sm">
-            <Download className="h-4 w-4" /> Скачать .md
+            {downloaded ? <Check className="h-4 w-4 text-emerald-500" /> : <Download className="h-4 w-4" />}
+            {downloaded ? 'Файл сохранён' : 'Скачать .md'}
           </button>
           <button onClick={onReset} className="btn-secondary text-sm">
-            <RotateCcw className="h-4 w-4" /> Собрать новый план
+            <RotateCcw className="h-4 w-4" /> Начать заново
           </button>
         </div>
 
-        {/* Role titles (for exploration scenario) */}
+        {/* Role titles */}
         {plan.role_titles && plan.role_titles.length > 0 && (
           <div className="card">
-            <p className="text-sm font-semibold text-slate-700 mb-3">Подходящие роли</p>
+            <p className="text-sm font-semibold text-(--color-text-primary) mb-3">
+              Вам также могут подойти:
+            </p>
             <div className="flex flex-wrap gap-2">
               {plan.role_titles.map((role) => (
                 <span
                   key={role}
-                  className="inline-block rounded-full bg-indigo-100 px-4 py-1.5 text-sm font-medium text-indigo-700"
+                  className="inline-block rounded-full bg-(--color-accent-light) px-4 py-1.5 text-sm font-medium text-(--color-accent)"
                 >
                   {role}
                 </span>
               ))}
             </div>
-            <p className="text-xs text-slate-400 mt-2">
-              Это направления, где ваш профиль ближе всего по навыкам.
-            </p>
           </div>
         )}
 
-        {/* Main content: markdown + TOC */}
+        {/* Markdown + TOC */}
         <div className="flex gap-8">
-          {/* Markdown */}
           <div className="card flex-1 min-w-0">
             <div ref={contentRef} className="markdown-body">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.markdown}</ReactMarkdown>
             </div>
           </div>
 
-          {/* TOC sidebar (desktop) */}
           {toc.length > 2 && (
             <aside className="hidden lg:block w-56 shrink-0">
-              <div className="sticky top-24">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              <div className="sticky top-32">
+                <p className="text-xs font-semibold text-(--color-text-muted) uppercase tracking-wider mb-3">
                   Оглавление
                 </p>
                 <nav className="space-y-1">
@@ -136,8 +137,8 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
                         e.preventDefault();
                         document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      className={`block text-sm truncate transition-colors hover:text-indigo-600 ${
-                        item.level === 3 ? 'pl-4 text-slate-400' : 'text-slate-600 font-medium'
+                      className={`block text-sm truncate transition-colors hover:text-(--color-accent) ${
+                        item.level === 3 ? 'pl-4 text-(--color-text-muted)' : 'text-(--color-text-secondary) font-medium'
                       }`}
                     >
                       {item.text}
@@ -149,19 +150,18 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
           )}
         </div>
 
-        {/* Motivational block */}
-        <div className="card bg-gradient-to-br from-indigo-50 to-slate-50 border-indigo-100">
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">Следующий шаг</h3>
-          <p className="text-slate-600 mb-4">
-            Выберите 1 действие из плана и поставьте его на эту неделю.
-            Маленький шаг даёт самый быстрый прогресс.
+        {/* Next step */}
+        <div className="card bg-gradient-to-br from-(--color-accent-light) to-(--color-surface-alt) border-(--color-accent)/10">
+          <h3 className="text-lg font-semibold text-(--color-text-primary) mb-2">Следующий шаг</h3>
+          <p className="text-(--color-text-secondary) mb-4">
+            Выберите одно действие из плана и запланируйте его на эту неделю.
           </p>
           <div className="flex flex-wrap gap-3">
             <button onClick={scrollToFirstAction} className="btn-primary text-sm">
-              Выбрать действие недели <ChevronRight className="h-4 w-4" />
+              Выбрать действие <ChevronRight className="h-4 w-4" />
             </button>
             <button onClick={onBackToSkills} className="btn-secondary text-sm">
-              <ArrowLeft className="h-4 w-4" /> Вернуться к навыкам
+              <ArrowLeft className="h-4 w-4" /> Уточнить навыки
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
 import Alert from './components/Alert';
+import NavBar from './components/NavBar';
 import { healthCheck } from './api/client';
 import type { AppState, PlanResponse } from './types';
 import { INITIAL_STATE } from './types';
@@ -34,10 +35,11 @@ export default function App() {
 
   if (serviceDown) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8">
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
         <div className="max-w-md w-full">
+          <div className="mb-4"><NavBar /></div>
           <Alert variant="warning" title="Сервис временно недоступен">
-            Мы уже на старте — попробуйте обновить страницу через минуту.
+            Попробуйте обновить страницу через минуту.
           </Alert>
           <div className="mt-4 text-center">
             <button

@@ -1,26 +1,15 @@
 import { Check } from 'lucide-react';
 
-interface Step {
-  label: string;
-  short: string;
-}
-
-const STEPS: Step[] = [
-  { label: 'Старт', short: '1' },
-  { label: 'Цель', short: '2' },
-  { label: 'Навыки', short: '3' },
-  { label: 'Проверка', short: '4' },
-  { label: 'План', short: '5' },
-];
+const STEPS = ['Старт', 'Цель', 'Навыки', 'Проверка', 'План'];
 
 interface Props {
-  current: number; // 0-4
+  current: number;
 }
 
 export default function Stepper({ current }: Props) {
   return (
-    <nav className="flex items-center justify-center gap-1 sm:gap-2 py-4">
-      {STEPS.map((step, i) => {
+    <nav className="flex items-center justify-center gap-1 sm:gap-2 pb-3">
+      {STEPS.map((label, i) => {
         const done = i < current;
         const active = i === current;
         return (
@@ -28,27 +17,27 @@ export default function Stepper({ current }: Props) {
             <div className="flex flex-col items-center gap-1">
               <div
                 className={`
-                  flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold
+                  flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold
                   transition-all duration-300
-                  ${done ? 'bg-indigo-600 text-white' : ''}
-                  ${active ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' : ''}
-                  ${!done && !active ? 'bg-slate-200 text-slate-500' : ''}
+                  ${done ? 'bg-(--color-accent) text-white' : ''}
+                  ${active ? 'bg-(--color-accent) text-white ring-4 ring-(--color-accent)/20' : ''}
+                  ${!done && !active ? 'bg-(--color-surface-alt) border border-(--color-border) text-(--color-text-muted)' : ''}
                 `}
               >
-                {done ? <Check className="h-4 w-4" /> : step.short}
+                {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </div>
               <span
-                className={`text-xs font-medium hidden sm:block ${
-                  active ? 'text-indigo-700' : done ? 'text-indigo-600' : 'text-slate-400'
+                className={`text-[11px] font-medium hidden sm:block ${
+                  active ? 'text-(--color-accent)' : done ? 'text-(--color-accent)' : 'text-(--color-text-muted)'
                 }`}
               >
-                {step.label}
+                {label}
               </span>
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className={`h-0.5 w-6 sm:w-10 rounded transition-colors duration-300 ${
-                  i < current ? 'bg-indigo-600' : 'bg-slate-200'
+                className={`h-px w-5 sm:w-8 rounded transition-colors duration-300 ${
+                  i < current ? 'bg-(--color-accent)' : 'bg-(--color-border)'
                 }`}
               />
             )}

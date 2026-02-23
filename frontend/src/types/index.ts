@@ -4,11 +4,11 @@ export interface Skill {
 }
 
 export const SKILL_LEVELS = [
-  { value: 0,   label: 'Нет навыка',    short: '0' },
-  { value: 0.5, label: 'Начальный',     short: '0.5' },
-  { value: 1,   label: 'Базовый',       short: '1' },
-  { value: 1.5, label: 'Продвинутый',   short: '1.5' },
-  { value: 2,   label: 'Эксперт',       short: '2' },
+  { value: 0,   label: 'Нет навыка',    short: '0',   tooltip: 'Не использую' },
+  { value: 0.5, label: 'Начальный',     short: '0.5', tooltip: 'Иногда сталкивался' },
+  { value: 1,   label: 'Базовый',       short: '1',   tooltip: 'Уверенно применяю' },
+  { value: 1.5, label: 'Продвинутый',   short: '1.5', tooltip: 'Использую в сложных ситуациях' },
+  { value: 2,   label: 'Эксперт',       short: '2',   tooltip: 'Могу обучать других' },
 ] as const;
 
 export function skillLevelLabel(level: number): string {
@@ -39,17 +39,17 @@ export const SCENARIOS: { value: Scenario; label: string; description: string }[
   {
     value: 'Следующий грейд',
     label: 'Следующий грейд',
-    description: 'Хочу вырасти в рамках текущей профессии',
+    description: 'Хочу понять, что требуется для перехода на следующий уровень в моей роли.',
   },
   {
     value: 'Смена профессии',
     label: 'Смена профессии',
-    description: 'Хочу перейти в другую роль',
+    description: 'Хочу рассмотреть переход в новую профессию и увидеть недостающие навыки.',
   },
   {
     value: 'Исследование возможностей',
     label: 'Исследование возможностей',
-    description: 'Хочу понять, какие роли мне подходят',
+    description: 'Хочу посмотреть, какие роли ближе всего к моему профилю по навыкам.',
   },
 ];
 

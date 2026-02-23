@@ -3,6 +3,9 @@ import { ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import Spinner from '../components/Spinner';
+import ScenarioCard from '../components/ScenarioCard';
+import MiniProgress from '../components/MiniProgress';
+import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import { fetchProfessions } from '../api/client';
 import type { AppState, Scenario, Grade } from '../types';
 import { GRADES, SCENARIOS } from '../types';
@@ -49,19 +52,22 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   if (loading) {
     return (
       <Layout step={1}>
-        <Spinner text="Загружаем профессии..." />
+        <Spinner text="Загружаем данные..." />
       </Layout>
     );
   }
 
   return (
     <Layout step={1}>
-      <div className="space-y-8">
+      <div className="space-y-8 slide-up">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-            Куда вы хотите прийти?
+          <MiniProgress current={1} total={3} label="Цель" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mt-2 mb-2">
+            Определим вашу цель
           </h1>
-          <p className="text-slate-500">Настройте цель — план будет собран под вас.</p>
+          <p className="text-(--color-text-secondary)">
+            Выберите направление развития — Career Copilot соберёт оптимальный маршрут.
+          </p>
         </div>
 
         {apiError && (
@@ -76,8 +82,8 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
           </Alert>
         )}
 
-        {/* Profession */}
-        <div className="card space-y-5">
+        <div className="card space-y-6">
+          {/* Profession */}
           <div>
             <label className="label">Ваша текущая профессия</label>
             <div className="relative">
@@ -86,50 +92,42 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
                 onChange={(e) => onChange({ profession: e.target.value })}
                 className="input-field appearance-none pr-10"
               >
-                <option value="">Например: Product Manager</option>
+                <option value="">Выберите профессию</option>
                 {professions.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
             </div>
-            <p className="helper">Выберите роль — мы подтянем релевантные навыки.</p>
+            <p className="helper">Мы подтянем релевантные навыки и требования для этой роли.</p>
           </div>
 
-          {/* Scenario */}
+          {/* Scenario cards */}
           <div>
-            <label className="label">Сценарий</label>
-            <div className="space-y-2">
+            <label className="label">Направление</label>
+            <div className="space-y-3">
               {SCENARIOS.map((s) => (
-                <label
+                <ScenarioCard
                   key={s.value}
-                  className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
-                    state.scenario === s.value
-                      ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="scenario"
-                    value={s.value}
-                    checked={state.scenario === s.value}
-                    onChange={() => onChange({ scenario: s.value as Scenario })}
-                    className="mt-1 h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
-                  />
-                  <div>
-                    <span className="font-semibold text-slate-800">{s.label}</span>
-                    <p className="text-sm text-slate-500 mt-0.5">{s.description}</p>
-                  </div>
-                </label>
+                  value={s.value}
+                  label={s.label}
+                  description={s.description}
+                  selected={state.scenario === s.value}
+                  onSelect={() => onChange({ scenario: s.value as Scenario })}
+                />
               ))}
             </div>
-            <p className="helper">Выберите сценарий — план будет собран по разной логике.</p>
           </div>
+
+          {state.scenario && (
+            <SoftOnboardingHint id="goal_scenario">
+              Отлично! Теперь настроим детали.
+            </SoftOnboardingHint>
+          )}
 
           {/* Target profession (conditional) */}
           {state.scenario === 'Смена профессии' && (
-            <div>
+            <div className="fade-in">
               <label className="label">Целевая профессия</label>
               <div className="relative">
                 <select
@@ -142,7 +140,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
               </div>
               <p className="helper">Выберите роль, в которую хотите перейти.</p>
             </div>
@@ -161,19 +159,18 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
             </div>
             <p className="helper">Уровень нужен, чтобы корректно оценить «шаг вверх».</p>
           </div>
         </div>
 
-        {/* Navigation */}
         <div className="flex items-center justify-between pt-2">
           <button onClick={onBack} className="btn-secondary">
             <ArrowLeft className="h-4 w-4" /> Назад
           </button>
           <button onClick={handleNext} className="btn-primary">
-            Дальше: навыки <ArrowRight className="h-4 w-4" />
+            Продолжить <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       </div>

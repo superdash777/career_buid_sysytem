@@ -5,6 +5,8 @@ import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import SkillCard from '../components/SkillCard';
 import Spinner from '../components/Spinner';
+import MiniProgress from '../components/MiniProgress';
+import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import { analyzeResume, suggestSkills, fetchSkillsForRole } from '../api/client';
 import { ApiError } from '../api/client';
 import type { AppState, Skill } from '../types';
@@ -88,10 +90,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
       const file = files[0];
       if (!file) return;
       if (!file.name.toLowerCase().endsWith('.pdf')) {
-        setUploadError({
-          title: 'Нужен PDF-файл',
-          text: 'Если резюме в другом формате — сохраните его как PDF и попробуйте снова.',
-        });
+        setUploadError({ title: 'Неверный формат', text: 'Загрузите файл в формате PDF.' });
         return;
       }
       setUploading(true);
@@ -100,7 +99,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
       try {
         const result = await analyzeResume(file);
         if (result.skills.length === 0) {
-          setUploadMsg('Мы не нашли навыки в тексте. Попробуйте другой файл или добавьте навыки вручную.');
+          setUploadMsg('Не удалось найти навыки. Попробуйте другой файл или добавьте вручную.');
         } else {
           const newSkills = [...skills];
           for (const s of result.skills) {
@@ -114,26 +113,17 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
       } catch (err) {
         if (err instanceof ApiError) {
           if (err.status === 400) {
-            setUploadError({
-              title: 'Нужен PDF-файл',
-              text: 'Если резюме в другом формате — сохраните его как PDF и попробуйте снова.',
-            });
+            setUploadError({ title: 'Неверный формат', text: 'Загрузите файл в формате PDF.' });
           } else if (err.status === 503) {
             setUploadError({
-              title: 'Авторазбор резюме временно недоступен',
-              text: 'Сейчас сервис не подключён к модели. Вы можете продолжить: добавьте навыки вручную.',
+              title: 'Автоматический разбор временно недоступен',
+              text: 'Добавьте навыки вручную.',
             });
           } else {
-            setUploadError({
-              title: 'Не получилось загрузить данные',
-              text: 'Проверьте соединение и попробуйте ещё раз. Если ошибка повторяется — откройте страницу позже.',
-            });
+            setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте ещё раз.' });
           }
         } else {
-          setUploadError({
-            title: 'Не получилось загрузить данные',
-            text: 'Проверьте соединение и попробуйте ещё раз.',
-          });
+          setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте ещё раз.' });
         }
       } finally {
         setUploading(false);
@@ -151,7 +141,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
   const handleNext = () => {
     if (skills.length === 0) {
-      setValidationError('Добавьте хотя бы один навык — иначе план не собрать.');
+      setValidationError('Добавьте хотя бы один навык, чтобы мы могли построить план.');
       return;
     }
     setValidationError('');
@@ -163,11 +153,20 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
   return (
     <Layout step={2}>
-      <div className="space-y-8">
+      <div className="space-y-8 slide-up">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Навыки</h1>
-          <p className="text-slate-500">Загрузите резюме или добавьте навыки вручную.</p>
+          <MiniProgress current={2} total={3} label="Навыки" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mt-2 mb-2">
+            Опишите ваши навыки
+          </h1>
+          <p className="text-(--color-text-secondary)">
+            Добавьте сильные стороны и зоны развития — это основа точного плана.
+          </p>
         </div>
+
+        <SoftOnboardingHint id="skills_intro">
+          Это ключевой шаг — чем точнее данные, тем лучше план.
+        </SoftOnboardingHint>
 
         {validationError && (
           <Alert variant="warning" onClose={() => setValidationError('')}>
@@ -175,29 +174,29 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           </Alert>
         )}
 
-        {/* Block A: Resume upload */}
+        {/* Resume upload */}
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-1">Загрузите резюме (PDF)</h2>
-            <p className="text-sm text-slate-500">Мы извлечём навыки и предложим их к подтверждению.</p>
+            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Загрузите резюме</h2>
+            <p className="text-sm text-(--color-text-muted)">PDF — мы извлечём навыки автоматически.</p>
           </div>
 
           {uploading ? (
-            <Spinner text="Читаем резюме…" subtext="Это обычно занимает до минуты." />
+            <Spinner text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты." />
           ) : (
             <div
               {...getRootProps()}
-              className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors cursor-pointer ${
+              className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all cursor-pointer ${
                 isDragActive
-                  ? 'border-indigo-400 bg-indigo-50'
-                  : 'border-slate-300 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+                  ? 'border-(--color-accent) bg-(--color-accent-light)'
+                  : 'border-(--color-border) bg-(--color-surface-alt) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light)/50'
               }`}
             >
               <input {...getInputProps()} />
-              <Upload className="h-8 w-8 text-slate-400" />
-              <p className="text-sm text-slate-600 text-center">
+              <Upload className="h-8 w-8 text-(--color-text-muted)" />
+              <p className="text-sm text-(--color-text-secondary) text-center">
                 Перетащите PDF сюда или{' '}
-                <span className="font-medium text-indigo-600">выберите файл</span>
+                <span className="font-medium text-(--color-accent)">выберите файл</span>
               </p>
             </div>
           )}
@@ -210,7 +209,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
           {uploadError && (
             <Alert
-              variant={uploadError.title.includes('временно') ? 'warning' : 'error'}
+              variant={uploadError.title.includes('недоступен') ? 'warning' : 'error'}
               title={uploadError.title}
               onClose={() => setUploadError(null)}
             >
@@ -219,30 +218,30 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           )}
         </div>
 
-        {/* Block B: Manual input */}
+        {/* Manual input */}
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-1">Добавьте навыки</h2>
-            <p className="text-sm text-slate-500">Можно вручную — введите название или выберите из подсказок.</p>
+            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Или добавьте вручную</h2>
+            <p className="text-sm text-(--color-text-muted)">Введите название навыка или выберите из подсказок.</p>
           </div>
 
           <div className="relative" ref={suggestRef}>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="Начните вводить навык: например, SQL, коммуникации, roadmap…"
+                placeholder="SQL, коммуникации, roadmap…"
                 className="input-field pl-10 pr-12"
               />
               {query.trim() && (
                 <button
                   onClick={() => addSkill(query)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-indigo-100 p-1.5 text-indigo-600 hover:bg-indigo-200 transition-colors"
-                  title="Добавить навык"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-(--color-accent-light) p-1.5 text-(--color-accent) hover:bg-(--color-accent)/20 transition-colors"
+                  title="Добавить"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -250,12 +249,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             </div>
 
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full rounded-xl border border-(--color-border) bg-(--color-surface-raised) shadow-lg max-h-60 overflow-y-auto">
                 {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => addSkill(s)}
-                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    className="w-full text-left px-4 py-2.5 text-sm text-(--color-text-secondary) hover:bg-(--color-accent-light) transition-colors first:rounded-t-xl last:rounded-b-xl"
                   >
                     {s}
                   </button>
@@ -263,22 +262,18 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               </div>
             )}
           </div>
-          <p className="text-xs text-slate-400">
-            Подсказки учитывают синонимы и близкие формулировки.
-          </p>
 
-          {/* Role-based quick-add */}
           {filteredRoleSkills.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-slate-500 mb-2">
-                Навыки профессии «{state.profession}»:
+              <p className="text-xs font-medium text-(--color-text-muted) mb-2">
+                Рекомендуемые для «{state.profession}»:
               </p>
               <div className="flex flex-wrap gap-2">
-                {filteredRoleSkills.slice(0, 20).map((s) => (
+                {filteredRoleSkills.slice(0, 15).map((s) => (
                   <button
                     key={s}
                     onClick={() => addSkill(s)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-lg border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light) transition-colors"
                   >
                     <Plus className="h-3 w-3" /> {s}
                   </button>
@@ -288,22 +283,20 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           )}
         </div>
 
-        {/* Block C: Selected skills */}
+        {/* Selected skills */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-800">
-              Выбранные навыки
-              {skills.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-slate-500">({skills.length})</span>
-              )}
-            </h2>
-          </div>
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">
+            Выбранные навыки
+            {skills.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-(--color-text-muted)">({skills.length})</span>
+            )}
+          </h2>
 
           {skills.length === 0 ? (
             <div className="card flex flex-col items-center justify-center py-10 text-center">
-              <FileText className="h-10 w-10 text-slate-300 mb-3" />
-              <p className="text-sm text-slate-500">
-                Пока пусто. Добавьте 3–7 навыков — и мы соберём более точный план.
+              <FileText className="h-10 w-10 text-(--color-text-muted)/40 mb-3" />
+              <p className="text-sm text-(--color-text-muted)">
+                Добавьте 3–7 навыков — это улучшит точность рекомендаций.
               </p>
             </div>
           ) : (
@@ -322,19 +315,14 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               ))}
             </div>
           )}
-
-          <p className="text-xs text-slate-400">
-            Выберите уровень честно — план станет точнее.
-          </p>
         </div>
 
-        {/* Navigation */}
         <div className="flex items-center justify-between pt-2">
           <button onClick={onBack} className="btn-secondary">
-            <ArrowLeft className="h-4 w-4" /> Назад к цели
+            <ArrowLeft className="h-4 w-4" /> Назад
           </button>
           <button onClick={handleNext} className="btn-primary">
-            Собрать план <ArrowRight className="h-4 w-4" />
+            Продолжить <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       </div>
