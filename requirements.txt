@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 gradio>=4.44,<5
 openai>=1.0,<2
 pypdf>=3.0
