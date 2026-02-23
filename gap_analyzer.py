@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Анализ разрывов: атлас-параметры и навыки с нормализацией."""
+"""Анализ разрывов: атлас-параметры (5-level ordinal) и навыки (3-level) с нормализацией."""
 
-LEVEL_NAMES = {0: "Нет", 1: "Базовый", 2: "Продвинутый", 3: "Эксперт"}
+from data_loader import PARAM_ORDINAL_NAMES, SKILL_LEVEL_NAMES
 
 
 def _normalize_skill_set(user_skills: dict, canonical_set: set = None) -> dict:
@@ -23,10 +23,16 @@ def _normalize_skill_set(user_skills: dict, canonical_set: set = None) -> dict:
         return dict(user_skills)
 
 
+def level_display(value: int, is_atlas: bool) -> str:
+    """Отображаемое название уровня: для параметра (5-level) или навыка (3-level)."""
+    if is_atlas:
+        return PARAM_ORDINAL_NAMES.get(value, str(value))
+    return SKILL_LEVEL_NAMES.get(value, str(value))
+
+
 class GapAnalyzer:
     @staticmethod
     def analyze(user_skills, target_requirements):
-        """Классический формат (обратная совместимость) с нормализацией."""
         norm = _normalize_skill_set(user_skills)
         missing = []
         gaps = []
@@ -51,7 +57,6 @@ class GapAnalyzer:
 
     @staticmethod
     def analyze_structured(user_skills, target_requirements, atlas_param_names, atlas_map):
-        """Разделение на разрывы по параметрам атласа и по навыкам с нормализацией."""
         norm = _normalize_skill_set(user_skills)
 
         atlas_gaps = []
@@ -80,6 +85,7 @@ class GapAnalyzer:
                     "required": req_level,
                     "delta": delta,
                     "priority": 1 if delta >= 2 else (2 if delta >= 1 else 3),
+                    "is_atlas": is_atlas,
                 }
                 if is_atlas:
                     item["why"] = why or "Важно для целевого грейда."

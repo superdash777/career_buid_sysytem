@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Форматирование ответа: шаг 1 (диагностика) и шаг 2 (план)."""
 
-from gap_analyzer import LEVEL_NAMES
+from gap_analyzer import level_display
 
 
 def _build_skill_context(data_loader, skill_gaps, grade):
@@ -86,16 +86,16 @@ class OutputFormatter:
             try:
                 from rag_service import get_rag_explanation_for_gap
                 for g in atlas_gaps:
-                    curr = LEVEL_NAMES.get(g["current"], str(g["current"]))
-                    req = LEVEL_NAMES.get(g["required"], str(g["required"]))
+                    curr = level_display(g["current"], is_atlas=True)
+                    req = level_display(g["required"], is_atlas=True)
                     out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}, разрыв: {g['delta']}\n"
                     expl = get_rag_explanation_for_gap(g["name"], is_skill=False)
                     why_text = expl or g.get('why', '—')
                     out += f"  *Из базы:* {why_text}\n\n"
             except Exception:
                 for g in atlas_gaps:
-                    curr = LEVEL_NAMES.get(g["current"], str(g["current"]))
-                    req = LEVEL_NAMES.get(g["required"], str(g["required"]))
+                    curr = level_display(g["current"], is_atlas=True)
+                    req = level_display(g["required"], is_atlas=True)
                     out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}, разрыв: {g['delta']}\n"
                     out += f"  *Из базы:* {g.get('why', '—')}\n\n"
         else:
@@ -117,8 +117,8 @@ class OutputFormatter:
         out += "**5. Разрыв по навыкам**\n\n"
         if skill_gaps:
             for g in skill_gaps[:15]:
-                curr = LEVEL_NAMES.get(g["current"], str(g["current"]))
-                req = LEVEL_NAMES.get(g["required"], str(g["required"]))
+                curr = level_display(g["current"], is_atlas=False)
+                req = level_display(g["required"], is_atlas=False)
                 out += f"- **{g['name']}** — текущий: {curr}, требуемый: {req}\n"
                 detail = self.data.get_skill_detail(g["name"], tgt_grade)
                 if detail:

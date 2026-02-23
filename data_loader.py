@@ -6,7 +6,9 @@ import re
 from pathlib import Path
 from config import Config
 
-# Маппинг грейда → уровень навыка (1=Basic, 2=Proficiency, 3=Advanced)
+# --- Два РАЗНЫХ ordinal-маппинга: навыки (3 уровня) и параметры (5 уровней) ---
+
+# Навыки: Junior→Basic(1), Middle/Senior→Proficiency(2), Lead/Expert→Advanced(3)
 GRADE_TO_SKILL_LEVEL = {
     "Junior": 1,
     "Middle": 2,
@@ -15,12 +17,22 @@ GRADE_TO_SKILL_LEVEL = {
     "Expert": 3,
 }
 
-# Маппинг числового уровня → ключ JSON-поля для описания / задач
+# Параметры атласа: 5 ordinal-уровней, совпадают с грейдами
+GRADE_TO_PARAM_ORDINAL = {
+    "Junior": 1,
+    "Middle": 2,
+    "Senior": 3,
+    "Lead": 4,
+    "Expert": 5,
+}
+
 LEVEL_TO_FIELD_KEY = {1: "Basic", 2: "Proficiency", 3: "Advanced"}
+
+PARAM_ORDINAL_NAMES = {1: "Младший", 2: "Специалист", 3: "Старший", 4: "Ведущий", 5: "Эксперт"}
+SKILL_LEVEL_NAMES = {0: "Нет", 1: "Basic", 2: "Proficiency", 3: "Advanced"}
 
 
 def _to_display_role_name(internal_name):
-    """Короткое название профессии для UI (без «Скиллсет», нормализованная форма)."""
     if not internal_name:
         return internal_name
     s = internal_name.strip()
@@ -37,9 +49,8 @@ def _to_display_role_name(internal_name):
         "Тех. менеджер": "Технический менеджер",
     }
     s = overrides.get(s, s)
-    # #1: удаляем скобки (закрытые и незакрытые) и нормализуем пробелы
-    s = re.sub(r'\s*\(.*?\)', '', s)   # закрытые: (Python)
-    s = re.sub(r'\s*\([^)]*$', '', s)  # незакрытые: (C+, (Go, (Ja
+    s = re.sub(r'\s*\(.*?\)', '', s)
+    s = re.sub(r'\s*\([^)]*$', '', s)
     s = re.sub(r'\s{2,}', ' ', s).strip()
     return s
 
@@ -58,7 +69,6 @@ class DataLoader:
             if isinstance(prof, str):
                 internal_roles.add(prof)
         self._internal_to_display = {internal: _to_display_role_name(internal) for internal in internal_roles}
-        # One display name may map to multiple internal names (e.g. "Бэкенд-разработчик" → 5 specializations)
         self._display_to_internals: dict[str, list[str]] = {}
         for internal, disp in self._internal_to_display.items():
             self._display_to_internals.setdefault(disp, []).append(internal)
@@ -73,14 +83,15 @@ class DataLoader:
             return json.load(f)
 
     def get_role_requirements(self, role_name, grade):
-        """Динамически собирает требования из clean_skills.json и atlas_params.
-        role_name может быть как внутренним, так и отображаемым именем."""
+        """Требования роли для заданного грейда.
+        Навыки → ordinal 1-3 (Basic/Proficiency/Advanced).
+        Параметры → ordinal 1-5 (по грейдам)."""
         if not role_name or not str(role_name).strip():
             return {}
         requirements = {}
-        target_level = GRADE_TO_SKILL_LEVEL.get(grade, 2)
+        skill_level = GRADE_TO_SKILL_LEVEL.get(grade, 2)
+        param_ordinal = GRADE_TO_PARAM_ORDINAL.get(grade, 2)
 
-        # Поддерживаем как одно внутреннее имя, так и множественное (через display)
         role_set = {role_name}
         if role_name in self._display_to_internals:
             role_set = set(self._display_to_internals[role_name])
@@ -96,17 +107,16 @@ class DataLoader:
             if isinstance(professions, str):
                 professions = [professions]
             if role_set & set(professions):
-                requirements[skill_name] = target_level
+                requirements[skill_name] = skill_level
 
         for param in self.atlas_params:
             param_name = param.get('Параметр') or param.get('Parameter')
             if param_name:
-                requirements[param_name] = target_level
+                requirements[param_name] = param_ordinal
 
         return requirements
 
     def get_all_roles(self):
-        """Список профессий для UI (очищенные от скобок)."""
         return sorted(set(self._internal_to_display.values()))
 
     def get_internal_role_name(self, display_name):
@@ -115,7 +125,6 @@ class DataLoader:
         return self._display_to_internal.get(display_name.strip(), display_name)
 
     def get_internal_role_names(self, display_name):
-        """All internal names matching a display name (for merged specializations)."""
         if not display_name:
             return []
         return self._display_to_internals.get(display_name.strip(), [display_name])
@@ -141,7 +150,6 @@ class DataLoader:
         return sorted(skill_names)
 
     def get_skill_detail(self, skill_name, grade):
-        """Описание уровня навыка и примеры задач на развитие для заданного грейда."""
         skill_obj = self.skills_map.get(skill_name)
         if not skill_obj:
             return None

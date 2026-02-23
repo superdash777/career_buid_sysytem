@@ -135,7 +135,9 @@ class PlanRequest(BaseModel):
 
 
 def _skills_table_to_user_skills(skills: List[dict]) -> dict:
-    """Конвертирует навыки фронтенда (float 0..2) во внутренние уровни (0..3) с нормализацией имён."""
+    """Конвертирует навыки фронтенда (float 0..2) во внутренние уровни (1..3) с нормализацией имён.
+    Маппинг по спецификации: 0-0.5→Basic(1), 1-1.5→Proficiency(2), 2→Advanced(3).
+    Навык на уровне 0 «Нет навыка» = пользователь явно указал отсутствие → Basic(1)."""
     raw = {}
     for item in skills:
         name = (item.get("name") or "").strip()
@@ -147,19 +149,14 @@ def _skills_table_to_user_skills(skills: List[dict]) -> dict:
             continue
         if level != level:
             continue
-        if level < 0.5:
-            internal_level = 0
-        elif level < 1:
-            internal_level = 1
-        elif level == 1:
-            internal_level = 1
-        elif level == 1.5:
-            internal_level = 2
+        if level <= 0.5:
+            internal_level = 1   # Basic
+        elif level <= 1.5:
+            internal_level = 2   # Proficiency
         else:
-            internal_level = 3
+            internal_level = 3   # Advanced
         raw[name] = internal_level
 
-    # Нормализуем имена навыков через skill_normalizer
     try:
         from skill_normalizer import resolve_to_canonical, get_canonical_skills_set
         canonical_set = get_canonical_skills_set()
@@ -238,12 +235,12 @@ def build_plan_api(req: PlanRequest):
     atlas_param_names = list(data.atlas_map.keys())
     role_titles = []
 
-    # Проставляем atlas-параметры по текущему грейду пользователя
-    from data_loader import GRADE_TO_SKILL_LEVEL
-    current_atlas_level = GRADE_TO_SKILL_LEVEL.get(grade_key, 2)
+    # Проставляем atlas-параметры по текущему грейду (5-level ordinal)
+    from data_loader import GRADE_TO_PARAM_ORDINAL
+    current_param_ordinal = GRADE_TO_PARAM_ORDINAL.get(grade_key, 2)
     for param_name in atlas_param_names:
         if param_name not in user_skills:
-            user_skills[param_name] = current_atlas_level
+            user_skills[param_name] = current_param_ordinal
 
     try:
         if req.scenario == "Следующий грейд":
