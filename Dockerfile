@@ -22,6 +22,5 @@ COPY . .
 # Copy built frontend into the image
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
-ENV PORT=8000
-EXPOSE ${PORT}
-CMD uvicorn api:app --host 0.0.0.0 --port ${PORT}
+EXPOSE 8000
+CMD ["python", "api.py"]
