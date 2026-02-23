@@ -14,3 +14,7 @@ __pycache__/
 # Virtual env
 .venv/
 venv/
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
