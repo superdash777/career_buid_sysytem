@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from config import Config
 
-# --- Синонимы названий ролей для дедупа (normalize → каноническое отображаемое) ---
 ROLE_SYNONYMS = {
     "бэкенд-разработчик": "Бэкенд-разработчик",
     "backend developer": "Бэкенд-разработчик",
@@ -46,7 +45,7 @@ class RoleMatch:
 
 @dataclass
 class RoleCard:
-    """Карточка роли для вывода (после дедупа и категоризации)."""
+    """Карточка роли для вывода."""
     title: str
     internal_role: Optional[str] = None
     match_score: float = 0.0
@@ -112,10 +111,7 @@ def _skill_track_labels(skill_names: List[str]) -> List[str]:
 
 
 def build_explore_recommendations(matches: List[RoleMatch]) -> ExploreViewModel:
-    """
-    Дедуп по normalize(role_title), объединение полей, категоризация по порогам,
-    ограничение числа карточек в каждой категории.
-    """
+  
     if not matches:
         return ExploreViewModel()
 
