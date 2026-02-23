@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """RAG и NLP: индексация навыков/атласа, поиск, подсказки навыков, семантическое ранжирование."""
 
 import json
@@ -12,11 +12,11 @@ from config import Config
 # Ленивая загрузка тяжёлых зависимостей
 _sentence_transformer = None
 
-# --- Qdrant через REST API (без qdrant_client, чтобы избежать ошибки grpcio/protobuf) ---
+# --- Qdrant через REST API ---
 
 
 def _qdrant_rest_config():
-    """Возвращает (base_url, headers) или (None, None) если Qdrant не настроен."""
+    
     url = (Config.QDRANT_URL or "").strip()
     key = (Config.QDRANT_API_KEY or "").strip()
     if not url or not key:
@@ -377,10 +377,7 @@ def _clean_skill_snippet(text: str, name: str, max_len: int = 100) -> str:
 
 
 def get_rag_explanation_for_gap(name: str, is_skill: bool = True) -> str:
-    """
-    Краткое RAG-объяснение для одного разрыва (навык или параметр атласа): 1–2 предложения.
-    Два запроса для лучшего попадания при полисемии названия.
-    """
+ 
     if not (name and str(name).strip()):
         return ""
     if not _qdrant_rest_config()[0]:
