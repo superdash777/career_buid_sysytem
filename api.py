@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """
 REST API для AI Career Pathfinder (для подключения отдельного фронтенда).
 Запуск: uvicorn api:app --reload --host 127.0.0.1 --port 8000
@@ -299,7 +299,7 @@ def health():
     return {"status": "ok"}
 
 
-# ---------- Serve React frontend (production build) ----------
+
 
 FRONTEND_DIR = PROJECT_DIR / "frontend" / "dist"
 
