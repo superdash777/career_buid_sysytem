@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 interface Props {
   text: string;
@@ -26,9 +25,7 @@ export default function ProgressLoader({ text, subtext, durationMs = 30000 }: Pr
   }, [durationMs]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-16 fade-in">
-      <Loader2 className="h-8 w-8 animate-spin text-(--color-accent)" />
-
+    <div className="flex flex-col items-center justify-center gap-5 py-16 fade-in">
       <div className="text-center">
         <p className="text-base font-medium text-(--color-text-primary) mb-1">{text}</p>
         {subtext && <p className="text-sm text-(--color-text-muted)">{subtext}</p>}
