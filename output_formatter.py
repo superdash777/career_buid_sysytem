@@ -185,11 +185,18 @@ class OutputFormatter:
                     rag_context = get_rag_context_for_plan(step1_summary, target_role_name)
                 except Exception:
                     pass
+            gap_summary = {
+                "param_gaps": [{"name": g["name"], "delta": g["delta"]} for g in atlas_gaps],
+                "skill_gaps": [{"name": g["name"], "delta": g["delta"], "current": g["current"], "required": g["required"]} for g in skill_gaps[:15]],
+            }
+            strong_names = [s["name"] for s in skill_strong[:20]]
             step2 = gen.generate_plan_702010(
                 "next_grade", out, target_role_name,
-                context=f"Профессия: {profession_display}. Используй только параметры и навыки из контекста выше.",
+                context=f"Профессия: {profession_display}.",
                 rag_context=rag_context,
                 skill_context=skill_context,
+                strong_skills=strong_names,
+                gap_summary=gap_summary,
             )
             out += step2
         else:
@@ -271,11 +278,18 @@ class OutputFormatter:
                 [{"name": n, "delta": 1} for n in focus_names_for_plan],
                 "Middle",
             )
+            gap_summary = {
+                "gaps": [{"name": n} for n in focus_names_for_plan],
+                "transferable": [m.get("name", "") for m in vm.matched_skills[:10]],
+            }
+            strong_names = [m.get("name", "") for m in vm.matched_skills[:15]]
             step2 = gen.generate_plan_702010(
                 "change_profession", out, target_role_name,
-                context="Используй только навыки из контекста. Сфокусируй план на недостающих навыках.",
+                context="Сфокусируй план на недостающих навыках для перехода.",
                 rag_context=rag_context,
                 skill_context=skill_context,
+                strong_skills=strong_names,
+                gap_summary=gap_summary,
             )
             out += step2
         else:

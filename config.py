@@ -37,8 +37,10 @@ class Config:
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", "20"))
     RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.35"))
 
-    # NLP: маппинг «свой навык» → канонический только при высокой близости (синонимы)
-    SKILL_MAP_SIMILARITY_THRESHOLD = float(os.getenv("SKILL_MAP_SIMILARITY_THRESHOLD", "0.82"))
+    # NLP: маппинг «свой навык» → канонический
+    SKILL_MAP_SIMILARITY_THRESHOLD = float(os.getenv("SKILL_MAP_SIMILARITY_THRESHOLD", "0.72"))
+    # Семантический мэтчинг навыков при gap-анализе
+    SKILL_MATCH_THRESHOLD = float(os.getenv("SKILL_MATCH_THRESHOLD", "0.72"))
     SKILL_SUGGESTIONS_TOP_K = int(os.getenv("SKILL_SUGGESTIONS_TOP_K", "5"))
     SUGGESTIONS_MIN_SCORE = float(os.getenv("SUGGESTIONS_MIN_SCORE", "0.35"))
 

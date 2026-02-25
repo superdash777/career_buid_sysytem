@@ -119,8 +119,25 @@ def build_switch_comparison(
 
     skill_reqs = {k: v for k, v in reqs.items() if k not in data_loader.atlas_map}
     total = len(skill_reqs) or 1
+
+    # Exact match
     matched_names = [s for s in skill_reqs if s in norm and norm.get(s, 0) >= skill_reqs[s]]
-    missing_names = [s for s in skill_reqs if s not in norm or norm.get(s, 0) < skill_reqs[s]]
+    matched_set = set(matched_names)
+
+    # Semantic match for unmatched skills
+    user_skill_names = [n for n in norm if n not in data_loader.atlas_map]
+    unmatched_reqs = [s for s in skill_reqs if s not in matched_set]
+    try:
+        from rag_service import semantic_match_skills
+        sem_map = semantic_match_skills(user_skill_names, unmatched_reqs)
+        for u_name, r_name in sem_map.items():
+            if r_name not in matched_set and norm.get(u_name, 0) >= skill_reqs.get(r_name, 1):
+                matched_names.append(r_name)
+                matched_set.add(r_name)
+    except Exception:
+        pass
+
+    missing_names = [s for s in skill_reqs if s not in matched_set]
     match_score = len(matched_names) / total
 
     matched_top = matched_names[:8]

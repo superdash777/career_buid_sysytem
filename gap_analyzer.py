@@ -1,11 +1,11 @@
-
-"""Анализ разрывов: атлас-параметров и навыков с нормализацией."""
+# -*- coding: utf-8 -*-
+"""Анализ разрывов с семантическим мэтчингом навыков."""
 
 from data_loader import PARAM_ORDINAL_NAMES, SKILL_LEVEL_NAMES
 
 
 def _normalize_skill_set(user_skills: dict, canonical_set: set = None) -> dict:
-    """Нормализует ключи user_skills через skill_normalizer, если доступен."""
+    """Нормализует ключи user_skills через skill_normalizer."""
     if not user_skills:
         return {}
     try:
@@ -23,8 +23,16 @@ def _normalize_skill_set(user_skills: dict, canonical_set: set = None) -> dict:
         return dict(user_skills)
 
 
+def _build_semantic_map(user_names: list, required_names: list) -> dict:
+    """Строит семантический маппинг user→required через embeddings."""
+    try:
+        from rag_service import semantic_match_skills
+        return semantic_match_skills(user_names, required_names)
+    except Exception:
+        return {}
+
+
 def level_display(value: int, is_atlas: bool) -> str:
-    """Отображаемое название уровня: для параметра (5-level) или навыка (3-level)."""
     if is_atlas:
         return PARAM_ORDINAL_NAMES.get(value, str(value))
     return SKILL_LEVEL_NAMES.get(value, str(value))
@@ -34,9 +42,7 @@ class GapAnalyzer:
     @staticmethod
     def analyze(user_skills, target_requirements):
         norm = _normalize_skill_set(user_skills)
-        missing = []
-        gaps = []
-        strong = []
+        missing, gaps, strong = [], [], []
 
         for skill, req_level in target_requirements.items():
             curr_level = norm.get(skill, 0)
@@ -48,50 +54,62 @@ class GapAnalyzer:
                 strong.append((skill, curr_level))
 
         match_percent = int((len(strong) / len(target_requirements)) * 100) if target_requirements else 0
-        return {
-            "match_percent": match_percent,
-            "missing": missing,
-            "gaps": gaps,
-            "strong": strong,
-        }
+        return {"match_percent": match_percent, "missing": missing, "gaps": gaps, "strong": strong}
 
     @staticmethod
     def analyze_structured(user_skills, target_requirements, atlas_param_names, atlas_map):
         norm = _normalize_skill_set(user_skills)
 
-        atlas_gaps = []
-        atlas_strong = []
-        skill_gaps = []
-        skill_strong = []
+        # Separate atlas params from skills in requirements
+        skill_reqs = {k: v for k, v in target_requirements.items() if k not in atlas_param_names}
+        param_reqs = {k: v for k, v in target_requirements.items() if k in atlas_param_names}
 
-        for name, req_level in target_requirements.items():
+        # Build semantic map: user_skill_name → matched_required_skill_name
+        user_skill_names = [n for n in norm if n not in atlas_param_names]
+        required_skill_names = list(skill_reqs.keys())
+        sem_map = _build_semantic_map(user_skill_names, required_skill_names)
+
+        # Resolve user levels for required skills (exact + semantic)
+        def get_user_level(req_name):
+            if req_name in norm:
+                return norm[req_name]
+            for u_name, matched_r in sem_map.items():
+                if matched_r == req_name:
+                    return norm.get(u_name, 0)
+            return 0
+
+        atlas_gaps, atlas_strong = [], []
+        skill_gaps, skill_strong = [], []
+
+        # Atlas params (exact match only — names are controlled)
+        for name, req_level in param_reqs.items():
             curr = norm.get(name, 0)
             delta = req_level - curr
-            is_atlas = name in atlas_param_names
-
             if curr >= req_level:
-                if is_atlas:
-                    atlas_strong.append({"name": name, "level": curr})
-                else:
-                    skill_strong.append({"name": name, "level": curr})
+                atlas_strong.append({"name": name, "level": curr})
             else:
                 why = ""
-                if is_atlas and name in atlas_map:
+                if name in atlas_map:
                     desc = (atlas_map[name].get("Описание") or atlas_map[name].get("Description") or "")
                     why = desc or "Важно для целевого грейда."
-                item = {
-                    "name": name,
-                    "current": curr,
-                    "required": req_level,
-                    "delta": delta,
-                    "priority": 1 if delta >= 2 else (2 if delta >= 1 else 3),
-                    "is_atlas": is_atlas,
-                }
-                if is_atlas:
-                    item["why"] = why or "Важно для целевого грейда."
-                    atlas_gaps.append(item)
-                else:
-                    skill_gaps.append(item)
+                atlas_gaps.append({
+                    "name": name, "current": curr, "required": req_level,
+                    "delta": delta, "priority": 1 if delta >= 2 else (2 if delta >= 1 else 3),
+                    "is_atlas": True, "why": why or "Важно для целевого грейда.",
+                })
+
+        # Skills (exact + semantic)
+        for name, req_level in skill_reqs.items():
+            curr = get_user_level(name)
+            delta = req_level - curr
+            if curr >= req_level:
+                skill_strong.append({"name": name, "level": curr})
+            else:
+                skill_gaps.append({
+                    "name": name, "current": curr, "required": req_level,
+                    "delta": delta, "priority": 1 if delta >= 2 else (2 if delta >= 1 else 3),
+                    "is_atlas": False,
+                })
 
         atlas_gaps.sort(key=lambda x: (-x["delta"], x["name"]))
         skill_gaps.sort(key=lambda x: (-x["delta"], x["name"]))

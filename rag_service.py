@@ -529,5 +529,87 @@ def rank_opportunities(
 
 
 def get_embedder():
-    """Доступ к эмбеддеру для внешних модулей (например, парсер резюме)."""
+    """Доступ к эмбеддеру для внешних модулей."""
     return _get_embedder()
+
+
+# --- Semantic skill matching ---
+
+_skill_embeddings_cache: Optional[Dict[str, Any]] = None
+
+
+def _get_skill_embeddings(skill_names: List[str]) -> Dict[str, Any]:
+    """Кеширует эмбеддинги для списка навыков."""
+    global _skill_embeddings_cache
+    if _skill_embeddings_cache is not None:
+        return _skill_embeddings_cache
+    try:
+        embedder = _get_embedder()
+        import numpy as np
+        names = list(skill_names)
+        vecs = embedder.encode(names, normalize_embeddings=True, show_progress_bar=False)
+        _skill_embeddings_cache = {name: vec for name, vec in zip(names, vecs)}
+        return _skill_embeddings_cache
+    except Exception:
+        return {}
+
+
+def semantic_match_skills(
+    user_skill_names: List[str],
+    required_skill_names: List[str],
+    threshold: Optional[float] = None,
+) -> Dict[str, str]:
+    """Для каждого user-навыка находит ближайший required-навык по embedding similarity.
+    Возвращает {user_name: matched_required_name} для пар с score >= threshold.
+    Пары выбираются жадно: один required-навык может быть сопоставлен только одному user-навыку."""
+    threshold = threshold or Config.SKILL_MATCH_THRESHOLD
+    if not user_skill_names or not required_skill_names:
+        return {}
+    try:
+        embedder = _get_embedder()
+        import numpy as np
+    except Exception:
+        return {}
+    try:
+        user_vecs = embedder.encode(user_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        req_vecs = embedder.encode(required_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        sim_matrix = np.dot(user_vecs, req_vecs.T)
+
+        result = {}
+        used_req = set()
+        pairs = []
+        for i in range(len(user_skill_names)):
+            for j in range(len(required_skill_names)):
+                if sim_matrix[i, j] >= threshold:
+                    pairs.append((sim_matrix[i, j], i, j))
+        pairs.sort(key=lambda x: -x[0])
+
+        for score, i, j in pairs:
+            u_name = user_skill_names[i]
+            r_name = required_skill_names[j]
+            if u_name in result or r_name in used_req:
+                continue
+            result[u_name] = r_name
+            used_req.add(r_name)
+
+        return result
+    except Exception:
+        return {}
+
+
+def compute_profile_similarity(user_skill_names: List[str], role_skill_names: List[str]) -> float:
+    """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли."""
+    if not user_skill_names or not role_skill_names:
+        return 0.0
+    try:
+        embedder = _get_embedder()
+        import numpy as np
+        u_vecs = embedder.encode(user_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        r_vecs = embedder.encode(role_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        u_mean = np.mean(u_vecs, axis=0)
+        r_mean = np.mean(r_vecs, axis=0)
+        u_mean = u_mean / (np.linalg.norm(u_mean) + 1e-9)
+        r_mean = r_mean / (np.linalg.norm(r_mean) + 1e-9)
+        return float(np.dot(u_mean, r_mean))
+    except Exception:
+        return 0.0
