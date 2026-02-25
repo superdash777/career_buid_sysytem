@@ -61,9 +61,86 @@ export interface PlanRequest {
   target_profession?: string;
 }
 
+// --- Structured analysis types ---
+
+export interface RadarPoint {
+  param: string;
+  current: number;
+  target: number;
+  current_label: string;
+  target_label: string;
+}
+
+export interface SkillGap {
+  name: string;
+  current: number;
+  required: number;
+  delta: number;
+  level_key: string;
+  description: string;
+  tasks: string;
+}
+
+export interface SkillStrong {
+  name: string;
+  level: number;
+}
+
+export interface GrowthAnalysis {
+  scenario: 'growth';
+  current_grade: string;
+  target_grade: string;
+  match_percent: number;
+  radar_data: RadarPoint[];
+  skill_gaps: SkillGap[];
+  skill_strong: SkillStrong[];
+}
+
+export interface TransferableSkill {
+  name: string;
+  snippet: string;
+}
+
+export interface SwitchGap {
+  name: string;
+  importance: string;
+  level_key: string;
+  description: string;
+  tasks: string;
+}
+
+export interface SwitchAnalysis {
+  scenario: 'switch';
+  from_role: string;
+  to_role: string;
+  match_percent: number;
+  baseline_level: string;
+  transferable: TransferableSkill[];
+  gaps: SwitchGap[];
+  suggested_tracks: string[];
+}
+
+export interface ExploreRole {
+  title: string;
+  match: number;
+  category: 'closest' | 'adjacent' | 'far';
+  match_label: string;
+  missing: string[];
+  key_skills: string[];
+  reasons: string[];
+}
+
+export interface ExploreAnalysis {
+  scenario: 'explore';
+  roles: ExploreRole[];
+}
+
+export type Analysis = GrowthAnalysis | SwitchAnalysis | ExploreAnalysis;
+
 export interface PlanResponse {
   markdown: string;
   role_titles?: string[];
+  analysis?: Analysis;
 }
 
 export interface AppState {
