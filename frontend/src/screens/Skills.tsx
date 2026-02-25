@@ -4,7 +4,7 @@ import { ArrowRight, ArrowLeft, Upload, Search, Plus, FileText, ChevronDown, Che
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import SkillCard from '../components/SkillCard';
-import Spinner from '../components/Spinner';
+import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import { showToast } from '../components/toastStore';
@@ -278,7 +278,15 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           </div>
 
           {uploading ? (
-            <Spinner text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты." />
+            <ProgressLoader
+              stages={[
+                { label: 'Читаем PDF', duration: 3000 },
+                { label: 'Распознаём текст', duration: 5000 },
+                { label: 'Извлекаем навыки', duration: 12000 },
+                { label: 'Сопоставляем с базой', duration: 8000 },
+              ]}
+              finalText="Обычно это занимает до минуты"
+            />
           ) : (
             <div
               {...getRootProps()}

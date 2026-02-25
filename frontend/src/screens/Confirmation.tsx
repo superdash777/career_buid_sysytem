@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Sparkles, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
-import Spinner from '../components/Spinner';
+import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import { buildPlan, ApiError } from '../api/client';
@@ -60,9 +60,15 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
     return (
       <Layout step={3}>
         <div className="py-20">
-          <Spinner
-            text="Создаём ваш персональный план…"
-            subtext="Это может занять немного времени."
+          <ProgressLoader
+            stages={[
+              { label: 'Анализируем навыки', duration: 4000 },
+              { label: 'Сопоставляем с требованиями', duration: 6000 },
+              { label: 'Определяем разрывы', duration: 5000 },
+              { label: 'Формируем план', duration: 15000 },
+              { label: 'Финальная проверка', duration: 5000 },
+            ]}
+            finalText="Создаём ваш персональный план"
           />
         </div>
       </Layout>
