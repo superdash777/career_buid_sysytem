@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -6,8 +6,8 @@ import {
   ResponsiveContainer, Tooltip,
 } from 'recharts';
 import {
-  Copy, RotateCcw, ArrowLeft, ChevronRight, Check,
-  TrendingUp, FileText, CheckCircle2, Target,
+  Copy, RotateCcw, ArrowLeft, ChevronRight, ChevronDown, Check,
+  TrendingUp, FileText, CheckCircle2, Target, ScrollText,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import type {
@@ -20,12 +20,9 @@ interface Props {
   onBackToSkills: () => void;
 }
 
-type Tab = 'visual' | 'markdown';
-
 export default function Result({ plan, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
-  const [tab, setTab] = useState<Tab>(plan.analysis ? 'visual' : 'markdown');
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [planOpen, setPlanOpen] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(plan.markdown);
@@ -55,44 +52,40 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
           </div>
         </div>
 
-        {/* Tab switcher */}
+        {/* Visual analysis */}
         {plan.analysis && (
-          <div className="flex gap-1 p-1 rounded-xl bg-(--color-surface-alt) border border-(--color-border) w-fit">
-            <button
-              onClick={() => setTab('visual')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                tab === 'visual'
-                  ? 'bg-(--color-accent) text-white shadow-sm'
-                  : 'text-(--color-text-muted) hover:text-(--color-text-secondary)'
-              }`}
-            >
-              Визуализация
-            </button>
-            <button
-              onClick={() => setTab('markdown')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                tab === 'markdown'
-                  ? 'bg-(--color-accent) text-white shadow-sm'
-                  : 'text-(--color-text-muted) hover:text-(--color-text-secondary)'
-              }`}
-            >
-              Полный отчёт
-            </button>
-          </div>
-        )}
-
-        {/* Content */}
-        {tab === 'visual' && plan.analysis ? (
           <div className="fade-in">
             {plan.analysis.scenario === 'growth' && <GrowthView data={plan.analysis} />}
             {plan.analysis.scenario === 'switch' && <SwitchView data={plan.analysis} />}
             {plan.analysis.scenario === 'explore' && <ExploreView data={plan.analysis} />}
           </div>
-        ) : (
-          <div className="card fade-in" ref={contentRef}>
-            <div className="markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.markdown}</ReactMarkdown>
-            </div>
+        )}
+
+        {/* Plan — collapsible */}
+        {plan.markdown && (
+          <div className="card overflow-hidden">
+            <button
+              onClick={() => setPlanOpen(!planOpen)}
+              className="w-full flex items-center justify-between py-1 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-(--color-accent-light) flex items-center justify-center">
+                  <ScrollText className="h-5 w-5 text-(--color-accent)" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-(--color-text-primary)">План развития</h3>
+                  <p className="text-xs text-(--color-text-muted)">Персональные рекомендации от AI</p>
+                </div>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-(--color-text-muted) transition-transform duration-200 ${planOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {planOpen && (
+              <div className="mt-4 pt-4 border-t border-(--color-border) fade-in">
+                <div className="markdown-body">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.markdown}</ReactMarkdown>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -71,8 +71,8 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
     );
   }
 
-  const showScenario = !!state.profession;
-  const showGrade = !!state.scenario;
+  const showGrade = !!state.profession;
+  const showScenario = !!state.profession && !!state.grade;
 
   return (
     <Layout step={1}>
@@ -112,7 +112,27 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
             <p className="helper">Мы подтянем релевантные навыки и требования для этой роли.</p>
           </div>
 
-          {/* Scenario cards — progressive disclosure */}
+          {/* Grade — right after profession */}
+          {showGrade && (
+            <div className="fade-in">
+              <label className="label">Текущий грейд</label>
+              <div className="relative">
+                <select
+                  value={state.grade}
+                  onChange={(e) => onChange({ grade: e.target.value as Grade })}
+                  className="input-field appearance-none pr-10"
+                >
+                  {GRADES.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
+              </div>
+              <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
+            </div>
+          )}
+
+          {/* Scenario cards */}
           {showScenario && (
             <div className="fade-in">
               <label className="label">Направление</label>
@@ -148,26 +168,6 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
                 placeholder="Начните вводить или выберите роль"
               />
               <p className="helper">Выберите роль, в которую хотите перейти.</p>
-            </div>
-          )}
-
-          {/* Grade — progressive disclosure */}
-          {showGrade && (
-            <div className="fade-in">
-              <label className="label">Текущий грейд</label>
-              <div className="relative">
-                <select
-                  value={state.grade}
-                  onChange={(e) => onChange({ grade: e.target.value as Grade })}
-                  className="input-field appearance-none pr-10"
-                >
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
-              </div>
-              <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
             </div>
           )}
         </div>
