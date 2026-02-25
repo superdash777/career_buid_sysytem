@@ -139,7 +139,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
 
           {/* Target profession (conditional) */}
           {state.scenario === 'Смена профессии' && (
-            <div className="fade-in">
+            <div className="fade-in relative z-10">
               <label className="label">Целевая профессия</label>
               <SearchableSelect
                 options={professions}
