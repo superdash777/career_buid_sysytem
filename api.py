@@ -216,9 +216,81 @@ def _build_role_matches(opps, user_skills):
     return matches
 
 
+def _build_growth_analysis(structured, current_grade, target_grade):
+    from data_loader import PARAM_ORDINAL_NAMES, SKILL_LEVEL_NAMES
+    radar = []
+    for g in structured.get("atlas_gaps", []):
+        radar.append({"param": g["name"], "current": g["current"], "target": g["required"],
+                       "current_label": PARAM_ORDINAL_NAMES.get(g["current"], ""), "target_label": PARAM_ORDINAL_NAMES.get(g["required"], "")})
+    for s in structured.get("atlas_strong", []):
+        radar.append({"param": s["name"], "current": s["level"], "target": s["level"],
+                       "current_label": PARAM_ORDINAL_NAMES.get(s["level"], ""), "target_label": PARAM_ORDINAL_NAMES.get(s["level"], "")})
+    skill_gaps = []
+    for g in structured.get("skill_gaps", []):
+        detail = data.get_skill_detail(g["name"], target_grade)
+        skill_gaps.append({
+            "name": g["name"], "current": g["current"], "required": g["required"], "delta": g["delta"],
+            "level_key": detail["level_key"] if detail else "",
+            "description": (detail["description"] if detail else ""),
+            "tasks": (detail["tasks"] if detail else ""),
+        })
+    skill_strong = [{"name": s["name"], "level": s["level"]} for s in structured.get("skill_strong", [])]
+    return {
+        "scenario": "growth",
+        "current_grade": current_grade,
+        "target_grade": target_grade,
+        "match_percent": structured.get("match_percent", 0),
+        "radar_data": radar,
+        "skill_gaps": skill_gaps[:20],
+        "skill_strong": skill_strong[:15],
+    }
+
+
+def _build_switch_analysis(switch_vm, from_role, to_role):
+    transferable = [{"name": m.get("name", ""), "snippet": m.get("snippet", "")} for m in switch_vm.matched_skills]
+    gaps = []
+    for m in switch_vm.missing_skills:
+        detail = data.get_skill_detail(m.get("name", ""), "Middle")
+        gaps.append({
+            "name": m.get("name", ""),
+            "importance": m.get("importance", ""),
+            "level_key": detail["level_key"] if detail else "",
+            "description": (detail["description"] if detail else ""),
+            "tasks": (detail["tasks"] if detail else ""),
+        })
+    return {
+        "scenario": "switch",
+        "from_role": from_role,
+        "to_role": to_role,
+        "match_percent": int(switch_vm.match_score * 100),
+        "baseline_level": switch_vm.baseline_level,
+        "transferable": transferable,
+        "gaps": gaps,
+        "suggested_tracks": switch_vm.suggested_tracks,
+    }
+
+
+def _build_explore_analysis(view_model):
+    def card_to_dict(c, category):
+        return {
+            "title": c.title, "match": round(c.match_score * 100),
+            "category": category, "match_label": c.match_label,
+            "missing": c.add_skills[:5], "key_skills": c.key_skills[:8],
+            "reasons": c.reasons[:5],
+        }
+    roles = []
+    for c in view_model.closest:
+        roles.append(card_to_dict(c, "closest"))
+    for c in view_model.adjacent:
+        roles.append(card_to_dict(c, "adjacent"))
+    for c in view_model.far:
+        roles.append(card_to_dict(c, "far"))
+    return {"scenario": "explore", "roles": roles}
+
+
 @app.post("/api/plan")
 def build_plan_api(req: PlanRequest):
-    """Построение плана. Возвращает { markdown, role_titles? }."""
+    """Построение плана. Возвращает { markdown, role_titles?, analysis? }."""
     if not req.skills:
         raise HTTPException(status_code=400, detail="Добавьте хотя бы один навык")
     if not req.profession:
@@ -243,6 +315,8 @@ def build_plan_api(req: PlanRequest):
             user_skills[param_name] = current_param_ordinal
 
     try:
+        analysis = {}
+
         if req.scenario == "Следующий грейд":
             profession_internal = data.get_internal_role_name(req.profession)
             reqs, role_name = scenarios.next_grade(profession_internal, grade_key, user_skills)
@@ -257,6 +331,7 @@ def build_plan_api(req: PlanRequest):
                 structured, role_name, req.profession,
                 current_grade=grade_key, target_grade=target_grade, profession_internal=profession_internal,
             )
+            analysis = _build_growth_analysis(structured, grade_key, target_grade)
 
         elif req.scenario == "Смена профессии":
             target_internal = data.get_internal_role_name(req.target_profession)
@@ -265,6 +340,7 @@ def build_plan_api(req: PlanRequest):
                 switch_vm = build_switch_comparison(user_skills, target_internal, "Middle", data)
                 role_name = f"{req.target_profession} ({switch_vm.baseline_level} → Middle)"
                 md = formatter.format_change_profession(switch_vm, role_name, req.target_profession)
+                analysis = _build_switch_analysis(switch_vm, req.profession, req.target_profession)
             except Exception:
                 reqs, role_name = scenarios.change_profession(target_internal, user_skills)
                 structured = analyzer.analyze_structured(
@@ -285,10 +361,13 @@ def build_plan_api(req: PlanRequest):
             view_model = build_explore_recommendations(matches)
             role_titles = [c.title for c in view_model.closest + view_model.adjacent + view_model.far]
             md = formatter.format_explore(view_model, user_skills)
+            analysis = _build_explore_analysis(view_model)
 
         out = {"markdown": md}
         if role_titles:
             out["role_titles"] = role_titles
+        if analysis:
+            out["analysis"] = analysis
         return out
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
