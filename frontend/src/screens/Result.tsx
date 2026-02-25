@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, Tooltip,
 } from 'recharts';
 import {
-  Copy, Download, RotateCcw, ArrowLeft, ChevronRight, Check,
+  Copy, RotateCcw, ArrowLeft, ChevronRight, Check,
   TrendingUp, FileText, CheckCircle2, Target,
 } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -24,7 +24,6 @@ type Tab = 'visual' | 'markdown';
 
 export default function Result({ plan, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
-  const [downloaded, setDownloaded] = useState(false);
   const [tab, setTab] = useState<Tab>(plan.analysis ? 'visual' : 'markdown');
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -32,18 +31,6 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
     await navigator.clipboard.writeText(plan.markdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([plan.markdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'career-plan.md';
-    a.click();
-    URL.revokeObjectURL(url);
-    setDownloaded(true);
-    setTimeout(() => setDownloaded(false), 2000);
   };
 
   return (
@@ -58,16 +45,12 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
             <p className="text-(--color-text-muted) mt-1">Сохраните результат или изучите анализ.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button onClick={onReset} className="btn-secondary text-sm">
+              <RotateCcw className="h-4 w-4" /> Заново
+            </button>
             <button onClick={handleCopy} className="btn-secondary text-sm">
               {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               {copied ? 'Скопировано' : 'Скопировать'}
-            </button>
-            <button onClick={handleDownload} className="btn-secondary text-sm">
-              {downloaded ? <Check className="h-4 w-4 text-emerald-500" /> : <Download className="h-4 w-4" />}
-              {downloaded ? 'Сохранено' : 'Скачать .md'}
-            </button>
-            <button onClick={onReset} className="btn-secondary text-sm">
-              <RotateCcw className="h-4 w-4" /> Заново
             </button>
           </div>
         </div>

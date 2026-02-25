@@ -27,12 +27,7 @@ export default function ProgressLoader({ text, subtext, durationMs = 30000 }: Pr
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-16 fade-in">
-      <div className="relative flex items-center justify-center">
-        <div className="absolute h-16 w-16 rounded-full bg-(--color-accent)/10 animate-ping" />
-        <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-(--color-accent)/15">
-          <Loader2 className="h-7 w-7 animate-spin text-(--color-accent)" />
-        </div>
-      </div>
+      <Loader2 className="h-8 w-8 animate-spin text-(--color-accent)" />
 
       <div className="text-center">
         <p className="text-base font-medium text-(--color-text-primary) mb-1">{text}</p>
