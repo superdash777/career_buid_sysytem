@@ -60,16 +60,7 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
     return (
       <Layout step={3}>
         <div className="py-20">
-          <ProgressLoader
-            stages={[
-              { label: 'Анализируем навыки', duration: 4000 },
-              { label: 'Сопоставляем с требованиями', duration: 6000 },
-              { label: 'Определяем разрывы', duration: 5000 },
-              { label: 'Формируем план', duration: 15000 },
-              { label: 'Финальная проверка', duration: 5000 },
-            ]}
-            finalText="Создаём ваш персональный план"
-          />
+          <ProgressLoader text="Создаём ваш персональный план…" subtext="Это может занять немного времени" durationMs={50000} />
         </div>
       </Layout>
     );

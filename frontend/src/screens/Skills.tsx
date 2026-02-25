@@ -278,15 +278,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           </div>
 
           {uploading ? (
-            <ProgressLoader
-              stages={[
-                { label: 'Читаем PDF', duration: 3000 },
-                { label: 'Распознаём текст', duration: 5000 },
-                { label: 'Извлекаем навыки', duration: 12000 },
-                { label: 'Сопоставляем с базой', duration: 8000 },
-              ]}
-              finalText="Обычно это занимает до минуты"
-            />
+            <ProgressLoader text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты" durationMs={40000} />
           ) : (
             <div
               {...getRootProps()}
