@@ -1,4 +1,4 @@
-import type { PlanRequest, PlanResponse, Skill } from '../types';
+import type { PlanRequest, PlanResponse, Skill, FocusedPlan } from '../types';
 
 const BASE = '';
 
@@ -79,6 +79,17 @@ export async function buildPlan(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     },
+    signal,
+  );
+}
+
+export async function buildFocusedPlan(
+  params: { profession: string; grade: string; scenario: string; target_profession?: string; selected_skills: string[] },
+  signal?: AbortSignal,
+): Promise<FocusedPlan> {
+  return request<FocusedPlan>(
+    '/api/focused-plan',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) },
     signal,
   );
 }

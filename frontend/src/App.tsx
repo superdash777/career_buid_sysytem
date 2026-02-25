@@ -170,6 +170,7 @@ export default function App() {
         return plan ? (
           <Result
             plan={plan}
+            appState={state}
             onReset={reset}
             onBackToSkills={() => setScreen('skills')}
           />

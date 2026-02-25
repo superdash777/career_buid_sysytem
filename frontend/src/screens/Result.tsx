@@ -1,34 +1,77 @@
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
 } from 'recharts';
 import {
   Copy, RotateCcw, ArrowLeft, ChevronRight, ChevronDown, Check,
-  TrendingUp, FileText, CheckCircle2, Target, ScrollText,
+  TrendingUp, FileText, CheckCircle2, Target, Sparkles,
+  BookOpen, MessageCircle, ListTodo,
 } from 'lucide-react';
 import Layout from '../components/Layout';
+import ProgressLoader from '../components/ProgressLoader';
+import { buildFocusedPlan, ApiError } from '../api/client';
 import type {
   PlanResponse, GrowthAnalysis, SwitchAnalysis, ExploreAnalysis,
+  AppState, FocusedPlan,
 } from '../types';
 
 interface Props {
   plan: PlanResponse;
+  appState: AppState;
   onReset: () => void;
   onBackToSkills: () => void;
 }
 
-export default function Result({ plan, onReset, onBackToSkills }: Props) {
+export default function Result({ plan, appState, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
+  const [selectedGaps, setSelectedGaps] = useState<Set<string>>(new Set());
+  const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState('');
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(plan.markdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const toggleGap = (name: string) => {
+    setSelectedGaps(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const handleGeneratePlan = async () => {
+    if (selectedGaps.size === 0) return;
+    setPlanLoading(true);
+    setPlanError('');
+    try {
+      const result = await buildFocusedPlan({
+        profession: appState.profession,
+        grade: appState.grade,
+        scenario: appState.scenario,
+        target_profession: appState.targetProfession || undefined,
+        selected_skills: Array.from(selectedGaps),
+      });
+      setFocusedPlan(result);
+    } catch (err) {
+      setPlanError(err instanceof ApiError ? err.message : 'Не удалось сформировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
+  // Collect gap names from analysis
+  const gapNames: string[] = [];
+  if (plan.analysis?.scenario === 'growth') {
+    for (const g of plan.analysis.skill_gaps) gapNames.push(g.name);
+  } else if (plan.analysis?.scenario === 'switch') {
+    for (const g of plan.analysis.gaps) gapNames.push(g.name);
+  }
 
   return (
     <Layout step={4} wide>
@@ -37,9 +80,9 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary)">
-              Ваш индивидуальный план развития
+              Результаты анализа
             </h1>
-            <p className="text-(--color-text-muted) mt-1">Сохраните результат или изучите анализ.</p>
+            <p className="text-(--color-text-muted) mt-1">Выберите навыки для развития и сформируйте план.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={onReset} className="btn-secondary text-sm">
@@ -61,48 +104,130 @@ export default function Result({ plan, onReset, onBackToSkills }: Props) {
           </div>
         )}
 
-        {/* Plan — collapsible */}
-        {plan.markdown && (
-          <div className="card overflow-hidden">
-            <button
-              onClick={() => setPlanOpen(!planOpen)}
-              className="w-full flex items-center justify-between py-1 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-(--color-accent-light) flex items-center justify-center">
-                  <ScrollText className="h-5 w-5 text-(--color-accent)" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-(--color-text-primary)">План развития</h3>
-                  <p className="text-xs text-(--color-text-muted)">Персональные рекомендации от AI</p>
-                </div>
+        {/* Gap selection for plan generation */}
+        {gapNames.length > 0 && !focusedPlan && !planLoading && (
+          <div className="card fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-lg bg-(--color-accent-light) flex items-center justify-center">
+                <Target className="h-5 w-5 text-(--color-accent)" />
               </div>
-              <ChevronDown className={`h-5 w-5 text-(--color-text-muted) transition-transform duration-200 ${planOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {planOpen && (
-              <div className="mt-4 pt-4 border-t border-(--color-border) fade-in">
-                <div className="markdown-body">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.markdown}</ReactMarkdown>
-                </div>
+              <div>
+                <h3 className="font-semibold text-(--color-text-primary)">Что хотите развить?</h3>
+                <p className="text-xs text-(--color-text-muted)">Выберите навыки — мы сформируем фокусный план</p>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {gapNames.map(name => (
+                <button
+                  key={name}
+                  onClick={() => toggleGap(name)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                    selectedGaps.has(name)
+                      ? 'bg-(--color-accent) text-white border-(--color-accent)'
+                      : 'bg-(--color-surface-alt) text-(--color-text-secondary) border-(--color-border) hover:border-(--color-accent)/40'
+                  }`}
+                >
+                  {selectedGaps.has(name) && <Check className="h-3 w-3 inline mr-1" />}
+                  {name}
+                </button>
+              ))}
+            </div>
+            {selectedGaps.size > 0 && (
+              <button onClick={handleGeneratePlan} className="btn-primary">
+                <Sparkles className="h-4 w-4" />
+                Сформировать план ({selectedGaps.size})
+              </button>
             )}
+            {planError && <p className="text-sm text-red-500 mt-3">{planError}</p>}
           </div>
         )}
 
+        {/* Plan loading */}
+        {planLoading && (
+          <ProgressLoader text="Формируем персональный план…" subtext="Это займёт несколько секунд" durationMs={20000} />
+        )}
+
+        {/* Focused plan */}
+        {focusedPlan && <FocusedPlanView plan={focusedPlan} />}
+
         {/* Footer */}
-        <div className="card bg-gradient-to-br from-(--color-accent-light) to-(--color-surface-alt) border-(--color-accent)/10">
-          <h3 className="text-lg font-semibold text-(--color-text-primary) mb-2">Следующий шаг</h3>
-          <p className="text-(--color-text-secondary) mb-4">
-            Выберите одно действие из плана и запланируйте его на эту неделю.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button onClick={onBackToSkills} className="btn-secondary text-sm">
-              <ArrowLeft className="h-4 w-4" /> Уточнить навыки
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <button onClick={onBackToSkills} className="btn-secondary text-sm">
+            <ArrowLeft className="h-4 w-4" /> Уточнить навыки
+          </button>
         </div>
       </div>
     </Layout>
+  );
+}
+
+
+// ======================== FOCUSED PLAN ========================
+
+function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
+  return (
+    <div className="space-y-4 fade-in">
+      {/* Tasks */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <ListTodo className="h-5 w-5 text-blue-600" />
+          </div>
+          <h3 className="font-semibold text-(--color-text-primary)">Задачи на развитие</h3>
+        </div>
+        <div className="space-y-4">
+          {plan.tasks.map((t, i) => (
+            <div key={i}>
+              <p className="text-sm font-semibold text-(--color-accent) mb-2">{t.skill}</p>
+              <ul className="space-y-1.5">
+                {t.items.map((item, j) => (
+                  <li key={j} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
+                    <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-(--color-text-muted)" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Communication */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <MessageCircle className="h-5 w-5 text-purple-600" />
+          </div>
+          <h3 className="font-semibold text-(--color-text-primary)">Развитие через общение</h3>
+        </div>
+        <ul className="space-y-2">
+          {plan.communication.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
+              <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-purple-400" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Learning */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-emerald-600" />
+          </div>
+          <h3 className="font-semibold text-(--color-text-primary)">Книги и тренинги</h3>
+        </div>
+        <ul className="space-y-2">
+          {plan.learning.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
+              <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -119,7 +244,6 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
 
   return (
     <div className="space-y-6">
-      {/* Summary header */}
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -140,7 +264,6 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
         </div>
       </div>
 
-      {/* Radar chart + priority gaps */}
       {radarForChart.length > 2 && (
         <div className="card">
           <h3 className="font-semibold text-(--color-text-primary) mb-4">Параметры атласа</h3>
@@ -170,20 +293,13 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
                   </div>
                 </div>
               ))}
-              {data.radar_data.filter(d => d.current >= d.target).length > 0 && (
-                <p className="text-xs text-emerald-600 mt-2">
-                  {data.radar_data.filter(d => d.current >= d.target).map(d => d.param).join(', ')} — соответствуют цели
-                </p>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Skill gaps */}
       {data.skill_gaps.length > 0 && <SkillGapsSection gaps={data.skill_gaps} />}
 
-      {/* Strong skills */}
       {data.skill_strong.length > 0 && (
         <div className="card">
           <h3 className="font-semibold text-(--color-text-primary) mb-3 flex items-center gap-2">
@@ -208,7 +324,6 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
 function SwitchView({ data }: { data: SwitchAnalysis }) {
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="card">
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="flex-1 text-center sm:text-left">
@@ -228,12 +343,10 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Transferable */}
         <div className="card">
           <h3 className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400 mb-3">
             <CheckCircle2 className="h-5 w-5" /> Переносимые навыки
           </h3>
-          <p className="text-sm text-(--color-text-muted) mb-3">Актуальны для новой роли.</p>
           <div className="flex flex-wrap gap-2">
             {data.transferable.map(s => (
               <span key={s.name} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 rounded-lg text-sm font-medium border border-emerald-500/20">
@@ -242,13 +355,10 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
             ))}
           </div>
         </div>
-
-        {/* Gaps */}
         <div className="card">
           <h3 className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400 mb-3">
             <Target className="h-5 w-5" /> Зона роста
           </h3>
-          <p className="text-sm text-(--color-text-muted) mb-3">Навыки для освоения.</p>
           <div className="flex flex-wrap gap-2">
             {data.gaps.map(g => (
               <span key={g.name} className="px-3 py-1.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 rounded-lg text-sm font-medium border border-amber-500/20">
@@ -258,28 +368,6 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
           </div>
         </div>
       </div>
-
-      {/* Gap details */}
-      {data.gaps.filter(g => g.description || g.tasks).length > 0 && (
-        <SkillGapsSection gaps={data.gaps.map(g => ({ ...g, current: 0, required: 2, delta: 2 }))} />
-      )}
-
-      {/* Tracks */}
-      {data.suggested_tracks.length > 0 && (
-        <div className="card">
-          <h3 className="font-semibold text-(--color-text-primary) mb-3">Рекомендуемые треки</h3>
-          <div className="space-y-2">
-            {data.suggested_tracks.map((t, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-(--color-surface-alt) border border-(--color-border)">
-                <div className="h-6 w-6 rounded-full bg-purple-500/10 flex items-center justify-center text-xs font-bold text-purple-600 shrink-0 mt-0.5">
-                  {i + 1}
-                </div>
-                <span className="text-sm text-(--color-text-secondary)">{t}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -288,52 +376,39 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
 // ======================== EXPLORE ========================
 
 function ExploreView({ data }: { data: ExploreAnalysis }) {
-  const categoryLabel: Record<string, string> = {
-    closest: 'Ближайшие',
-    adjacent: 'Смежные',
-    far: 'Дальние',
-  };
   const categoryColor: Record<string, string> = {
     closest: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
     adjacent: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
     far: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
   };
+  const categoryLabel: Record<string, string> = {
+    closest: 'Ближайшие', adjacent: 'Смежные', far: 'Дальние',
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.roles.map((role, idx) => (
-          <RoleCard key={idx} role={role} categoryLabel={categoryLabel} categoryColor={categoryColor} />
-        ))}
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {data.roles.map((role, idx) => (
+        <ExploreRoleCard key={idx} role={role} categoryColor={categoryColor} categoryLabel={categoryLabel} />
+      ))}
     </div>
   );
 }
 
-function RoleCard({ role, categoryLabel, categoryColor }: {
+function ExploreRoleCard({ role, categoryColor, categoryLabel }: {
   role: ExploreAnalysis['roles'][0];
-  categoryLabel: Record<string, string>;
   categoryColor: Record<string, string>;
+  categoryLabel: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
-  const matchColor = role.match > 20 ? 'text-emerald-600' : role.match > 10 ? 'text-amber-600' : 'text-(--color-text-muted)';
-
   return (
-    <div
-      className="card hover:shadow-md transition-all cursor-pointer"
-      onClick={() => setOpen(!open)}
-    >
+    <div className="card hover:shadow-md transition-all cursor-pointer" onClick={() => setOpen(!open)}>
       <div className="flex justify-between items-start mb-3">
         <h3 className="font-bold text-(--color-text-primary) text-lg">{role.title}</h3>
         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${categoryColor[role.category] || ''}`}>
           {role.match}%
         </span>
       </div>
-
-      <span className={`text-xs font-medium ${matchColor}`}>
-        {categoryLabel[role.category] || role.category}
-      </span>
-
+      <span className="text-xs font-medium text-(--color-text-muted)">{categoryLabel[role.category]}</span>
       {role.missing.length > 0 && (
         <div className="mt-3">
           <span className="text-xs font-semibold text-(--color-text-muted) uppercase">Не хватает:</span>
@@ -344,10 +419,8 @@ function RoleCard({ role, categoryLabel, categoryColor }: {
           </div>
         </div>
       )}
-
       {open && role.reasons.length > 0 && (
         <div className="mt-4 pt-3 border-t border-(--color-border) fade-in">
-          <p className="text-xs font-semibold text-(--color-text-muted) uppercase mb-2">Почему подходит:</p>
           <ul className="space-y-1">
             {role.reasons.map((r, i) => (
               <li key={i} className="text-sm text-(--color-text-secondary) flex items-start gap-2">
@@ -364,7 +437,7 @@ function RoleCard({ role, categoryLabel, categoryColor }: {
 
 // ======================== SHARED ========================
 
-function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: string; tasks?: string; delta?: number; level_key?: string }> }) {
+function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: string; tasks?: string; level_key?: string }> }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const withDetails = gaps.filter(g => g.description || g.tasks);
   if (withDetails.length === 0) return null;
@@ -372,7 +445,7 @@ function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: 
   return (
     <div className="card">
       <h3 className="font-semibold text-(--color-text-primary) mb-4 flex items-center gap-2">
-        <FileText className="h-5 w-5 text-(--color-accent)" /> Навыки: описание и задачи на развитие
+        <FileText className="h-5 w-5 text-(--color-accent)" /> Навыки: описание и задачи
       </h3>
       <div className="space-y-2">
         {withDetails.map((g, i) => (
@@ -389,7 +462,7 @@ function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: 
                   </span>
                 )}
               </div>
-              <ChevronRight className={`h-4 w-4 text-(--color-text-muted) transition-transform ${expandedIdx === i ? 'rotate-90' : ''}`} />
+              <ChevronDown className={`h-4 w-4 text-(--color-text-muted) transition-transform ${expandedIdx === i ? 'rotate-180' : ''}`} />
             </button>
             {expandedIdx === i && (
               <div className="px-4 pb-4 fade-in space-y-3">

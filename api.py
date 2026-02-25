@@ -373,6 +373,104 @@ def build_plan_api(req: PlanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class FocusedPlanRequest(BaseModel):
+    profession: str
+    grade: str
+    scenario: str
+    target_profession: Optional[str] = None
+    selected_skills: List[str]
+
+
+@app.post("/api/focused-plan")
+def focused_plan_api(req: FocusedPlanRequest):
+    """Генерирует фокусный план по выбранным навыкам. Возвращает {tasks, communication, learning}."""
+    if not req.selected_skills:
+        raise HTTPException(status_code=400, detail="Выберите хотя бы один навык")
+
+    grade_key = GRADE_MAP.get(req.grade, "Middle")
+    grade_sequence = ["Junior", "Middle", "Senior", "Lead", "Expert"]
+    idx = grade_sequence.index(grade_key) if grade_key in grade_sequence else 1
+    target_grade = grade_sequence[min(idx + 1, len(grade_sequence) - 1)]
+
+    skill_details = []
+    for name in req.selected_skills[:10]:
+        detail = data.get_skill_detail(name, target_grade)
+        if detail:
+            skill_details.append(detail)
+        else:
+            skill_details.append({"skill_name": name, "level_key": "", "description": "", "tasks": ""})
+
+    from plan_generator import PlanGenerator
+    gen = PlanGenerator()
+    if not gen.client:
+        return {
+            "tasks": [{"skill": s["skill_name"], "items": [s["tasks"] or "Практика в рабочих задачах"]} for s in skill_details],
+            "communication": ["Обсудите приоритеты с руководителем", "Запросите обратную связь от коллег"],
+            "learning": ["Изучите материалы по выбранным навыкам"],
+        }
+
+    skill_context = ""
+    for s in skill_details:
+        block = f"Навык: {s['skill_name']}"
+        if s.get("description"):
+            block += f"\nОписание уровня ({s['level_key']}): {s['description']}"
+        if s.get("tasks"):
+            block += f"\nЗадачи на развитие: {s['tasks']}"
+        skill_context += block + "\n\n"
+
+    target = req.target_profession or req.profession
+    prompt = f"""Пользователь выбрал навыки для развития: {', '.join(req.selected_skills)}.
+Профессия: {req.profession}, грейд: {req.grade}, цель: {target}, сценарий: {req.scenario}.
+
+Данные по навыкам:
+{skill_context}
+
+Сгенерируй РОВНО три JSON-блока. Отвечай ТОЛЬКО валидным JSON без markdown.
+
+{{
+  "tasks": [
+    {{"skill": "название навыка", "items": ["конкретная задача 1", "конкретная задача 2"]}}
+  ],
+  "communication": ["рекомендация по развитию через общение 1", "рекомендация 2", "рекомендация 3"],
+  "learning": ["конкретная книга/курс/ресурс 1", "ресурс 2", "ресурс 3"]
+}}
+
+Правила:
+- tasks: для КАЖДОГО выбранного навыка 2-3 конкретные задачи, опираясь на данные выше
+- communication: 3-5 рекомендаций по менторству, code review, обратной связи
+- learning: 3-5 конкретных книг, курсов или ресурсов на русском или английском
+- Отвечай на русском
+- Только JSON, без пояснений"""
+
+    import json as _json
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = gen.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "Отвечай только валидным JSON. Без markdown, без пояснений."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=2000,
+                response_format={"type": "json_object"},
+            )
+            result = _json.loads(response.choices[0].message.content)
+            if "tasks" not in result:
+                result["tasks"] = []
+            if "communication" not in result:
+                result["communication"] = []
+            if "learning" not in result:
+                result["learning"] = []
+            return result
+        except Exception as e:
+            last_error = e
+            import time; time.sleep(1)
+
+    raise HTTPException(status_code=500, detail=f"Ошибка генерации: {last_error}")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

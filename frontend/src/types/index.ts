@@ -143,6 +143,17 @@ export interface PlanResponse {
   analysis?: Analysis;
 }
 
+export interface FocusedPlanTask {
+  skill: string;
+  items: string[];
+}
+
+export interface FocusedPlan {
+  tasks: FocusedPlanTask[];
+  communication: string[];
+  learning: string[];
+}
+
 export interface AppState {
   profession: string;
   scenario: Scenario | '';
