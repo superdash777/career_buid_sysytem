@@ -1,7 +1,7 @@
 
-"""
-Сценарий «Переход на следующий грейд».
-"""
+""
+Сценарий «Переход на следующий грейд»
+""
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
