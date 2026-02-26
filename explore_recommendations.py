@@ -1,7 +1,7 @@
 
-"""
+""
 Сценарий «Исследование возможностей».
-"""
+""
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
@@ -33,7 +33,7 @@ def normalize_role_name(role_title: str) -> str:
 
 @dataclass
 class RoleMatch:
-    """Входной матч по одной роли (до дедупа)."""
+    """Входной матч по одной роли"""
     role_title: str
     match_score: float  # 0..1
     why_match: List[str] = field(default_factory=list)
@@ -45,7 +45,7 @@ class RoleMatch:
 
 @dataclass
 class RoleCard:
-    """Карточка роли для вывода."""
+    """Карточка роли для вывода"""
     title: str
     internal_role: Optional[str] = None
     match_score: float = 0.0
@@ -59,7 +59,7 @@ class RoleCard:
 
 @dataclass
 class ExploreViewModel:
-    """Модель выдачи Explore: три категории."""
+    """Модель выдачи Explore: три категории"""
     closest: List[RoleCard] = field(default_factory=list)
     adjacent: List[RoleCard] = field(default_factory=list)
     far: List[RoleCard] = field(default_factory=list)
