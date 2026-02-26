@@ -1,5 +1,5 @@
-
-""Анализ разрывов с семантическим мэтчингом навыков""
+# -*- coding: utf-8 -*-
+"""Анализ разрывов с семантическим мэтчингом навыков."""
 
 from data_loader import PARAM_ORDINAL_NAMES, SKILL_LEVEL_NAMES
 
