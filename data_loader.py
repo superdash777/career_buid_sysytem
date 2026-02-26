@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from config import Config
 
-# --- Два РАЗНЫХ ordinal-маппинга: навыки (3 уровня) и параметры (5 уровней) ---
+# --- Маппинг
 
 # Навыки: Junior→Basic(1), Middle/Senior→Proficiency(2), Lead/Expert→Advanced(3)
 GRADE_TO_SKILL_LEVEL = {
@@ -16,7 +16,7 @@ GRADE_TO_SKILL_LEVEL = {
     "Expert": 3,
 }
 
-# Параметры атласа: 5 ordinal-уровней, совпадают с грейдами
+# Параметры атласа: 5 уровней, совпадают с грейдами
 GRADE_TO_PARAM_ORDINAL = {
     "Junior": 1,
     "Middle": 2,
