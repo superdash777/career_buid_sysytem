@@ -1,8 +1,4 @@
 
-"""
-REST API для AI Career Pathfinder (для подключения отдельного фронтенда).
-Запуск: uvicorn api:app --reload --host 127.0.0.1 --port 8000
-"""
 
 import os
 import sys
