@@ -1,5 +1,4 @@
-
-"""Скрипт однократной сборки RAG-индекса (навыки + атлас) в Qdrant. Запуск: python build_rag_index.py"""
+"""Скрипт однократной сборки RAG-индекса (навыки + атлас) в Qdrant."""
 
 import sys
 from pathlib import Path
