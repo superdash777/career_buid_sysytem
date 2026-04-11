@@ -9,8 +9,8 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from config import Config
 
-# Ленивая загрузка тяжёлых зависимостей
-_sentence_transformer = None
+# Ленивая загрузка тяжёлых зависимостей (отдельно по model_name)
+_sentence_transformers: Dict[str, Any] = {}
 
 # --- Qdrant через REST API ---
 
@@ -113,15 +113,37 @@ def normalize_user_input(text: str) -> str:
     return t
 
 
-def _get_embedder():
-    global _sentence_transformer
-    if _sentence_transformer is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-            _sentence_transformer = SentenceTransformer(Config.EMBED_MODEL_NAME)
-        except Exception as e:
-            raise RuntimeError(f"Не удалось загрузить модель эмбеддингов {Config.EMBED_MODEL_NAME}: {e}")
-    return _sentence_transformer
+def _get_embedder(model_name: Optional[str] = None):
+    model = model_name or Config.EMBED_MODEL_NAME
+    if model in _sentence_transformers:
+        return _sentence_transformers[model]
+    try:
+        from sentence_transformers import SentenceTransformer
+        _sentence_transformers[model] = SentenceTransformer(model)
+    except Exception as e:
+        raise RuntimeError(f"Не удалось загрузить модель эмбеддингов {model}: {e}")
+    return _sentence_transformers[model]
+
+
+def _encode_texts(
+    texts: List[str],
+    model_name: Optional[str] = None,
+    normalize: bool = True,
+    show_progress_bar: bool = False,
+):
+    embedder = _get_embedder(model_name=model_name)
+    return embedder.encode(texts, normalize_embeddings=normalize, show_progress_bar=show_progress_bar)
+
+
+def _e5_query_text(raw_skill: str) -> str:
+    return (
+        "Instruct: Retrieve the canonical skill name matching this resume phrase\n"
+        f"Query: {raw_skill}"
+    )
+
+
+def _e5_passage_text(canonical_name: str) -> str:
+    return f"passage: {canonical_name}"
 
 
 def _load_skills_and_atlas() -> Tuple[List[Dict], List[Dict]]:
@@ -232,7 +254,7 @@ def _load_or_build_skill_clusters(skills: List[Dict]) -> Tuple[Dict[str, int], D
         texts.append(_skill_to_text(s))
     if len(names) < 3:
         return {}, {}
-    embedder = _get_embedder()
+    embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
     vectors = embedder.encode(texts, normalize_embeddings=True)
     n_clusters = min(25, max(2, len(names) // 5))
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
@@ -258,7 +280,7 @@ def build_index(force_recreate: bool = False) -> Optional[int]:
     """
     if not _qdrant_rest_config()[0]:
         return None
-    embedder = _get_embedder()
+    embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
     skills, atlas = _load_skills_and_atlas()
     skill_cluster_map, cluster_labels = _load_or_build_skill_clusters(skills)
     docs = build_documents(skills, atlas, skill_cluster_map, cluster_labels)
@@ -292,6 +314,60 @@ def build_index(force_recreate: bool = False) -> Optional[int]:
         return None
 
 
+def build_skills_v2_index(force_recreate: bool = False) -> Optional[int]:
+    """
+    Строит индекс только канонических названий навыков для E5-инференса.
+    Коллекция: Config.SKILLS_V2_COLLECTION_NAME.
+    """
+    if not _qdrant_rest_config()[0]:
+        return None
+    try:
+        skills, _ = _load_skills_and_atlas()
+        names = []
+        payloads = []
+        for s in skills:
+            name = (s.get("Навык") or s.get("name") or "").strip()
+            if not name:
+                continue
+            profession = s.get("Профессия (лист)") or s.get("Профессия") or s.get("Привязка к профессии") or ""
+            if isinstance(profession, list):
+                profession = profession[0] if profession else ""
+            names.append(name)
+            payloads.append({"type": "skill", "name": name, "profession": profession})
+
+        if not names:
+            return 0
+
+        texts = [_e5_passage_text(n) for n in names]
+        vectors = _encode_texts(texts, model_name=Config.EMBED_MODEL_NAME_V2, normalize=True)
+        vector_size = int(vectors.shape[1])
+        collection = Config.SKILLS_V2_COLLECTION_NAME
+
+        existing = _qdrant_rest_get_collections()
+        if collection in existing and force_recreate:
+            _qdrant_rest_delete_collection(collection)
+            existing = _qdrant_rest_get_collections()
+        if collection not in existing:
+            if not _qdrant_rest_create_collection(collection, vector_size):
+                return None
+
+        points = []
+        for idx, name in enumerate(names):
+            points.append(
+                {
+                    "id": idx,
+                    "vector": vectors[idx].tolist(),
+                    "payload": payloads[idx],
+                }
+            )
+        if not _qdrant_rest_upsert(collection, points):
+            return None
+        return len(points)
+    except Exception as e:
+        print(f"⚠️ Ошибка построения индекса skills_v2: {e}")
+        return None
+
+
 def retrieve(query: str, top_k: Optional[int] = None, score_threshold: Optional[float] = None) -> List[Dict]:
     """
     Векторный поиск по индексу RAG (через REST).
@@ -302,7 +378,7 @@ def retrieve(query: str, top_k: Optional[int] = None, score_threshold: Optional[
     score_threshold = score_threshold if score_threshold is not None else Config.RAG_SCORE_THRESHOLD
     if not _qdrant_rest_config()[0]:
         return []
-    embedder = _get_embedder()
+    embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
     qvec = embedder.encode([query], normalize_embeddings=True)[0].tolist()
     try:
         return _qdrant_rest_search(
@@ -311,6 +387,57 @@ def retrieve(query: str, top_k: Optional[int] = None, score_threshold: Optional[
     except Exception as e:
         print(f"⚠️ Ошибка поиска RAG: {e}")
         return []
+
+
+def search_skills_v2(
+    user_input: str,
+    top_k: Optional[int] = None,
+    score_threshold: Optional[float] = None,
+) -> List[Dict]:
+    """
+    Поиск канонических навыков в E5-коллекции skills_v2.
+    Возвращает [{"score": float, "payload": {...}}, ...].
+    """
+    normalized = normalize_user_input(user_input or "")
+    if not normalized:
+        return []
+    if not _qdrant_rest_config()[0]:
+        return []
+    query = _e5_query_text(normalized)
+    top_k = top_k if top_k is not None else Config.SKILLS_V2_TOP_K
+    threshold = (
+        score_threshold
+        if score_threshold is not None
+        else Config.SKILLS_V2_SCORE_THRESHOLD
+    )
+    try:
+        qvec = _encode_texts([query], model_name=Config.EMBED_MODEL_NAME_V2, normalize=True)[0].tolist()
+        return _qdrant_rest_search(
+            Config.SKILLS_V2_COLLECTION_NAME,
+            qvec,
+            limit=top_k,
+            score_threshold=threshold,
+        )
+    except Exception as e:
+        print(f"⚠️ Ошибка поиска skills_v2: {e}")
+        return []
+
+
+def get_skills_v2_candidates(
+    user_input: str,
+    top_k: Optional[int] = None,
+    score_threshold: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    requested_top_k = top_k or Config.SKILLS_V2_TOP_K
+    hits = search_skills_v2(user_input, top_k=requested_top_k, score_threshold=score_threshold)
+    out = []
+    for h in hits:
+        payload = h.get("payload") or {}
+        name = (payload.get("name") or "").strip()
+        if not name:
+            continue
+        out.append({"name": name, "score": float(h.get("score") or 0.0)})
+    return out[:requested_top_k]
 
 
 def get_rag_context_for_plan(step1_summary: str, target_name: str, top_k: Optional[int] = None) -> str:
@@ -342,14 +469,17 @@ def suggest_skills(user_input: str, top_k: Optional[int] = None) -> List[str]:
         return []
     top_k = top_k or Config.SKILL_SUGGESTIONS_TOP_K
     min_score = getattr(Config, "SUGGESTIONS_MIN_SCORE", 0.35)
-    hits = retrieve(normalized, top_k=top_k * 2, score_threshold=min_score)
+    # Приоритет: новая коллекция skills_v2 (E5), fallback: legacy RAG.
+    hits = search_skills_v2(normalized, top_k=top_k * 2, score_threshold=min_score)
+    if not hits:
+        hits = retrieve(normalized, top_k=top_k * 2, score_threshold=min_score)
     seen = set()
     result = []
     for h in hits:
         if (h.get("score") or 0) < min_score:
             continue
         p = h.get("payload") or {}
-        if p.get("type") != "skill":
+        if p.get("type") not in ("skill", "", None):
             continue
         name = p.get("name", "").strip()
         if name and name not in seen:
@@ -471,13 +601,22 @@ def map_to_canonical_skill(user_input: str) -> Optional[str]:
     if not normalized:
         return None
     threshold = Config.SKILL_MAP_SIMILARITY_THRESHOLD
+
+    # 1) Пытаемся через новую E5-коллекцию skills_v2.
+    hits = search_skills_v2(normalized, top_k=1, score_threshold=threshold)
+    if hits:
+        p = hits[0].get("payload") or {}
+        name = (p.get("name") or "").strip()
+        if name:
+            return name
+
+    # 2) Fallback: старая коллекция MiniLM.
     hits = retrieve(normalized, top_k=1, score_threshold=threshold)
-    if not hits:
-        return None
-    p = hits[0].get("payload") or {}
-    if p.get("type") != "skill":
-        return None
-    return (p.get("name") or "").strip() or None
+    if hits:
+        p = hits[0].get("payload") or {}
+        if p.get("type") == "skill":
+            return (p.get("name") or "").strip() or None
+    return None
 
 
 def rank_opportunities(
@@ -493,7 +632,7 @@ def rank_opportunities(
     if not opportunities:
         return []
     try:
-        embedder = _get_embedder()
+        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
     except Exception:
         return opportunities
     # Текст профиля пользователя
@@ -530,7 +669,7 @@ def rank_opportunities(
 
 def get_embedder():
     """Доступ к эмбеддеру для внешних модулей."""
-    return _get_embedder()
+    return _get_embedder(model_name=Config.EMBED_MODEL_NAME)
 
 
 # --- Semantic skill matching ---
@@ -544,7 +683,7 @@ def _get_skill_embeddings(skill_names: List[str]) -> Dict[str, Any]:
     if _skill_embeddings_cache is not None:
         return _skill_embeddings_cache
     try:
-        embedder = _get_embedder()
+        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
         names = list(skill_names)
         vecs = embedder.encode(names, normalize_embeddings=True, show_progress_bar=False)
@@ -566,7 +705,7 @@ def semantic_match_skills(
     if not user_skill_names or not required_skill_names:
         return {}
     try:
-        embedder = _get_embedder()
+        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
     except Exception:
         return {}
@@ -602,7 +741,7 @@ def compute_profile_similarity(user_skill_names: List[str], role_skill_names: Li
     if not user_skill_names or not role_skill_names:
         return 0.0
     try:
-        embedder = _get_embedder()
+        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
         u_vecs = embedder.encode(user_skill_names, normalize_embeddings=True, show_progress_bar=False)
         r_vecs = embedder.encode(role_skill_names, normalize_embeddings=True, show_progress_bar=False)

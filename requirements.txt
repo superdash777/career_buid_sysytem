@@ -11,3 +11,4 @@ transformers>=4.40
 scikit-learn>=1.0
 fastapi>=0.100
 uvicorn>=0.22
+rapidfuzz

@@ -33,6 +33,10 @@ class Config:
     # RAG
     RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "career_pathfinder_rag")
     EMBED_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    EMBED_MODEL_NAME_V2 = os.getenv("EMBED_MODEL_NAME_V2", "intfloat/multilingual-e5-large-instruct")
+    SKILLS_V2_COLLECTION_NAME = os.getenv("SKILLS_V2_COLLECTION_NAME", "skills_v2")
+    SKILLS_V2_TOP_K = int(os.getenv("SKILLS_V2_TOP_K", "5"))
+    SKILLS_V2_SCORE_THRESHOLD = float(os.getenv("SKILLS_V2_SCORE_THRESHOLD", "0.5"))
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", "20"))
     RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.35"))
 

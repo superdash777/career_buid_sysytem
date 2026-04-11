@@ -5,6 +5,9 @@ from openai import OpenAI
 from pypdf import PdfReader
 import json
 from config import Config
+from typing import Dict, List, Optional
+
+from rag_service import get_skills_v2_candidates
 
 class ResumeParser:
     def __init__(self):
@@ -27,7 +30,25 @@ class ResumeParser:
             text = text[:max_len] + "\n\n[Текст обрезан. Извлеки навыки из приведённой части.]"
         return text
 
-    def parse_skills(self, resume_text, allowed_skills):
+    def _run_json_chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int = 1800,
+    ) -> Dict:
+        model = getattr(Config, "RESUME_PARSER_MODEL", "gpt-4o")
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        raw = response.choices[0].message.content
+        return json.loads(raw)
+
+    def _legacy_parse_skills(self, resume_text, allowed_skills):
+        """Старый монолитный extraction: extraction+normalization+level одним вызовом."""
         if not self.client:
             raise ValueError(
                 "OPENAI_API_KEY не задан. Добавьте ключ в .env для распознавания навыков из PDF."
@@ -70,3 +91,240 @@ class ResumeParser:
                 import time
                 time.sleep(1)
         return {"skills": []}
+
+    def _extract_raw_skills(self, resume_text: str) -> List[str]:
+        """Вызов 1: чистое извлечение навыков без уровней и без нормализации."""
+        system_prompt = (
+            "Ты — HR-аналитик. Извлеки только навыки из резюме.\n"
+            "Отвечай только валидным JSON: {\"skills\": [\"навык 1\", \"навык 2\"]}\n"
+            "ПРАВИЛА:\n"
+            "- НЕ извлекай должности\n"
+            "- НЕ извлекай компании\n"
+            "- НЕ извлекай города\n"
+            "- НЕ извлекай университеты\n"
+            "- Удали дубликаты\n"
+            "- Короткие формулировки навыков"
+        )
+        few_shot_user = (
+            "Резюме: Работал в Яндексе как Senior Product Manager в Москве. "
+            "Окончил МГУ. Использовал SQL, проводил A/B тесты, строил дашборды в DataLens."
+        )
+        few_shot_assistant = "{\"skills\": [\"SQL\", \"A/B тесты\", \"DataLens\"]}"
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": few_shot_user},
+                {"role": "assistant", "content": few_shot_assistant},
+                {"role": "user", "content": resume_text},
+            ],
+            temperature=0.0,
+            max_tokens=1200,
+        )
+        skills = result.get("skills", [])
+        if not isinstance(skills, list):
+            return []
+        clean = []
+        seen = set()
+        for s in skills:
+            name = str(s or "").strip()
+            if not name:
+                continue
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            clean.append(name)
+        return clean
+
+    def _llm_rerank_candidate(
+        self,
+        raw_skill: str,
+        candidates: List[Dict[str, float]],
+    ) -> Dict[str, Optional[float]]:
+        """Вызов 2: LLM re-ranking по top-5 кандидатам из E5."""
+        candidate_names = [c.get("name", "") for c in candidates if c.get("name")]
+        if not candidate_names:
+            return {"match": None, "confidence": None}
+
+        prompt = (
+            f"Навык пользователя: {raw_skill}\n"
+            f"Кандидаты: {candidate_names}\n\n"
+            "Выбери лучший вариант из списка или ответь none.\n"
+            "Верни только JSON: {\"match\": \"название или none\", \"confidence\": число от 0 до 1}."
+        )
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": "Отвечай только валидным JSON. Никакого markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=300,
+        )
+        match = str(result.get("match", "")).strip()
+        if match.lower() == "none":
+            match = ""
+        confidence = result.get("confidence")
+        try:
+            confidence = float(confidence) if confidence is not None else None
+        except Exception:
+            confidence = None
+        return {"match": (match or None), "confidence": confidence}
+
+    def _classify_unknown_skill(self, raw_skill: str, resume_text: str) -> Dict[str, Optional[float]]:
+        """LLM-классификация неизвестного навыка: это действительно навык или шум."""
+        prompt = (
+            f"Фраза из резюме: {raw_skill}\n\n"
+            "Определи, является ли это навыком.\n"
+            "Верни JSON: {\"is_skill\": true/false, \"confidence\": число от 0 до 1}.\n"
+            "Не относить к навыкам: должности, компании, города, университеты."
+        )
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": "Отвечай строго валидным JSON без пояснений."},
+                {"role": "user", "content": f"{prompt}\n\nКонтекст резюме:\n{resume_text[:1500]}"},
+            ],
+            temperature=0.0,
+            max_tokens=250,
+        )
+        is_skill = bool(result.get("is_skill"))
+        confidence = result.get("confidence")
+        try:
+            confidence = float(confidence) if confidence is not None else None
+        except Exception:
+            confidence = None
+        return {"is_skill": is_skill, "confidence": confidence}
+
+    def _assess_level(
+        self,
+        canonical_skill: str,
+        resume_text: str,
+        skill_levels: Dict[str, str],
+    ) -> Dict[str, Optional[str]]:
+        """Вызов 3: оценка уровня (0..3) с цитатой-доказательством."""
+        prompt = (
+            f"Навык: {canonical_skill}\n\n"
+            "Определи уровень по шкале:\n"
+            f"- Basic: {skill_levels.get('basic', '')}\n"
+            f"- Proficiency: {skill_levels.get('proficiency', '')}\n"
+            f"- Advanced: {skill_levels.get('advanced', '')}\n\n"
+            "Фрагмент резюме:\n"
+            f"{resume_text[:4000]}\n\n"
+            "Верни JSON: {\"level\": число 0..3, \"evidence\": \"короткая цитата из резюме\"}."
+        )
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": "Отвечай только JSON. Уровень строго 0..3."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=400,
+        )
+        level = result.get("level")
+        try:
+            level = int(level)
+        except Exception:
+            level = 1
+        level = max(0, min(3, level))
+        evidence = str(result.get("evidence", "")).strip()
+        return {"level": level, "evidence": evidence}
+
+    @staticmethod
+    def _skill_level_texts(allowed_skills: List[Dict], canonical_name: str) -> Dict[str, str]:
+        for item in allowed_skills:
+            name = (item.get("Навык") or item.get("name") or "").strip()
+            if name != canonical_name:
+                continue
+            return {
+                "basic": (
+                    item.get("Skill level \\\\ Индикатор - Basic")
+                    or item.get("Skill level \\ Индикатор - Basic")
+                    or ""
+                ),
+                "proficiency": (
+                    item.get("Skill level \\\\ Индикатор - Proficiency")
+                    or item.get("Skill level \\ Индикатор - Proficiency")
+                    or ""
+                ),
+                "advanced": (
+                    item.get("Skill level \\\\ Индикатор - Advanced")
+                    or item.get("Skill level \\ Индикатор - Advanced")
+                    or ""
+                ),
+            }
+        return {"basic": "", "proficiency": "", "advanced": ""}
+
+    def parse_skills_v2(self, resume_text: str, allowed_skills: List[Dict]) -> Dict:
+        """Новый pipeline: extraction -> normalization/rerank -> level assessment."""
+        raw_skills = self._extract_raw_skills(resume_text)
+        if not raw_skills:
+            return {"skills": [], "used_fallback": False}
+
+        skill_by_name = {}
+        for s in allowed_skills:
+            n = (s.get("Навык") or s.get("name") or "").strip()
+            if n:
+                skill_by_name[n] = s
+
+        result_skills = []
+        for raw_skill in raw_skills:
+            candidates = get_skills_v2_candidates(raw_skill, top_k=5)
+            rerank = self._llm_rerank_candidate(raw_skill, candidates)
+            matched_name = rerank.get("match")
+            llm_conf = rerank.get("confidence")
+
+            if not matched_name and candidates:
+                matched_name = candidates[0].get("name")
+            if not matched_name:
+                unknown = self._classify_unknown_skill(raw_skill, resume_text)
+                if not unknown.get("is_skill"):
+                    continue
+                result_skills.append(
+                    {
+                        "raw_name": raw_skill,
+                        "name": raw_skill,
+                        "level": 1,
+                        "evidence": "",
+                        "llm_rerank_confidence": unknown.get("confidence"),
+                        "candidates": [],
+                        "is_unknown": True,
+                    }
+                )
+                continue
+
+            levels = self._skill_level_texts(allowed_skills, matched_name)
+            level_info = self._assess_level(matched_name, resume_text, levels)
+            result_skills.append(
+                {
+                    "raw_name": raw_skill,
+                    "name": matched_name,
+                    "level": level_info.get("level", 1),
+                    "evidence": level_info.get("evidence", ""),
+                    "llm_rerank_confidence": llm_conf,
+                    "candidates": candidates[:5],
+                }
+            )
+
+        # Deduplicate by canonical skill, keeping the highest level
+        dedup = {}
+        for s in result_skills:
+            key = s["name"]
+            cur = dedup.get(key)
+            if not cur or int(s.get("level", 0)) > int(cur.get("level", 0)):
+                dedup[key] = s
+        return {"skills": list(dedup.values()), "used_fallback": False}
+
+    def parse_skills(self, resume_text, allowed_skills):
+        """Совместимый интерфейс: сначала v2, при ошибке — legacy fallback."""
+        if not self.client:
+            raise ValueError(
+                "OPENAI_API_KEY не задан. Добавьте ключ в .env для распознавания навыков из PDF."
+            )
+
+        try:
+            return self.parse_skills_v2(resume_text, allowed_skills)
+        except Exception:
+            legacy = self._legacy_parse_skills(
+                resume_text,
+                [s.get("Навык") or s.get("name") for s in allowed_skills],
+            )
+            return {"skills": legacy.get("skills", []), "used_fallback": True}

@@ -28,3 +28,13 @@ def test_resolve_to_canonical_from_file():
     # Результат должен быть из canonical_set
     assert resolve_to_canonical("питон", {"Python"}) == "Python"
     assert resolve_to_canonical("питон", set()) is None
+
+
+def test_map_to_canonical_skill_uses_skills_v2_first():
+    """При наличии кандидата из skills_v2 он имеет приоритет."""
+    from rag_service import map_to_canonical_skill
+    from unittest.mock import patch
+
+    with patch("rag_service.search_skills_v2", return_value=[{"payload": {"name": "SQL"}, "score": 0.91}]), \
+         patch("rag_service.retrieve", return_value=[{"payload": {"type": "skill", "name": "Excel"}, "score": 0.95}]):
+        assert map_to_canonical_skill("sql") == "SQL"

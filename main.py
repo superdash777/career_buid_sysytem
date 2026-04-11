@@ -62,21 +62,11 @@ def analyze_resume(pdf_file, profession):
         text = parser.extract_text(pdf_file)
         if not text or not text.strip():
             return [["⚠️ Не удалось извлечь текст из PDF. Проверьте файл.", 0]]
-        skills_list = list(data.skills_map.keys())
-        result = parser.parse_skills(text, skills_list)
+        skills_dicts = data.skills
+        result = parser.parse_skills(text, skills_dicts)
 
-        # Нормализация названий навыков: маппинг на канонические из справочника (при высокой близости)
-        try:
-            from rag_service import map_to_canonical_skill
-            for s in result.get("skills", []):
-                canonical = map_to_canonical_skill(s.get("name") or "")
-                if canonical:
-                    s["name"] = canonical
-        except Exception:
-            pass
-
-        # Преобразуем уровни 1-3 в новую шкалу 0-2
-        level_mapping = {1: 1, 2: 1.5, 3: 2}
+        # Преобразуем уровни 0-3 в шкалу 0-2
+        level_mapping = {0: 0, 1: 1, 2: 1.5, 3: 2}
 
         table_data = []
         for s in result.get('skills', []):

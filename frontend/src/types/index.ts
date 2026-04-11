@@ -1,6 +1,11 @@
 export interface Skill {
   name: string;
   level: number; // 0..2, шаг 0.5
+  raw_name?: string;
+  confidence?: number;
+  confidence_band?: 'exact' | 'fuzzy' | 'vector_llm' | 'llm_unknown';
+  alternatives?: Array<{ name: string; score?: number | null }>;
+  evidence?: string;
 }
 
 export const SKILL_LEVELS = [

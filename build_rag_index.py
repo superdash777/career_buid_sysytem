@@ -1,4 +1,8 @@
-"""Скрипт однократной сборки RAG-индекса (навыки + атлас) в Qdrant. Запуск: python build_rag_index.py"""
+"""Скрипт однократной сборки legacy RAG-индекса (MiniLM) в Qdrant.
+
+Для полной переиндексации (legacy + skills_v2 E5) используйте:
+    python3 scripts/reindex_qdrant.py
+"""
 
 import sys
 from pathlib import Path

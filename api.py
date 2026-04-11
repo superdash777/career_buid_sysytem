@@ -17,6 +17,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from rapidfuzz import fuzz
 
 # Инициализация модулей (как в main)
 from data_loader import DataLoader
@@ -105,19 +106,77 @@ async def analyze_resume(file: UploadFile = File(...)):
             text = parser.extract_text(tmp)
             if not text or not text.strip():
                 return {"skills": [], "error": "Не удалось извлечь текст из PDF"}
-            skills_list = list(data.skills_map.keys())
-            result = parser.parse_skills(text, skills_list)
-            try:
-                from rag_service import map_to_canonical_skill
-                for s in result.get("skills", []):
-                    can = map_to_canonical_skill(s.get("name") or "")
-                    if can:
-                        s["name"] = can
-            except Exception:
-                pass
-            level_mapping = {1: 1, 2: 1.5, 3: 2}
-            out = [{"name": s.get("name", ""), "level": level_mapping.get(s.get("level"), 1)} for s in result.get("skills", [])]
-            return {"skills": out}
+            skills_dicts = data.skills
+            canonical_names = [s.get("Навык") or s.get("name") for s in skills_dicts]
+            result = parser.parse_skills(text, skills_dicts)
+
+            level_mapping = {0: 0, 1: 1, 2: 1.5, 3: 2}
+
+            out = []
+            for s in result.get("skills", []):
+                raw_name = (s.get("raw_name") or s.get("name") or "").strip()
+                name = (s.get("name") or "").strip()
+                if not name:
+                    continue
+
+                confidence = None
+                band = None
+                alternatives = []
+
+                # 1) exact match после нормализации строк -> 1.0
+                if raw_name and name and raw_name.lower() == name.lower():
+                    confidence = 1.0
+                    band = "exact"
+                else:
+                    # 2) fuzzy -> 0.9
+                    ratio = fuzz.ratio(raw_name.lower(), name.lower()) if raw_name and name else 0
+                    if ratio > 85:
+                        confidence = 0.9
+                        band = "fuzzy"
+                    else:
+                        # 3) vector + llm rerank -> 0.6..0.95
+                        llm_conf = s.get("llm_rerank_confidence")
+                        if bool(s.get("is_unknown")):
+                            # 4) LLM classification для неизвестных навыков -> 0.5
+                            confidence = 0.5
+                            band = "llm_unknown"
+                        else:
+                            try:
+                                llm_conf = float(llm_conf) if llm_conf is not None else 0.75
+                            except Exception:
+                                llm_conf = 0.75
+                            confidence = max(0.6, min(0.95, llm_conf))
+                            band = "vector_llm"
+
+                cands = s.get("candidates") or []
+                for c in cands[:3]:
+                    cname = (c.get("name") or "").strip()
+                    cscore = c.get("score")
+                    if not cname:
+                        continue
+                    try:
+                        cscore = float(cscore) if cscore is not None else None
+                    except Exception:
+                        cscore = None
+                    alternatives.append({"name": cname, "score": cscore})
+
+                out.append(
+                    {
+                        "raw_name": raw_name,
+                        "name": name,
+                        "level": level_mapping.get(s.get("level"), 1),
+                        "confidence": confidence if confidence is not None else 0.5,
+                        "confidence_band": band or "llm_unknown",
+                        "alternatives": alternatives,
+                        "evidence": s.get("evidence", ""),
+                    }
+                )
+
+            return {
+                "skills": out,
+                "used_fallback": bool(result.get("used_fallback", False)),
+                "version": "v2",
+            }
         finally:
             if tmp.exists():
                 tmp.unlink(missing_ok=True)
