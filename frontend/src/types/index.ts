@@ -165,6 +165,7 @@ export interface AppState {
   grade: Grade;
   targetProfession: string;
   skills: Skill[];
+  developmentHoursPerWeek?: number;
 }
 
 export const INITIAL_STATE: AppState = {
@@ -173,4 +174,5 @@ export const INITIAL_STATE: AppState = {
   grade: 'Специалист (Middle)',
   targetProfession: '',
   skills: [],
+  developmentHoursPerWeek: undefined,
 };

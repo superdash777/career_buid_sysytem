@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
+import CareerGpsTab from '../components/CareerGpsTab';
 import { buildFocusedPlan, ApiError } from '../api/client';
 import type {
   PlanResponse, GrowthAnalysis, SwitchAnalysis, ExploreAnalysis,
@@ -25,6 +26,7 @@ interface Props {
 
 export default function Result({ plan, appState, onReset, onBackToSkills }: Props) {
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'analysis' | 'gps'>('analysis');
   const [selectedGaps, setSelectedGaps] = useState<Set<string>>(new Set());
   const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -95,8 +97,31 @@ export default function Result({ plan, appState, onReset, onBackToSkills }: Prop
           </div>
         </div>
 
+        <div className="inline-flex rounded-xl border border-(--color-border) bg-(--color-surface-raised) p-1">
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'analysis'
+                ? 'bg-(--color-accent) text-white'
+                : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+            }`}
+          >
+            Анализ
+          </button>
+          <button
+            onClick={() => setActiveTab('gps')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'gps'
+                ? 'bg-(--color-accent) text-white'
+                : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+            }`}
+          >
+            Карьерный GPS
+          </button>
+        </div>
+
         {/* Visual analysis */}
-        {plan.analysis && (
+        {activeTab === 'analysis' && plan.analysis && (
           <div className="fade-in">
             {plan.analysis.scenario === 'growth' && <GrowthView data={plan.analysis} />}
             {plan.analysis.scenario === 'switch' && <SwitchView data={plan.analysis} />}
@@ -104,8 +129,14 @@ export default function Result({ plan, appState, onReset, onBackToSkills }: Prop
           </div>
         )}
 
+        {activeTab === 'gps' && (
+          <div className="fade-in">
+            <CareerGpsTab analysis={plan.analysis} appState={appState} />
+          </div>
+        )}
+
         {/* Gap selection for plan generation */}
-        {gapNames.length > 0 && !focusedPlan && !planLoading && (
+        {activeTab === 'analysis' && gapNames.length > 0 && !focusedPlan && !planLoading && (
           <div className="card fade-in">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-9 w-9 rounded-lg bg-(--color-accent-light) flex items-center justify-center">
@@ -143,12 +174,12 @@ export default function Result({ plan, appState, onReset, onBackToSkills }: Prop
         )}
 
         {/* Plan loading */}
-        {planLoading && (
+        {activeTab === 'analysis' && planLoading && (
           <ProgressLoader text="Формируем персональный план…" subtext="Это займёт несколько секунд" durationMs={20000} />
         )}
 
         {/* Focused plan */}
-        {focusedPlan && <FocusedPlanView plan={focusedPlan} />}
+        {activeTab === 'analysis' && focusedPlan && <FocusedPlanView plan={focusedPlan} />}
 
         {/* Footer */}
         <div className="flex flex-wrap gap-3 pt-2">
