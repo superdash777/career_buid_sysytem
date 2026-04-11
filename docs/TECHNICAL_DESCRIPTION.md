@@ -525,3 +525,20 @@ FastAPI раздаёт статику из `frontend/dist` через catch-all 
 **Этап 1 — Автоматическое логирование (ближайшая итерация).** Добавление структурированных логов в ключевые функции пайплайна: `_skills_table_to_user_skills`, `semantic_match_skills`, `analyze_structured`, `focused_plan_api`. Метрики: match rate, empty result rate, score distribution, completeness, JSON validity. Логи агрегируются и визуализируются на дашборде.
 
 **Этап 2 — Ручная оценка ** Разметка 30–50 эталонных кейсов: профиль пользователя → ожидаемые gap-навыки → ожидаемые matched пары → ожидаемые роли в Explore. Сравнение выхода системы с эталоном для расчёта precision, recall, F1, faithfulness. Определение оптимального порога семантического мэтчинга через кривую precision-recall.
+
+---
+
+## 10. Реализованный eval pipeline (CLI)
+
+В репозитории добавлены инструменты оценки качества:
+
+- `eval.py` — расчёт extraction precision/recall/F1, normalization accuracy, latency, cost, faithfulness (ROUGE-L).
+- `scripts/threshold_analysis.py` — sweep порогов `0.50..0.85`, CSV + PNG precision-recall.
+- `eval_dataset.json` — текущий размеченный набор из 50 примеров.
+
+Примеры запуска:
+
+```bash
+python3 eval.py --version v2 --verbose
+python3 scripts/threshold_analysis.py --dataset eval_dataset.json
+```

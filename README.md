@@ -445,6 +445,33 @@ pytest tests/ -v
 
 ---
 
+## Eval pipeline
+
+Оценка качества пайплайна выполняется через `eval.py` на размеченном датасете
+`eval_dataset.json` (50 примеров).
+
+```bash
+python3 eval.py --version v2 --verbose
+```
+
+Результат сохраняется в:
+
+```text
+eval_results/<timestamp>_<version>.json
+```
+
+### Threshold analysis (precision/recall curve)
+
+```bash
+python3 scripts/threshold_analysis.py --dataset eval_dataset.json
+```
+
+Скрипт прогоняет нормализацию при порогах `0.50..0.85` и сохраняет:
+- CSV с метриками;
+- PNG с precision-recall кривой.
+
+---
+
 ## Деплой
 
 Приложение деплоится на Railway с автодеплоем из ветки `main`. Подробности: [docs/DEPLOY_RAILWAY.md](docs/DEPLOY_RAILWAY.md).

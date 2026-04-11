@@ -53,8 +53,18 @@ class GapAnalyzer:
             else:
                 strong.append((skill, curr_level))
 
-        match_percent = int((len(strong) / len(target_requirements)) * 100) if target_requirements else 0
-        return {"match_percent": match_percent, "missing": missing, "gaps": gaps, "strong": strong}
+        # Legacy невзвешенный показатель (для обратной совместимости)
+        legacy_match_percent = int((len(strong) / len(target_requirements)) * 100) if target_requirements else 0
+
+        # В базовом analyze нет доступа к DataLoader, поэтому weighted=legacy.
+        return {
+            "match_percent": legacy_match_percent,
+            "match_percent_legacy": legacy_match_percent,
+            "weighted_match_percent": legacy_match_percent,
+            "missing": missing,
+            "gaps": gaps,
+            "strong": strong,
+        }
 
     @staticmethod
     def analyze_structured(user_skills, target_requirements, atlas_param_names, atlas_map):
@@ -116,10 +126,35 @@ class GapAnalyzer:
 
         total = len(target_requirements)
         strong_count = len(atlas_strong) + len(skill_strong)
-        match_percent = int((strong_count / total) * 100) if total else 0
+        legacy_match_percent = int((strong_count / total) * 100) if total else 0
+
+        # Weighted match: считаем только по навыкам (не atlas-параметрам).
+        # Вес навыка: Stable=2, Trending=3, неизвестно=1.
+        skill_weights = {}
+        try:
+            from data_loader import DataLoader
+            dl = DataLoader()
+            for s_name in skill_reqs:
+                skill_weights[s_name] = dl.get_skill_weight(s_name)
+        except Exception:
+            for s_name in skill_reqs:
+                skill_weights[s_name] = 1
+
+        required_weight_sum = sum(skill_weights.get(s_name, 1) for s_name in skill_reqs)
+        matched_weight_sum = sum(
+            skill_weights.get(s_name, 1)
+            for s_name in skill_reqs
+            if get_user_level(s_name) >= skill_reqs[s_name]
+        )
+        if required_weight_sum > 0:
+            weighted_match_percent = int((matched_weight_sum / required_weight_sum) * 100)
+        else:
+            weighted_match_percent = legacy_match_percent
 
         return {
-            "match_percent": match_percent,
+            "match_percent": weighted_match_percent,
+            "match_percent_legacy": legacy_match_percent,
+            "weighted_match_percent": weighted_match_percent,
             "atlas_gaps": atlas_gaps,
             "atlas_strong": atlas_strong,
             "skill_gaps": skill_gaps,
