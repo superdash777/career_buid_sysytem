@@ -63,6 +63,18 @@ export async function fetchSkillsForRole(
   return data.skills;
 }
 
+export async function fetchSkillsByCategoryForRole(
+  profession: string,
+  signal?: AbortSignal,
+): Promise<Array<{ name: string; skills: string[] }>> {
+  const data = await request<{ categories: Array<{ name: string; skills: string[] }> }>(
+    `/api/skills-by-category?profession=${encodeURIComponent(profession)}`,
+    undefined,
+    signal,
+  );
+  return data.categories;
+}
+
 export async function suggestSkills(q: string, signal?: AbortSignal): Promise<string[]> {
   if (q.trim().length < 2) return [];
   const data = await request<{ suggestions: string[] }>(

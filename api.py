@@ -406,6 +406,21 @@ def get_skills_for_role(profession: str):
     return {"skills": data.get_skills_for_role(profession)}
 
 
+@app.get("/api/skills-by-category")
+def get_skills_by_category(profession: str):
+    """
+    Навыки с разбивкой по категориям для ручного выбора.
+    Возвращает: {"categories": [{"name": str, "skills": [str, ...]}, ...]}
+    """
+    if not profession:
+        return {"categories": []}
+    try:
+        categories = data.get_skills_by_category_for_role(profession)
+        return {"categories": categories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/suggest-skills")
 def suggest_skills(q: str = ""):
     """Подсказки навыков по строке (синонимы + RAG)."""

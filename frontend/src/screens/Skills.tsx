@@ -10,7 +10,7 @@ import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import { showToast } from '../components/toastStore';
-import { analyzeResume, suggestSkills, fetchSkillsForRole } from '../api/client';
+import { analyzeResume, suggestSkills, fetchSkillsForRole, fetchSkillsByCategoryForRole } from '../api/client';
 import { ApiError } from '../api/client';
 import type { AppState, Skill } from '../types';
 
@@ -22,6 +22,11 @@ interface Props {
 }
 
 const RECOMMENDED_VISIBLE = 6;
+type InputMode = 'resume' | 'manual';
+interface SkillCategoryGroup {
+  name: string;
+  skills: string[];
+}
 
 function SkillQualityBar({ count }: { count: number }) {
   const pct = Math.min(count / 7, 1) * 100;
@@ -53,6 +58,7 @@ function SkillQualityBar({ count }: { count: number }) {
 }
 
 export default function Skills({ state, onChange, onNext, onBack }: Props) {
+  const [inputMode, setInputMode] = useState<InputMode>('resume');
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [uploadError, setUploadError] = useState<{ title: string; text: string } | null>(null);
@@ -64,10 +70,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
   const [highlightedIdx, setHighlightedIdx] = useState(-1);
   const [newSkillNames, setNewSkillNames] = useState<Set<string>>(new Set());
   const [showAllRecommended, setShowAllRecommended] = useState(false);
+  const [skillCategories, setSkillCategories] = useState<SkillCategoryGroup[]>([]);
   const suggestRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestAbortRef = useRef<AbortController | null>(null);
   const roleAbortRef = useRef<AbortController | null>(null);
+  const categoryAbortRef = useRef<AbortController | null>(null);
 
   const skills = state.skills;
   const setSkills = useCallback((s: Skill[]) => onChange({ skills: s }), [onChange]);
@@ -81,8 +89,17 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
       fetchSkillsForRole(state.profession, roleAbortRef.current.signal)
         .then(setRoleSkills)
         .catch(() => {});
+
+      categoryAbortRef.current?.abort();
+      categoryAbortRef.current = new AbortController();
+      fetchSkillsByCategoryForRole(state.profession, categoryAbortRef.current.signal)
+        .then(setSkillCategories)
+        .catch(() => setSkillCategories([]));
     }
-    return () => { roleAbortRef.current?.abort(); };
+    return () => {
+      roleAbortRef.current?.abort();
+      categoryAbortRef.current?.abort();
+    };
   }, [state.profession]);
 
   useEffect(() => {
@@ -300,55 +317,94 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           </Alert>
         )}
 
-        {/* Resume upload */}
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Загрузите резюме</h2>
-            <p className="text-sm text-(--color-text-muted)">PDF — мы извлечём навыки автоматически.</p>
+            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Как добавить навыки</h2>
+            <p className="text-sm text-(--color-text-muted)">
+              Выберите удобный вариант: загрузка PDF или ручной выбор по категориям.
+            </p>
           </div>
-
-          {uploading ? (
-            <ProgressLoader text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты" durationMs={40000} />
-          ) : (
-            <div
-              {...getRootProps()}
-              className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all cursor-pointer ${
-                isDragActive
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              onClick={() => setInputMode('resume')}
+              className={`rounded-xl border p-3 text-left transition-colors ${
+                inputMode === 'resume'
                   ? 'border-(--color-accent) bg-(--color-accent-light)'
-                  : 'border-(--color-border) bg-(--color-surface-alt) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light)/50'
+                  : 'border-(--color-border) hover:border-(--color-accent)/40'
               }`}
             >
-              <input {...getInputProps()} />
-              <Upload className="h-8 w-8 text-(--color-text-muted)" />
-              <p className="text-sm text-(--color-text-secondary) text-center">
-                Перетащите PDF сюда или{' '}
-                <span className="font-medium text-(--color-accent)">выберите файл</span>
-              </p>
-            </div>
-          )}
-
-          {uploadMsg && !uploadError && (
-            <Alert variant={uploadMsg.startsWith('Добавлено') ? 'success' : 'info'}>
-              {uploadMsg}
-            </Alert>
-          )}
-
-          {uploadError && (
-            <Alert
-              variant={uploadError.title.includes('недоступен') ? 'warning' : 'error'}
-              title={uploadError.title}
-              onClose={() => setUploadError(null)}
+              <p className="font-medium text-(--color-text-primary)">Загрузить резюме (PDF)</p>
+              <p className="text-xs text-(--color-text-muted) mt-1">Извлечём навыки автоматически</p>
+            </button>
+            <button
+              onClick={() => setInputMode('manual')}
+              className={`rounded-xl border p-3 text-left transition-colors ${
+                inputMode === 'manual'
+                  ? 'border-(--color-accent) bg-(--color-accent-light)'
+                  : 'border-(--color-border) hover:border-(--color-accent)/40'
+              }`}
             >
-              {uploadError.text}
-            </Alert>
-          )}
+              <p className="font-medium text-(--color-text-primary)">Выбрать навыки вручную</p>
+              <p className="text-xs text-(--color-text-muted) mt-1">Чипы навыков по категориям</p>
+            </button>
+          </div>
         </div>
+
+        {/* Resume upload */}
+        {inputMode === 'resume' && (
+          <div className="card space-y-4 fade-in">
+            <div>
+              <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Загрузите резюме</h2>
+              <p className="text-sm text-(--color-text-muted)">PDF — мы извлечём навыки автоматически.</p>
+            </div>
+
+            {uploading ? (
+              <ProgressLoader text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты" durationMs={40000} />
+            ) : (
+              <div
+                {...getRootProps()}
+                className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all cursor-pointer ${
+                  isDragActive
+                    ? 'border-(--color-accent) bg-(--color-accent-light)'
+                    : 'border-(--color-border) bg-(--color-surface-alt) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light)/50'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-8 w-8 text-(--color-text-muted)" />
+                <p className="text-sm text-(--color-text-secondary) text-center">
+                  Перетащите PDF сюда или{' '}
+                  <span className="font-medium text-(--color-accent)">выберите файл</span>
+                </p>
+              </div>
+            )}
+
+            {uploadMsg && !uploadError && (
+              <Alert variant={uploadMsg.startsWith('Добавлено') ? 'success' : 'info'}>
+                {uploadMsg}
+              </Alert>
+            )}
+
+            {uploadError && (
+              <Alert
+                variant={uploadError.title.includes('недоступен') ? 'warning' : 'error'}
+                title={uploadError.title}
+                onClose={() => setUploadError(null)}
+              >
+                {uploadError.text}
+              </Alert>
+            )}
+          </div>
+        )}
 
         {/* Manual input */}
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Или добавьте вручную</h2>
-            <p className="text-sm text-(--color-text-muted)">Введите название навыка или выберите из подсказок.</p>
+            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">
+              {inputMode === 'manual' ? 'Выбор навыков вручную' : 'Или добавьте вручную'}
+            </h2>
+            <p className="text-sm text-(--color-text-muted)">
+              Введите название навыка или выберите из подсказок.
+            </p>
           </div>
 
           <div className="relative" ref={suggestRef}>
@@ -401,6 +457,34 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               </div>
             )}
           </div>
+
+          {inputMode === 'manual' && skillCategories.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-(--color-text-muted)">
+                Выбор по категориям для «{state.profession}»:
+              </p>
+              {skillCategories.map((category) => {
+                const available = category.skills.filter((skillName) => !existingNames.has(skillName.toLowerCase()));
+                if (available.length === 0) return null;
+                return (
+                  <div key={category.name} className="space-y-2">
+                    <p className="text-sm font-medium text-(--color-text-primary)">{category.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {available.slice(0, 20).map((skillName) => (
+                        <button
+                          key={`${category.name}-${skillName}`}
+                          onClick={() => addSkill(skillName)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light) transition-colors"
+                        >
+                          <Plus className="h-3 w-3" /> {skillName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {filteredRoleSkills.length > 0 && (
             <div>
