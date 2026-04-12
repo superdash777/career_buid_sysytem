@@ -34,3 +34,9 @@ def test_normalize_focused_json_fills_missing_fields():
     assert normalized["tasks"][0]["items"] == ["Требуется уточнение"]
     assert normalized["communication"] == ["Требуется уточнение"]
     assert normalized["learning"] == ["Требуется уточнение"]
+
+
+def test_system_policy_requires_books_only():
+    policy = PlanGenerator._system_policy()  # type: ignore[attr-defined]
+    assert "рекомендуй только книги" in policy
+    assert "Не рекомендуй курсы" in policy
