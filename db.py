@@ -5,8 +5,13 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from config import Config
+
 PROJECT_DIR = Path(__file__).resolve().parent
-DB_PATH = PROJECT_DIR / "career_copilot.db"
+DB_PATH = Path(Config.DB_PATH)
+if not DB_PATH.is_absolute():
+    DB_PATH = PROJECT_DIR / DB_PATH
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def get_db_connection() -> sqlite3.Connection:
@@ -67,4 +72,17 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_progress_user_id ON progress(user_id)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS refresh_tokens (
+                token_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at)")
         conn.commit()

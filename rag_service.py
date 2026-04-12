@@ -11,6 +11,7 @@ from config import Config
 
 # Ленивая загрузка тяжёлых зависимостей (отдельно по model_name)
 _sentence_transformers: Dict[str, Any] = {}
+_cross_encoder = None
 
 # --- Qdrant через REST API ---
 
@@ -142,6 +143,41 @@ def _rrf_rank_fusion(dense_rank: int, lexical_rank: int, rrf_k: float) -> float:
     return (1.0 / (rrf_k + dense_rank)) + (1.0 / (rrf_k + lexical_rank))
 
 
+def _get_cross_encoder():
+    global _cross_encoder
+    if _cross_encoder is not None:
+        return _cross_encoder
+    model_name = (getattr(Config, "SKILLS_CROSS_ENCODER_MODEL", "") or "").strip()
+    if not model_name:
+        return None
+    try:
+        from sentence_transformers import CrossEncoder
+        _cross_encoder = CrossEncoder(model_name)
+        return _cross_encoder
+    except Exception:
+        return None
+
+
+def _cross_encoder_rerank(query: str, candidates: List[Dict[str, Any]], top_n: int) -> List[Dict[str, Any]]:
+    ce = _get_cross_encoder()
+    if ce is None or not candidates:
+        return candidates[:top_n]
+    try:
+        pairs = [(query, c.get("name", "")) for c in candidates]
+        ce_scores = ce.predict(pairs)
+        enriched = []
+        for c, score in zip(candidates, ce_scores):
+            row = dict(c)
+            row["cross_encoder_score"] = float(score)
+            row["score"] = 0.6 * float(row.get("score", 0.0)) + 0.4 * float(score)
+            row["retrieval_mode"] = "hybrid_cross_encoder"
+            enriched.append(row)
+        enriched.sort(key=lambda x: -float(x.get("score", 0.0)))
+        return enriched[:top_n]
+    except Exception:
+        return candidates[:top_n]
+
+
 def _prepare_skills_cache() -> List[Dict[str, str]]:
     """
     Лёгкий кэш канонических навыков для lexical re-rank/fallback.
@@ -236,6 +272,20 @@ def _dense_skill_candidates(
             }
         )
     return out
+
+
+def _get_cross_encoder():
+    model_name = (getattr(Config, "SKILLS_CROSS_ENCODER_MODEL", "") or "").strip()
+    if not model_name:
+        return None
+    if model_name in _cross_encoder_models:
+        return _cross_encoder_models[model_name]
+    try:
+        from sentence_transformers import CrossEncoder
+        _cross_encoder_models[model_name] = CrossEncoder(model_name)
+        return _cross_encoder_models[model_name]
+    except Exception:
+        return None
 
 
 def _get_embedder(model_name: Optional[str] = None):
@@ -637,7 +687,8 @@ def get_skills_v2_candidates(
 
     dense_weight = float(getattr(Config, "SKILLS_HYBRID_DENSE_WEIGHT", 0.7))
     lexical_weight = float(getattr(Config, "SKILLS_HYBRID_LEXICAL_WEIGHT", 0.3))
-    rrf_k = float(getattr(Config, "SKILLS_HYBRID_RERANK_TOP_N", 60.0))
+    rrf_k = float(getattr(Config, "SKILLS_HYBRID_RRF_K", 60.0))
+    cross_encoder_model = (getattr(Config, "SKILLS_CROSS_ENCODER_MODEL", "") or "").strip()
     min_score = float(getattr(Config, "SKILLS_HYBRID_MIN_SCORE", 0.3))
 
     fused_rows: List[Dict[str, Any]] = []
@@ -674,6 +725,18 @@ def get_skills_v2_candidates(
             -float(x.get("lexical_score", 0.0)),
         )
     )
+    if cross_encoder_model and fused_rows:
+        try:
+            rerank_n = max(1, min(len(fused_rows), int(getattr(Config, "SKILLS_HYBRID_RERANK_TOP_N", 20))))
+            reranked = _cross_encoder_rerank(
+                query=user_input,
+                candidates=fused_rows[:rerank_n],
+                model_name=cross_encoder_model,
+            )
+            tail = fused_rows[rerank_n:]
+            fused_rows = reranked + tail
+        except Exception:
+            pass
     filtered = [x for x in fused_rows if float(x.get("score", 0.0)) >= min_score]
     if not filtered:
         filtered = fused_rows

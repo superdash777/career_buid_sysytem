@@ -19,6 +19,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
+import hashlib
 import uuid
 import json
 import jwt
@@ -33,6 +34,7 @@ from output_formatter import OutputFormatter
 from confidence_utils import get_skill_confidence
 from db import get_db_connection, init_db
 from config import Config
+from rate_limiter import check_rate_limit_or_raise
 
 data = DataLoader()
 parser = ResumeParser()
@@ -81,8 +83,61 @@ def _create_access_token(user_id: str, email: str) -> str:
         "email": email,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=Config.JWT_ACCESS_TOKEN_TTL_MINUTES)).timestamp()),
+        "type": "access",
     }
-    return jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm=Config.JWT_ALGORITHM)
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+
+
+def _create_refresh_token(user_id: str, email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=Config.JWT_REFRESH_TOKEN_TTL_MINUTES)).timestamp()),
+        "type": "refresh",
+    }
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _store_refresh_token(user_id: str, refresh_token: str) -> None:
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=Config.JWT_REFRESH_TOKEN_TTL_MINUTES)
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO refresh_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (token_hash, user_id, now.isoformat(), expires_at.isoformat()),
+        )
+        conn.commit()
+
+
+def _revoke_refresh_token(refresh_token: str) -> None:
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,))
+        conn.commit()
+
+
+def _is_refresh_token_active(refresh_token: str) -> bool:
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT expires_at FROM refresh_tokens WHERE token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+    if row is None:
+        return False
+    expires_at = row["expires_at"] or ""
+    try:
+        exp_dt = datetime.fromisoformat(expires_at)
+    except Exception:
+        return False
+    return exp_dt > datetime.now(timezone.utc)
 
 
 def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
@@ -111,9 +166,11 @@ def _get_current_user(
         raise HTTPException(status_code=401, detail="Требуется авторизация")
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, Config.JWT_SECRET_KEY, algorithms=[Config.JWT_ALGORITHM])
+        payload = jwt.decode(token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Недействительный токен")
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Неверный тип токена")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Недействительный токен")
@@ -131,6 +188,14 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
 
 
 class OnboardingRequest(BaseModel):
@@ -187,6 +252,11 @@ def _recommend_scenario_from_pain_point(pain_point: str) -> str:
 
 @app.post("/api/auth/register")
 def register(req: RegisterRequest):
+    check_rate_limit_or_raise(
+        f"register:{(req.email or '').strip().lower()}",
+        limit=Config.AUTH_REGISTER_RATE_LIMIT,
+        window_sec=Config.AUTH_RATE_LIMIT_WINDOW_SEC,
+    )
     email = (req.email or "").strip().lower()
     password = req.password or ""
     if "@" not in email or len(email) < 5:
@@ -207,13 +277,25 @@ def register(req: RegisterRequest):
         conn.commit()
 
     token = _create_access_token(user_id=user_id, email=email)
+    refresh_token = _create_refresh_token(user_id=user_id, email=email)
+    _store_refresh_token(user_id, refresh_token)
     user = _get_user_by_id(user_id)
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    return {
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
 
 
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
     email = (req.email or "").strip().lower()
+    check_rate_limit_or_raise(
+        f"login:{email}",
+        limit=Config.AUTH_LOGIN_RATE_LIMIT,
+        window_sec=Config.AUTH_RATE_LIMIT_WINDOW_SEC,
+    )
     password = req.password or ""
     with get_db_connection() as conn:
         row = conn.execute(
@@ -224,8 +306,47 @@ def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
     token = _create_access_token(user_id=row["id"], email=row["email"])
+    refresh_token = _create_refresh_token(user_id=row["id"], email=row["email"])
+    _store_refresh_token(row["id"], refresh_token)
     user = _get_user_by_id(row["id"])
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    return {
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
+
+
+@app.post("/api/auth/refresh")
+def refresh_access_token(req: RefreshRequest):
+    token = (req.refresh_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Требуется refresh_token")
+    try:
+        payload = jwt.decode(token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Недействительный refresh token")
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Неверный тип токена")
+    if not _is_refresh_token_active(token):
+        raise HTTPException(status_code=401, detail="Refresh token неактивен")
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    if not user_id or not email:
+        raise HTTPException(status_code=401, detail="Некорректный refresh token")
+    access = _create_access_token(user_id=user_id, email=email)
+    new_refresh = _create_refresh_token(user_id=user_id, email=email)
+    _store_refresh_token(user_id, new_refresh)
+    _revoke_refresh_token(token)
+    return {"access_token": access, "refresh_token": new_refresh, "token_type": "bearer"}
+
+
+@app.post("/api/auth/logout")
+def logout(req: LogoutRequest):
+    token = (req.refresh_token or "").strip()
+    if token:
+        _revoke_refresh_token(token)
+    return {"ok": True}
 
 
 @app.get("/api/auth/me")

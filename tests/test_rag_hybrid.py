@@ -46,3 +46,18 @@ def test_get_skills_v2_candidates_dense_only_mode(monkeypatch):
     assert len(out) == 1
     assert out[0]["name"] == "Python"
     assert out[0]["retrieval_mode"] == "dense_only"
+
+
+def test_get_skills_v2_candidates_lexical_only_mode(monkeypatch):
+    monkeypatch.setattr("rag_service._dense_skill_candidates", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "rag_service._lexical_skill_candidates",
+        lambda *args, **kwargs: [
+            {"score": 0.77, "payload": {"name": "SQL, YQL", "profession": "Data"}},
+            {"score": 0.66, "payload": {"name": "Python", "profession": "Data"}},
+        ],
+    )
+    out = get_skills_v2_candidates("sql", top_k=1, retrieval_mode="lexical_only")
+    assert len(out) == 1
+    assert out[0]["name"] == "SQL, YQL"
+    assert out[0]["retrieval_mode"] == "lexical_only"

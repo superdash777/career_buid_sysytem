@@ -3,8 +3,10 @@
 
 import json
 import time
+from pydantic import BaseModel, Field, ValidationError
 from typing import Any, Dict, List, Optional, Tuple
 from config import Config
+from llm_observability import LLMCallMetrics, log_llm_call
 
 try:
     from openai import OpenAI
@@ -13,6 +15,17 @@ except ImportError:
 
 MAX_TOKENS_RESPONSE = 4096
 FOCUSED_PLAN_MAX_TOKENS = 2200
+
+
+class _FocusedTaskItem(BaseModel):
+    skill: str = ""
+    items: List[str] = Field(default_factory=list)
+
+
+class _FocusedPlanResponse(BaseModel):
+    tasks: List[_FocusedTaskItem] = Field(default_factory=list)
+    communication: List[str] = Field(default_factory=list)
+    learning: List[str] = Field(default_factory=list)
 
 
 class PlanGenerator:
@@ -121,6 +134,10 @@ class PlanGenerator:
 
     @staticmethod
     def _normalize_focused_json(result: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            result = _FocusedPlanResponse(**(result or {})).model_dump()
+        except ValidationError:
+            result = _FocusedPlanResponse().model_dump()
         tasks = result.get("tasks") if isinstance(result.get("tasks"), list) else []
         normalized_tasks = []
         for item in tasks:
@@ -214,6 +231,8 @@ class PlanGenerator:
 - Если данных недостаточно, пиши «Требуется уточнение»"""
 
         last_error = None
+        prompt_chars = len(prompt)
+        start_ms = int(time.time() * 1000)
         for attempt in range(3):
             try:
                 response = self.client.chat.completions.create(
@@ -225,11 +244,39 @@ class PlanGenerator:
                     temperature=0.3,
                     max_tokens=MAX_TOKENS_RESPONSE,
                 )
-                return response.choices[0].message.content.strip()
+                content = response.choices[0].message.content.strip()
+                if Config.LLM_OBSERVABILITY_ENABLED:
+                    log_llm_call(
+                        LLMCallMetrics(
+                            component="plan_generator",
+                            operation="generate_plan_702010",
+                            model=Config.PLAN_GENERATOR_MODEL,
+                            request_id=None,
+                            success=True,
+                            latency_ms=int(time.time() * 1000) - start_ms,
+                            prompt_chars=prompt_chars,
+                            completion_chars=len(content),
+                        )
+                    )
+                return content
             except Exception as e:
                 last_error = e
                 if attempt < 2:
                     time.sleep(1 + attempt)
+        if Config.LLM_OBSERVABILITY_ENABLED:
+            log_llm_call(
+                LLMCallMetrics(
+                    component="plan_generator",
+                    operation="generate_plan_702010",
+                    model=Config.PLAN_GENERATOR_MODEL,
+                    request_id=None,
+                    success=False,
+                    latency_ms=int(time.time() * 1000) - start_ms,
+                    prompt_chars=prompt_chars,
+                    completion_chars=0,
+                    error=str(last_error),
+                )
+            )
         return self._fallback_plan(target_name) + f"\n\n*(Ошибка генерации: {last_error})*"
 
     def generate_focused_plan_json(
@@ -285,6 +332,8 @@ class PlanGenerator:
 - никаких пояснений вне JSON"""
 
         last_error = None
+        prompt_chars = len(prompt)
+        start_ms = int(time.time() * 1000)
         for attempt in range(3):
             try:
                 response = self.client.chat.completions.create(
@@ -298,12 +347,41 @@ class PlanGenerator:
                     response_format={"type": "json_object"},
                 )
                 parsed = json.loads(response.choices[0].message.content)
-                return self._normalize_focused_json(parsed if isinstance(parsed, dict) else {})
+                normalized = self._normalize_focused_json(parsed if isinstance(parsed, dict) else {})
+                if Config.LLM_OBSERVABILITY_ENABLED:
+                    completion_text = json.dumps(normalized, ensure_ascii=False)
+                    log_llm_call(
+                        LLMCallMetrics(
+                            component="plan_generator",
+                            operation="generate_focused_plan_json",
+                            model=Config.PLAN_GENERATOR_MODEL,
+                            request_id=None,
+                            success=True,
+                            latency_ms=int(time.time() * 1000) - start_ms,
+                            prompt_chars=prompt_chars,
+                            completion_chars=len(completion_text),
+                        )
+                    )
+                return normalized
             except Exception as e:
                 last_error = e
                 if attempt < 2:
                     time.sleep(1 + attempt)
 
+        if Config.LLM_OBSERVABILITY_ENABLED:
+            log_llm_call(
+                LLMCallMetrics(
+                    component="plan_generator",
+                    operation="generate_focused_plan_json",
+                    model=Config.PLAN_GENERATOR_MODEL,
+                    request_id=None,
+                    success=False,
+                    latency_ms=int(time.time() * 1000) - start_ms,
+                    prompt_chars=prompt_chars,
+                    completion_chars=0,
+                    error=str(last_error),
+                )
+            )
         return {
             "tasks": [{"skill": s, "items": ["Требуется уточнение"]} for s in selected_skills[:10]],
             "communication": [f"Требуется уточнение ({last_error})" if last_error else "Требуется уточнение"],
