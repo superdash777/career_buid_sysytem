@@ -16,6 +16,8 @@ interface Props {
   state: AppState;
   onBack: () => void;
   onResult: (plan: PlanResponse) => void;
+  isAuthenticated?: boolean;
+  onRequireAuth?: () => void;
 }
 
 const SCENARIO_LABELS: Record<Scenario, string> = {
@@ -26,7 +28,7 @@ const SCENARIO_LABELS: Record<Scenario, string> = {
 
 const INITIAL_VISIBLE = 5;
 
-export default function Confirmation({ state, onBack, onResult }: Props) {
+export default function Confirmation({ state, onBack, onResult, isAuthenticated = true, onRequireAuth }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAllSkills, setShowAllSkills] = useState(false);
@@ -50,23 +52,25 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
       });
 
       let enrichedPlan = plan;
-      try {
-        const saved = await createAnalysis({
-          scenario,
-          current_role: state.profession || undefined,
-          target_role: state.scenario === 'Смена профессии' ? state.targetProfession || undefined : undefined,
-          skills_json: {
-            profession: state.profession,
-            grade: state.grade,
+      if (isAuthenticated) {
+        try {
+          const saved = await createAnalysis({
             scenario,
-            target_profession: state.targetProfession,
-            skills: state.skills,
-          },
-          result_json: plan as unknown as Record<string, unknown>,
-        });
-        enrichedPlan = { ...plan, analysis_id: saved.id };
-      } catch {
-        showToast('План построен, но не удалось сохранить его в историю');
+            current_role: state.profession || undefined,
+            target_role: state.scenario === 'Смена профессии' ? state.targetProfession || undefined : undefined,
+            skills_json: {
+              profession: state.profession,
+              grade: state.grade,
+              scenario,
+              target_profession: state.targetProfession,
+              skills: state.skills,
+            },
+            result_json: plan as unknown as Record<string, unknown>,
+          });
+          enrichedPlan = { ...plan, analysis_id: saved.id };
+        } catch {
+          showToast('План построен, но не удалось сохранить его в историю');
+        }
       }
 
       onResult(enrichedPlan);
@@ -188,6 +192,22 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
             </div>
           </div>
         </div>
+
+        {!isAuthenticated && (
+          <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
+            <p className="text-sm text-(--color-text-secondary) leading-relaxed">
+              После построения результата вы увидите бесплатный снэпшот. Чтобы сохранить историю,
+              открыть полный план и трекинг прогресса — создайте аккаунт.
+            </p>
+            {onRequireAuth && (
+              <div className="mt-3">
+                <Button variant="secondary" onClick={onRequireAuth}>
+                  Войти и сохранить прогресс →
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between pt-2">
           <Button variant="secondary" onClick={onBack}>
