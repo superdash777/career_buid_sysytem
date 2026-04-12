@@ -4,16 +4,20 @@ import GoalSetup from './screens/GoalSetup';
 import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
+import Login from './screens/Login';
+import Register from './screens/Register';
 import Alert from './components/Alert';
 import NavBar from './components/NavBar';
 import ToastContainer from './components/Toast';
+import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './auth/AuthContext';
 import { healthCheck } from './api/client';
 import type { AppState, PlanResponse } from './types';
 import { INITIAL_STATE } from './types';
 
-type Screen = 'welcome' | 'goal' | 'skills' | 'confirm' | 'result';
+type Screen = 'login' | 'register' | 'welcome' | 'goal' | 'skills' | 'confirm' | 'result';
 
-const SCREEN_ORDER: Screen[] = ['welcome', 'goal', 'skills', 'confirm', 'result'];
+const SCREEN_ORDER: Screen[] = ['login', 'register', 'welcome', 'goal', 'skills', 'confirm', 'result'];
 
 const STORAGE_KEY = 'career_copilot_state';
 const PLAN_STORAGE_KEY = 'career_copilot_plan';
@@ -40,14 +44,31 @@ function loadSavedPlan(): PlanResponse | null {
 function screenFromHash(): Screen {
   const hash = window.location.hash.replace('#', '') as Screen;
   if (SCREEN_ORDER.includes(hash)) return hash;
-  return 'welcome';
+  return 'login';
 }
 
 export default function App() {
+  const { isAuthenticated } = useAuth();
   const [screen, setScreenRaw] = useState<Screen>(screenFromHash);
   const [state, setStateRaw] = useState<AppState>(loadSavedState);
   const [plan, setPlanRaw] = useState<PlanResponse | null>(loadSavedPlan);
   const [serviceDown, setServiceDown] = useState(false);
+
+  const setScreen = useCallback((s: Screen, replace = false) => {
+    setScreenRaw(s);
+    const method = replace ? 'replaceState' : 'pushState';
+    window.history[method]({ screen: s }, '', `#${s}`);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && (screen === 'login' || screen === 'register')) {
+      setScreen('welcome', true);
+      return;
+    }
+    if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
+      setScreen('login', true);
+    }
+  }, [isAuthenticated, screen, setScreen]);
 
   useEffect(() => {
     healthCheck().then((ok) => {
@@ -67,13 +88,6 @@ export default function App() {
       sessionStorage.removeItem(PLAN_STORAGE_KEY);
     }
   }, [plan]);
-
-  // Browser history integration
-  const setScreen = useCallback((s: Screen, replace = false) => {
-    setScreenRaw(s);
-    const method = replace ? 'replaceState' : 'pushState';
-    window.history[method]({ screen: s }, '', `#${s}`);
-  }, []);
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
@@ -104,7 +118,7 @@ export default function App() {
     setPlanRaw(null);
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(PLAN_STORAGE_KEY);
-    setScreen('welcome', true);
+    setScreen(isAuthenticated ? 'welcome' : 'login', true);
   };
 
   if (serviceDown) {
@@ -134,61 +148,98 @@ export default function App() {
   }
 
   const renderScreen = () => {
+    if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
+      return (
+        <Login
+          onSuccess={() => setScreen('welcome', true)}
+          onGoRegister={() => setScreen('register')}
+        />
+      );
+    }
+
     switch (screen) {
+      case 'login':
+        return (
+          <Login
+            onSuccess={() => setScreen('welcome', true)}
+            onGoRegister={() => setScreen('register')}
+          />
+        );
+      case 'register':
+        return (
+          <Register
+            onSuccess={() => setScreen('welcome', true)}
+            onGoLogin={() => setScreen('login')}
+          />
+        );
       case 'welcome':
-        return <Welcome onStart={() => setScreen('goal')} />;
+        return (
+          <ProtectedRoute>
+            <Welcome onStart={() => setScreen('goal')} />
+          </ProtectedRoute>
+        );
       case 'goal':
         return (
-          <GoalSetup
-            state={state}
-            onChange={update}
-            onNext={() => setScreen('skills')}
-            onBack={() => setScreen('welcome')}
-          />
+          <ProtectedRoute>
+            <GoalSetup
+              state={state}
+              onChange={update}
+              onNext={() => setScreen('skills')}
+              onBack={() => setScreen('welcome')}
+            />
+          </ProtectedRoute>
         );
       case 'skills':
         return (
-          <Skills
-            state={state}
-            onChange={update}
-            onNext={() => setScreen('confirm')}
-            onBack={() => setScreen('goal')}
-          />
+          <ProtectedRoute>
+            <Skills
+              state={state}
+              onChange={update}
+              onNext={() => setScreen('confirm')}
+              onBack={() => setScreen('goal')}
+            />
+          </ProtectedRoute>
         );
       case 'confirm':
         return (
-          <Confirmation
-            state={state}
-            onBack={() => setScreen('skills')}
-            onResult={(p) => {
-              setPlan(p);
-              setScreen('result');
-            }}
-          />
+          <ProtectedRoute>
+            <Confirmation
+              state={state}
+              onBack={() => setScreen('skills')}
+              onResult={(p) => {
+                setPlan(p);
+                setScreen('result');
+              }}
+            />
+          </ProtectedRoute>
         );
       case 'result':
-        return plan ? (
-          <Result
-            plan={plan}
-            appState={state}
-            onReset={reset}
-            onBackToSkills={() => setScreen('skills')}
-          />
-        ) : (
-          <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
-            <div className="max-w-md w-full text-center">
-              <NavBar />
-              <Alert variant="info" title="План ещё не создан">
-                Вернитесь к предыдущему шагу и сгенерируйте план.
-              </Alert>
-              <button
-                onClick={() => setScreen('confirm')}
-                className="btn-primary mt-6"
-              >
-                Вернуться к подтверждению
-              </button>
-            </div>
-          </div>
+        return (
+          <ProtectedRoute>
+            {plan ? (
+              <Result
+                plan={plan}
+                appState={state}
+                onReset={reset}
+                onBackToSkills={() => setScreen('skills')}
+              />
+            ) : (
+              <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
+                <div className="max-w-md w-full text-center">
+                  <NavBar />
+                  <Alert variant="info" title="План ещё не создан">
+                    Вернитесь к предыдущему шагу и сгенерируйте план.
+                  </Alert>
+                  <button
+                    onClick={() => setScreen('confirm')}
+                    className="btn-primary mt-6"
+                  >
+                    Вернуться к подтверждению
+                  </button>
+                </div>
+              </div>
+            )}
+          </ProtectedRoute>
         );
       default:
         return null;

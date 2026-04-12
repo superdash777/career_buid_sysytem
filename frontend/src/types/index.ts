@@ -8,6 +8,21 @@ export interface Skill {
   evidence?: string;
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  created_at: string;
+  experience_level?: string | null;
+  pain_point?: string | null;
+  development_hours_per_week?: number | null;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: UserProfile;
+}
+
 export const SKILL_LEVELS = [
   { value: 0,   label: 'Нет навыка',    short: '0',   tooltip: 'Не использую' },
   { value: 0.5, label: 'Начальный',     short: '0.5', tooltip: 'Иногда сталкивался' },

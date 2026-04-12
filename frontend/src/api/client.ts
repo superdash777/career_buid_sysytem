@@ -1,4 +1,4 @@
-import type { PlanRequest, PlanResponse, Skill, FocusedPlan } from '../types';
+import type { PlanRequest, PlanResponse, Skill, FocusedPlan, AuthResponse, UserProfile } from '../types';
 
 const BASE = '';
 
@@ -16,7 +16,13 @@ async function request<T>(
   init?: RequestInit,
   signal?: AbortSignal,
 ): Promise<T> {
-  const res = await fetch(`${BASE}${url}`, { ...init, signal });
+  const authToken = localStorage.getItem('career_copilot_jwt') || '';
+  const initHeaders = new Headers(init?.headers || {});
+  if (authToken && !initHeaders.has('Authorization')) {
+    initHeaders.set('Authorization', `Bearer ${authToken}`);
+  }
+
+  const res = await fetch(`${BASE}${url}`, { ...init, headers: initHeaders, signal });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -92,6 +98,45 @@ export async function buildFocusedPlan(
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) },
     signal,
   );
+}
+
+export async function register(
+  params: { email: string; password: string },
+  signal?: AbortSignal,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/api/auth/register',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    },
+    signal,
+  );
+}
+
+export async function login(
+  params: { email: string; password: string },
+  signal?: AbortSignal,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/api/auth/login',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    },
+    signal,
+  );
+}
+
+export async function authMe(signal?: AbortSignal): Promise<{ user: UserProfile }> {
+  return request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
+}
+
+export async function fetchMe(signal?: AbortSignal): Promise<UserProfile> {
+  const data = await request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
+  return data.user;
 }
 
 export async function healthCheck(): Promise<boolean> {

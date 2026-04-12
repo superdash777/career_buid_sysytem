@@ -21,9 +21,13 @@ if _env_file.exists():
 
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "4320"))  # 3 days
     RESUME_PARSER_MODEL = os.getenv("RESUME_PARSER_MODEL", "gpt-4o")
     RESUME_TEXT_MAX_CHARS = int(os.getenv("RESUME_TEXT_MAX_CHARS", "14000"))
     DATA_DIR = _PROJECT_DIR / "data"
+    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "data" / "app.db")))
     SKILLS_FILE = DATA_DIR / "clean_skills.json"
     ATLAS_FILE = DATA_DIR / "atlas_params_clean.json"
     ROLES_FILE = DATA_DIR / "roles.json"

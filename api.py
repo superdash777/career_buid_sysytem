@@ -13,11 +13,16 @@ if str(PROJECT_DIR) not in sys.path:
 if os.getcwd() != str(PROJECT_DIR):
     os.chdir(PROJECT_DIR)
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from rapidfuzz import fuzz
+from datetime import datetime, timedelta, timezone
+import uuid
+import jwt
+import bcrypt
 
 # Инициализация модулей (как в main)
 from data_loader import DataLoader
@@ -25,12 +30,15 @@ from resume_parser import ResumeParser
 from gap_analyzer import GapAnalyzer
 from scenario_handler import ScenarioHandler
 from output_formatter import OutputFormatter
+from db import get_db_connection, init_db
+from config import Config
 
 data = DataLoader()
 parser = ResumeParser()
 analyzer = GapAnalyzer()
 scenarios = ScenarioHandler(data)
 formatter = OutputFormatter(data)
+auth_scheme = HTTPBearer(auto_error=False)
 
 GRADE_MAP = {
     "Младший (Junior)": "Junior",
@@ -48,6 +56,128 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+
+def _create_access_token(user_id: str, email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=Config.JWT_ACCESS_TOKEN_TTL_MINUTES)).timestamp()),
+    }
+    return jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm=Config.JWT_ALGORITHM)
+
+
+def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, created_at, experience_level, pain_point, development_hours_per_week "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "created_at": row["created_at"],
+        "experience_level": row["experience_level"],
+        "pain_point": row["pain_point"],
+        "development_hours_per_week": row["development_hours_per_week"],
+    }
+
+
+def _get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme),
+) -> Dict[str, Any]:
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, Config.JWT_SECRET_KEY, algorithms=[Config.JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Недействительный токен")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Недействительный токен")
+    user = _get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
+    return user
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    email = (req.email or "").strip().lower()
+    password = req.password or ""
+    if "@" not in email or len(email) < 5:
+        raise HTTPException(status_code=400, detail="Введите корректный email")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Пароль должен быть не короче 8 символов")
+
+    with get_db_connection() as conn:
+        exists = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        if exists:
+            raise HTTPException(status_code=409, detail="Пользователь с таким email уже существует")
+
+        user_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+            (user_id, email, _hash_password(password), _utc_now_iso()),
+        )
+        conn.commit()
+
+    token = _create_access_token(user_id=user_id, email=email)
+    user = _get_user_by_id(user_id)
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    email = (req.email or "").strip().lower()
+    password = req.password or ""
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+    if row is None or not _verify_password(password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Неверный email или пароль")
+
+    token = _create_access_token(user_id=row["id"], email=row["email"])
+    user = _get_user_by_id(row["id"])
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+@app.get("/api/auth/me")
+def me(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    return {"user": current_user}
 
 
 @app.get("/api/professions")
@@ -559,6 +689,7 @@ logger = logging.getLogger("career-pathfinder")
 
 @app.on_event("startup")
 async def on_startup():
+    init_db()
     port = os.environ.get("PORT", "?")
     fe = "YES" if FRONTEND_DIR.is_dir() else "NO"
     logger.info(f"=== Career Pathfinder started === PORT={port}, frontend={fe}")
