@@ -405,8 +405,10 @@ curl -X POST http://localhost:8000/api/plan \
 | `QDRANT_API_KEY` | Нет | — | API-ключ Qdrant |
 | `RESUME_PARSER_MODEL` | Нет | `gpt-4o` | Модель для парсинга резюме |
 | `RESUME_TEXT_MAX_CHARS` | Нет | `14000` | Лимит текста резюме |
-| `RAG_COLLECTION_NAME` | Нет | `career_pathfinder_rag` | Название коллекции Qdrant |
-| `EMBED_MODEL_NAME` | Нет | `paraphrase-multilingual-MiniLM-L12-v2` | Модель эмбеддингов |
+| `RAG_COLLECTION_NAME` | Нет | `career_pathfinder_rag` | Название legacy-коллекции Qdrant (MiniLM fallback) |
+| `EMBED_MODEL_NAME` | Нет | `paraphrase-multilingual-MiniLM-L12-v2` | Модель эмбеддингов для legacy/fallback |
+| `SKILLS_V2_COLLECTION_NAME` | Нет | `skills_v2` | Новая коллекция канонических навыков (E5) |
+| `EMBED_MODEL_NAME_V2` | Нет | `intfloat/multilingual-e5-large-instruct` | Модель эмбеддингов v2 для нормализации навыков |
 | `PORT` | Нет | `8000` | Порт сервера |
 
 Без Qdrant приложение работает полностью — не будет семантических подсказок навыков и семантического ранжирования ролей, но gap-анализ и генерация планов доступны.
@@ -417,7 +419,7 @@ curl -X POST http://localhost:8000/api/plan \
 
 ### Навыки (`data/clean_skills.json`)
 
-~6 900 записей. Каждый навык привязан к профессии и содержит описания трёх уровней владения:
+Текущая версия датасета в репозитории содержит 534 записи. Каждый навык привязан к профессии и содержит описания трёх уровней владения:
 
 - **Basic** — применяет в типовых ситуациях
 - **Proficiency** — применяет в нестандартных ситуациях
@@ -440,6 +442,33 @@ pytest tests/ -v
 ```
 
 Покрытие: нормализация навыков, сценарии (next grade, switch profession, explore), gap-анализ.
+
+---
+
+## Eval pipeline
+
+Оценка качества пайплайна выполняется через `eval.py` на размеченном датасете
+`eval_dataset.json` (50 примеров).
+
+```bash
+python3 eval.py --version v2 --verbose
+```
+
+Результат сохраняется в:
+
+```text
+eval_results/<timestamp>_<version>.json
+```
+
+### Threshold analysis (precision/recall curve)
+
+```bash
+python3 scripts/threshold_analysis.py --dataset eval_dataset.json
+```
+
+Скрипт прогоняет нормализацию при порогах `0.50..0.85` и сохраняет:
+- CSV с метриками;
+- PNG с precision-recall кривой.
 
 ---
 

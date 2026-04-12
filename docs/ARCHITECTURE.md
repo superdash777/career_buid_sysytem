@@ -80,9 +80,9 @@ Career Copilot — клиент-серверное веб-приложение, 
 │  │ data_loader   │   │ skill_normalizer │   │ rag_service           │ │
 │  │               │   │                  │   │                       │ │
 │  │ JSON →        │   │ 1. lower + trim  │   │ Sentence-Transformers │ │
-│  │ skills_map    │   │ 2. опечатки      │   │ paraphrase-           │ │
-│  │ atlas_map     │   │ 3. pymorphy3 (RU)│   │ multilingual-MiniLM   │ │
-│  │ role_map      │   │    Snowball (EN) │   │ (384-dim embeddings)  │ │
+│  │ skills_map    │   │ 2. опечатки      │   │ E5 v2 + MiniLM        │ │
+│  │ atlas_map     │   │ 3. pymorphy3 (RU)│   │ fallback (dual index) │ │
+│  │ role_map      │   │    Snowball (EN) │   │                       │ │
 │  │               │   │ 4. синонимы      │   │                       │ │
 │  │ Методы:       │   │    (JSON-словарь)│   │ Qdrant REST API:      │ │
 │  │ get_role_reqs │   │                  │   │ - suggest_skills      │ │
@@ -96,11 +96,11 @@ Career Copilot — клиент-серверное веб-приложение, 
 │  │               │                                                    │
 │  │ 1. pypdf →    │                                                    │
 │  │    текст      │                                                    │
-│  │ 2. GPT-4o →   │                                                    │
-│  │    навыки     │                                                    │
-│  │    (JSON mode)│                                                    │
-│  │ 3. pymorphy3 →│                                                    │
-│  │    нормал-ция │                                                    │
+│  │ 2. GPT-4o (3  │                                                    │
+│  │    вызова):   │                                                    │
+│  │    extraction │                                                    │
+│  │    + rerank   │                                                    │
+│  │    + level    │                                                    │
 │  └───────────────┘                                                    │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤

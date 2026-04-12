@@ -4,6 +4,8 @@ import { ArrowRight, ArrowLeft, Upload, Search, Plus, FileText, ChevronDown, Che
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import SkillCard from '../components/SkillCard';
+import SkillConfidenceBadge from '../components/SkillConfidenceBadge';
+import SkillAlternativeSelect from '../components/SkillAlternativeSelect';
 import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
@@ -70,6 +72,8 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
   const skills = state.skills;
   const setSkills = useCallback((s: Skill[]) => onChange({ skills: s }), [onChange]);
 
+  const hasConfidenceMetadata = skills.some((s) => typeof s.confidence === 'number');
+
   useEffect(() => {
     if (state.profession) {
       roleAbortRef.current?.abort();
@@ -122,6 +126,32 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
         label: 'Отменить',
         onClick: () => setSkills([...next.slice(0, index), removed, ...next.slice(index)]),
       });
+    },
+    [skills, setSkills],
+  );
+
+  const applyAlternative = useCallback(
+    (index: number, altName: string) => {
+      const current = skills[index];
+      if (!current) return;
+      const next = [...skills];
+
+      // Если альтернатива уже есть в списке — не дублируем, только удаляем текущую запись.
+      if (skills.some((s, i) => i !== index && s.name.toLowerCase() === altName.toLowerCase())) {
+        next.splice(index, 1);
+        setSkills(next);
+        showToast(`Навык заменён на «${altName}» (дубликат объединён)`);
+        return;
+      }
+
+      next[index] = {
+        ...current,
+        name: altName,
+        confidence: 0.95,
+        confidence_band: 'vector_llm',
+      };
+      setSkills(next);
+      showToast(`Навык заменён на «${altName}»`);
     },
     [skills, setSkills],
   );
@@ -415,6 +445,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
           <SkillQualityBar count={skills.length} />
 
+          {hasConfidenceMetadata && (
+            <Alert variant="info" title="Проверка распознавания навыков">
+              Зелёный — распознано автоматически, жёлтый — подтвердите вариант, серый — низкая уверенность.
+            </Alert>
+          )}
+
           {skills.length === 0 ? (
             <div className="card flex flex-col items-center justify-center py-10 text-center">
               <FileText className="h-10 w-10 text-(--color-text-muted)/40 mb-3" />
@@ -425,17 +461,29 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           ) : (
             <div className="space-y-2" aria-live="polite">
               {skills.map((skill, i) => (
-                <SkillCard
-                  key={`${skill.name}-${i}`}
-                  skill={skill}
-                  isNew={newSkillNames.has(skill.name.toLowerCase())}
-                  onChange={(updated) => {
-                    const next = [...skills];
-                    next[i] = updated;
-                    setSkills(next);
-                  }}
-                  onRemove={() => removeSkill(i)}
-                />
+                <div key={`${skill.name}-${i}`} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <SkillConfidenceBadge skill={skill} />
+                  </div>
+
+                  <SkillCard
+                    skill={skill}
+                    isNew={newSkillNames.has(skill.name.toLowerCase())}
+                    onChange={(updated) => {
+                      const next = [...skills];
+                      next[i] = updated;
+                      setSkills(next);
+                    }}
+                    onRemove={() => removeSkill(i)}
+                  />
+
+                  {(skill.confidence ?? 0) > 0.6 && (skill.confidence ?? 0) <= 0.85 && (
+                    <SkillAlternativeSelect
+                      skill={skill}
+                      onSelectAlternative={(altName: string) => applyAlternative(i, altName)}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}

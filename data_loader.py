@@ -172,3 +172,46 @@ class DataLoader:
             "description": description,
             "tasks": tasks,
         }
+
+    def get_skill_weight(self, skill_name: str) -> int:
+        """
+        Возвращает вес навыка для weighted gap scoring.
+
+        Маппинг:
+        - Stable -> 2
+        - Trending -> 3
+        - нет/неизвестно -> 1
+
+        В текущей версии clean_skills.json поля relevance нет, поэтому
+        метод по умолчанию возвращает 1 (с сохранением совместимости).
+        """
+        skill_obj = self.skills_map.get(skill_name)
+        if not skill_obj:
+            return 1
+
+        # Возможные ключи (на будущее, если поле появится в датасете).
+        relevance = (
+            skill_obj.get("Skill Relevance")
+            or skill_obj.get("Relevance")
+            or skill_obj.get("Релевантность")
+            or skill_obj.get("Важность")
+            or ""
+        )
+        if relevance is None:
+            return 1
+
+        text = str(relevance).strip().lower()
+        if not text:
+            return 1
+
+        if "trending" in text:
+            return 3
+        if "stable" in text:
+            return 2
+
+        # Если в поле неожиданно оказалось число.
+        try:
+            n = int(float(text))
+            return n if n > 0 else 1
+        except Exception:
+            return 1
