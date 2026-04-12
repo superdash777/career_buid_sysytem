@@ -13,6 +13,7 @@ interface Props {
   onBack: () => void;
   onStartNew: () => void;
   onOpenAnalysis: (analysis: AnalysisRecord) => void;
+  onOpenOnboarding?: () => void;
 }
 
 const SCENARIO_LABELS: Record<string, string> = {
@@ -123,7 +124,7 @@ function estimateForecast(matchPercent: number, hoursPerWeek?: number | null): s
   return forecastDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props) {
+export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOnboarding }: Props) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -203,6 +204,11 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {onOpenOnboarding && (
+              <Button variant="secondary" onClick={onOpenOnboarding}>
+                Обновить onboarding →
+              </Button>
+            )}
             <Button variant="secondary" onClick={onBack}>← Назад</Button>
             <Button onClick={onStartNew}>Новый анализ →</Button>
           </div>
@@ -221,6 +227,23 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
           </div>
         ) : (
           <>
+            {(!user?.pain_point || !user?.development_hours_per_week) && (
+              <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
+                <MonoLabel>Onboarding booster</MonoLabel>
+                <h2 className="mt-3 text-lg font-semibold text-(--color-text-primary)">
+                  Улучши точность рекомендаций за 30 секунд
+                </h2>
+                <p className="mt-1 text-sm text-(--color-text-secondary)">
+                  Заполни 3 коротких вопроса про опыт и доступное время — это улучшит приоритезацию задач и прогноз Career GPS.
+                </p>
+                <div className="mt-4">
+                  <Button variant="secondary" onClick={onBack}>
+                    Пройти onboarding →
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <MetricCard
                 title="Текущее совпадение"

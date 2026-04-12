@@ -569,6 +569,7 @@ export default function App() {
             <Welcome
               onStart={() => setScreen('goal')}
               onOpenDashboard={() => setScreen('dashboard')}
+              onOpenOnboarding={() => setScreen('onboarding')}
             />
           </ProtectedRoute>
         );
@@ -595,6 +596,7 @@ export default function App() {
               onBack={() => setScreen('welcome')}
               onStartNew={() => setScreen('goal')}
               onOpenAnalysis={openAnalysisFromHistory}
+              onOpenOnboarding={() => setScreen('onboarding')}
             />
           </ProtectedRoute>
         );

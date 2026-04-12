@@ -17,6 +17,7 @@ interface Props {
   appState: AppState;
   isAuthenticated?: boolean;
   onSoftGate?: () => void;
+  onOpenOnboarding?: () => void;
   onReset: () => void;
   onBackToSkills: () => void;
   onOpenDashboard: () => void;
@@ -28,6 +29,7 @@ export default function Result({
   appState,
   isAuthenticated = true,
   onSoftGate,
+  onOpenOnboarding,
   onReset,
   onBackToSkills,
   onOpenDashboard,
@@ -211,6 +213,26 @@ export default function Result({
             {onSoftGate && (
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button onClick={onSoftGate}>Создать аккаунт и сохранить →</Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isAuthenticated && !appState.developmentHoursPerWeek && (
+          <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
+            <MonoLabel>Onboarding booster</MonoLabel>
+            <h3 className="mt-3 text-lg font-semibold text-(--color-text-primary)">
+              Уточните темп развития
+            </h3>
+            <p className="mt-2 text-sm text-(--color-text-secondary)">
+              Добавьте 3 коротких ответа о вашем опыте и доступном времени — это улучшит рекомендации
+              и точность карьерного GPS.
+            </p>
+            {onOpenOnboarding && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={onOpenOnboarding}>
+                  Заполнить onboarding →
+                </Button>
               </div>
             )}
           </div>

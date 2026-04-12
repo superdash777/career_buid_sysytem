@@ -4,9 +4,11 @@ import NavBar from '../components/NavBar';
 interface Props {
   onStart: () => void;
   onOpenDashboard?: () => void;
+  onOpenOnboarding?: () => void;
+  showOnboardingNudge?: boolean;
 }
 
-export default function Welcome({ onStart, onOpenDashboard }: Props) {
+export default function Welcome({ onStart, onOpenDashboard, onOpenOnboarding, showOnboardingNudge = false }: Props) {
   return (
     <div className="min-h-screen flex flex-col bg-(--color-surface)">
       <header className="mx-auto w-full max-w-3xl px-4">
@@ -28,6 +30,21 @@ export default function Welcome({ onStart, onOpenDashboard }: Props) {
           <p className="text-base text-(--color-text-muted) leading-relaxed mb-10 max-w-lg mx-auto">
             Давайте вместе построим маршрут к вашему следующему карьерному шагу.
           </p>
+
+          {showOnboardingNudge && onOpenOnboarding && (
+            <div className="mx-auto mb-6 max-w-xl rounded-xl border border-(--color-border) bg-(--color-surface-alt) px-4 py-3 text-left">
+              <p className="text-sm font-medium text-(--color-text-primary)">Уточните профиль для точных рекомендаций</p>
+              <p className="mt-1 text-xs text-(--color-text-muted)">
+                Это 3 коротких вопроса, после которых Career GPS и приоритеты gap-навыков станут точнее.
+              </p>
+              <button
+                onClick={onOpenOnboarding}
+                className="mt-2 text-xs font-semibold uppercase tracking-[0.1em] text-(--color-accent) underline underline-offset-4"
+              >
+                Пройти onboarding →
+              </button>
+            </div>
+          )}
 
           <button onClick={onStart} className="btn-primary text-lg px-8 py-4 mb-8">
             Начать путь <ArrowRight className="h-5 w-5" />
