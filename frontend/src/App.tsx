@@ -8,6 +8,7 @@ import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
 import Login from './screens/Login';
 import Register from './screens/Register';
+import PublicLanding from './screens/PublicLanding';
 import Alert from './components/Alert';
 import NavBar from './components/NavBar';
 import ToastContainer from './components/Toast';
@@ -16,10 +17,10 @@ import { useAuth } from './auth/AuthContext';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse } from './types';
 import { GRADES, INITIAL_STATE } from './types';
-import { hasCompletedOnboarding } from './utils/onboarding';
 import { Loader2, ExternalLink, Home } from 'lucide-react';
 
 type Screen =
+  | 'public'
   | 'login'
   | 'register'
   | 'share'
@@ -32,6 +33,7 @@ type Screen =
   | 'result';
 
 const SCREEN_ORDER: Screen[] = [
+  'public',
   'login',
   'register',
   'share',
@@ -70,7 +72,7 @@ function screenFromHash(): Screen {
   const hash = window.location.hash.replace('#', '') as Screen;
   if (hash.startsWith('share/')) return 'share';
   if (SCREEN_ORDER.includes(hash)) return hash;
-  return 'login';
+  return 'public';
 }
 
 function shareIdFromHash(): string | null {
@@ -193,14 +195,14 @@ export default function App() {
 
   useEffect(() => {
     if (screen === 'share') return;
-    if (isAuthenticated && (screen === 'login' || screen === 'register')) {
-      setScreen(hasCompletedOnboarding(user) ? 'welcome' : 'onboarding', true);
+    if (isAuthenticated && (screen === 'public' || screen === 'login' || screen === 'register')) {
+      setScreen('welcome', true);
       return;
     }
-    if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
-      setScreen('login', true);
+    if (!isAuthenticated && screen !== 'public' && screen !== 'login' && screen !== 'register') {
+      setScreen('public', true);
     }
-  }, [isAuthenticated, screen, setScreen, user]);
+  }, [isAuthenticated, screen, setScreen]);
 
   useEffect(() => {
     if (typeof user?.development_hours_per_week === 'number' && user.development_hours_per_week > 0) {
@@ -311,7 +313,7 @@ export default function App() {
     setPlanRaw(null);
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(PLAN_STORAGE_KEY);
-    setScreen(isAuthenticated ? 'welcome' : 'login', true);
+    setScreen(isAuthenticated ? 'welcome' : 'public', true);
   };
 
   if (serviceDown) {
@@ -360,7 +362,7 @@ export default function App() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setScreen(isAuthenticated ? 'welcome' : 'login', true)}
+                    onClick={() => setScreen(isAuthenticated ? 'welcome' : 'public', true)}
                     className="btn-secondary text-sm"
                   >
                     <Home className="h-4 w-4" /> На главную
@@ -414,16 +416,23 @@ export default function App() {
       );
     }
 
-    if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
+    if (!isAuthenticated && screen !== 'public' && screen !== 'login' && screen !== 'register') {
       return (
-        <Login
-          onSuccess={() => setScreen('welcome', true)}
-          onGoRegister={() => setScreen('register')}
+        <PublicLanding
+          onLogin={() => setScreen('login')}
+          onRegister={() => setScreen('register')}
         />
       );
     }
 
     switch (screen) {
+      case 'public':
+        return (
+          <PublicLanding
+            onLogin={() => setScreen('login')}
+            onRegister={() => setScreen('register')}
+          />
+        );
       case 'login':
         return (
           <Login
@@ -434,7 +443,7 @@ export default function App() {
       case 'register':
         return (
           <Register
-            onSuccess={() => setScreen('welcome', true)}
+            onSuccess={() => setScreen('onboarding', true)}
             onGoLogin={() => setScreen('login')}
           />
         );

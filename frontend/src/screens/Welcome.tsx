@@ -8,17 +8,13 @@ interface Props {
 
 export default function Welcome({ onStart, onOpenDashboard }: Props) {
   return (
-    <div className="min-h-screen flex flex-col bg-violet-50">
+    <div className="min-h-screen flex flex-col bg-(--color-surface)">
       <header className="mx-auto w-full max-w-3xl px-4">
         <NavBar />
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="max-w-2xl w-full text-center slide-up">
-          <div className="mb-4 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-            DEPLOY TEST
-          </div>
-
           <div className="mb-6 inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-(--color-accent-light)">
             <Compass className="h-8 w-8 text-(--color-accent)" />
           </div>

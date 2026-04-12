@@ -19,6 +19,13 @@ if _env_file.exists():
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
@@ -35,6 +42,7 @@ class Config:
     # Per-endpoint aliases (same default window budget)
     AUTH_LOGIN_RATE_LIMIT = int(os.getenv("AUTH_LOGIN_RATE_LIMIT", str(AUTH_RATE_LIMIT_MAX_ATTEMPTS)))
     AUTH_REGISTER_RATE_LIMIT = int(os.getenv("AUTH_REGISTER_RATE_LIMIT", str(AUTH_RATE_LIMIT_MAX_ATTEMPTS)))
+    LLM_OBSERVABILITY_ENABLED = _env_bool("LLM_OBSERVABILITY_ENABLED", False)
     RESUME_PARSER_MODEL = os.getenv("RESUME_PARSER_MODEL", "gpt-4o")
     PLAN_GENERATOR_MODEL = os.getenv("PLAN_GENERATOR_MODEL", "gpt-4o")
     PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "4000"))
