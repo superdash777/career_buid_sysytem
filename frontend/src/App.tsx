@@ -13,14 +13,16 @@ import NavBar from './components/NavBar';
 import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
-import { healthCheck } from './api/client';
-import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill } from './types';
+import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
+import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { hasCompletedOnboarding } from './utils/onboarding';
+import { Loader2, ExternalLink, Home } from 'lucide-react';
 
 type Screen =
   | 'login'
   | 'register'
+  | 'share'
   | 'welcome'
   | 'onboarding'
   | 'dashboard'
@@ -32,6 +34,7 @@ type Screen =
 const SCREEN_ORDER: Screen[] = [
   'login',
   'register',
+  'share',
   'welcome',
   'onboarding',
   'dashboard',
@@ -65,8 +68,16 @@ function loadSavedPlan(): PlanResponse | null {
 
 function screenFromHash(): Screen {
   const hash = window.location.hash.replace('#', '') as Screen;
+  if (hash.startsWith('share/')) return 'share';
   if (SCREEN_ORDER.includes(hash)) return hash;
   return 'login';
+}
+
+function shareIdFromHash(): string | null {
+  const raw = window.location.hash.replace('#', '');
+  if (!raw.startsWith('share/')) return null;
+  const id = raw.slice('share/'.length).trim();
+  return id || null;
 }
 
 function isScenario(value: string): value is Scenario {
@@ -149,20 +160,39 @@ function toPlanResponse(item: AnalysisRecord): PlanResponse | null {
   return plan;
 }
 
+function getShareMatchPercent(analysis: SharedAnalysisResponse['analysis']): number {
+  if (!analysis) return 0;
+  if (analysis.scenario === 'growth' || analysis.scenario === 'switch') {
+    return Math.round(analysis.match_percent ?? 0);
+  }
+  return Math.round(analysis.roles?.[0]?.match ?? 0);
+}
+
 export default function App() {
   const { isAuthenticated, user, refreshMe } = useAuth();
   const [screen, setScreenRaw] = useState<Screen>(screenFromHash);
   const [state, setStateRaw] = useState<AppState>(loadSavedState);
   const [plan, setPlanRaw] = useState<PlanResponse | null>(loadSavedPlan);
   const [serviceDown, setServiceDown] = useState(false);
+  const [sharedPlan, setSharedPlan] = useState<SharedAnalysisResponse | null>(null);
+  const [sharedLoading, setSharedLoading] = useState(false);
+  const [sharedError, setSharedError] = useState('');
 
   const setScreen = useCallback((s: Screen, replace = false) => {
+    if (s === 'share') return;
     setScreenRaw(s);
     const method = replace ? 'replaceState' : 'pushState';
     window.history[method]({ screen: s }, '', `#${s}`);
   }, []);
 
+  const openShare = useCallback((analysisId: string, replace = false) => {
+    const method = replace ? 'replaceState' : 'pushState';
+    setScreenRaw('share');
+    window.history[method]({ screen: 'share', analysisId }, '', `#share/${analysisId}`);
+  }, []);
+
   useEffect(() => {
+    if (screen === 'share') return;
     if (isAuthenticated && (screen === 'login' || screen === 'register')) {
       setScreen(hasCompletedOnboarding(user) ? 'welcome' : 'onboarding', true);
       return;
@@ -200,6 +230,10 @@ export default function App() {
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
       const s = (e.state?.screen as Screen) || screenFromHash();
+      if (s === 'share') {
+        setScreenRaw('share');
+        return;
+      }
       if (s === 'result' && !plan) {
         setScreenRaw('confirm');
         return;
@@ -215,6 +249,36 @@ export default function App() {
 
     return () => window.removeEventListener('popstate', onPop);
   }, [plan, screen]);
+
+  useEffect(() => {
+    if (screen !== 'share') return;
+    const shareId = shareIdFromHash();
+    if (!shareId) {
+      setSharedPlan(null);
+      setSharedError('Некорректная ссылка на результат.');
+      return;
+    }
+    let cancelled = false;
+    setSharedLoading(true);
+    setSharedError('');
+    setSharedPlan(null);
+    fetchSharedAnalysis(shareId)
+      .then((result) => {
+        if (cancelled) return;
+        setSharedPlan(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof ApiError ? err.message : 'Не удалось загрузить общий результат';
+        setSharedError(message);
+      })
+      .finally(() => {
+        if (!cancelled) setSharedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [screen]);
 
   const update = (patch: Partial<AppState>) =>
     setStateRaw((prev) => ({ ...prev, ...patch }));
@@ -277,6 +341,79 @@ export default function App() {
   }
 
   const renderScreen = () => {
+    if (screen === 'share') {
+      return (
+        <div className="min-h-screen flex flex-col bg-(--color-surface)">
+          <header className="sticky top-0 z-30 border-b border-(--color-border) bg-(--color-surface-raised)/80 backdrop-blur-md">
+            <div className="mx-auto max-w-4xl px-4">
+              <NavBar />
+            </div>
+          </header>
+          <main className="flex-1">
+            <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
+              <div className="card">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h1 className="text-2xl font-bold text-(--color-text-primary)">Публичный результат</h1>
+                    <p className="text-sm text-(--color-text-muted) mt-1">
+                      Режим только для просмотра
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setScreen(isAuthenticated ? 'welcome' : 'login', true)}
+                    className="btn-secondary text-sm"
+                  >
+                    <Home className="h-4 w-4" /> На главную
+                  </button>
+                </div>
+              </div>
+
+              {sharedLoading && (
+                <div className="card flex items-center gap-3 text-(--color-text-secondary)">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Загружаем результат...
+                </div>
+              )}
+
+              {sharedError && (
+                <Alert variant="error">
+                  {sharedError}
+                </Alert>
+              )}
+
+              {!sharedLoading && !sharedError && sharedPlan && (
+                <>
+                  {sharedPlan.analysis && (
+                    <div className="card">
+                      <div className="flex flex-wrap gap-2 text-xs text-(--color-text-secondary)">
+                        <span className="rounded-md bg-(--color-accent-light) px-2 py-1 text-(--color-accent)">
+                          Сценарий: {sharedPlan.analysis.scenario}
+                        </span>
+                        <span className="rounded-md bg-(--color-surface-alt) px-2 py-1">
+                          Совпадение: {getShareMatchPercent(sharedPlan.analysis)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="card">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-(--color-text-primary)">План развития</h2>
+                      <a href="#login" className="btn-secondary text-xs">
+                        <ExternalLink className="h-3.5 w-3.5" /> Создать свой
+                      </a>
+                    </div>
+                    <pre className="whitespace-pre-wrap text-sm text-(--color-text-secondary) leading-relaxed">
+                      {sharedPlan.markdown}
+                    </pre>
+                  </div>
+                </>
+              )}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
     if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
       return (
         <Login
@@ -381,6 +518,7 @@ export default function App() {
                 onReset={reset}
                 onBackToSkills={() => setScreen('skills')}
                 onOpenDashboard={() => setScreen('dashboard')}
+                onOpenShare={openShare}
               />
             ) : (
               <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">

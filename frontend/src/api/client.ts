@@ -210,6 +210,17 @@ export async function fetchAnalysisById(analysisId: string, signal?: AbortSignal
   return data.item;
 }
 
+export async function fetchSharedAnalysis(
+  analysisId: string,
+  signal?: AbortSignal,
+): Promise<import('../types').SharedAnalysisResponse> {
+  return request<import('../types').SharedAnalysisResponse>(
+    `/api/share/${encodeURIComponent(analysisId)}`,
+    undefined,
+    signal,
+  );
+}
+
 export async function patchProgress(
   payload: { skill_name: string; status: ProgressStatus },
   signal?: AbortSignal,

@@ -233,6 +233,45 @@ def me(current_user: Dict[str, Any] = Depends(_get_current_user)):
     return {"user": current_user}
 
 
+@app.get("/api/share/{analysis_id}")
+def get_shared_analysis(analysis_id: str):
+    """
+    Публичный read-only доступ к результату анализа по его ID.
+    Используется для шаринга карточки результата.
+    """
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, scenario, current_role, target_role, result_json, created_at "
+            "FROM analyses WHERE id = ?",
+            (analysis_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    try:
+        result_json = json.loads(row["result_json"] or "{}")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    markdown = result_json.get("markdown")
+    if not isinstance(markdown, str) or not markdown.strip():
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    out: Dict[str, Any] = {
+        "analysis_id": row["id"],
+        "markdown": markdown,
+        "scenario": row["scenario"],
+        "current_role": row["current_role"],
+        "target_role": row["target_role"],
+        "created_at": row["created_at"],
+    }
+    if isinstance(result_json.get("role_titles"), list):
+        out["role_titles"] = result_json.get("role_titles")
+    if isinstance(result_json.get("analysis"), dict):
+        out["analysis"] = result_json.get("analysis")
+    return out
+
+
 @app.patch("/api/auth/onboarding")
 def save_onboarding(
     req: OnboardingRequest,

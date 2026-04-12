@@ -6,12 +6,13 @@ import {
 import {
   Copy, RotateCcw, ArrowLeft, ChevronRight, ChevronDown, Check,
   TrendingUp, FileText, CheckCircle2, Target, Sparkles,
-  BookOpen, MessageCircle, ListTodo, LayoutDashboard,
+  BookOpen, MessageCircle, ListTodo, LayoutDashboard, Share2,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
 import CareerGpsTab from '../components/CareerGpsTab';
 import { buildFocusedPlan, ApiError } from '../api/client';
+import { showToast } from '../components/toastStore';
 import type {
   PlanResponse, GrowthAnalysis, SwitchAnalysis, ExploreAnalysis,
   AppState, FocusedPlan,
@@ -23,20 +24,47 @@ interface Props {
   onReset: () => void;
   onBackToSkills: () => void;
   onOpenDashboard: () => void;
+  onOpenShare: (analysisId: string) => void;
 }
 
-export default function Result({ plan, appState, onReset, onBackToSkills, onOpenDashboard }: Props) {
+export default function Result({
+  plan,
+  appState,
+  onReset,
+  onBackToSkills,
+  onOpenDashboard,
+  onOpenShare,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'analysis' | 'gps'>('analysis');
   const [selectedGaps, setSelectedGaps] = useState<Set<string>>(new Set());
   const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState('');
+  const [sharing, setSharing] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(plan.markdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (!plan.analysis_id || sharing) {
+      showToast('Сначала сохраните анализ, затем попробуйте снова');
+      return;
+    }
+    const shareUrl = `${window.location.origin}${window.location.pathname}#share/${plan.analysis_id}`;
+    setSharing(true);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast('Ссылка скопирована');
+      onOpenShare(plan.analysis_id);
+    } catch {
+      showToast('Не удалось скопировать ссылку');
+    } finally {
+      setSharing(false);
+    }
   };
 
   const toggleGap = (name: string) => {
@@ -90,6 +118,10 @@ export default function Result({ plan, appState, onReset, onBackToSkills, onOpen
           <div className="flex flex-wrap gap-2">
             <button onClick={onReset} className="btn-secondary text-sm">
               <RotateCcw className="h-4 w-4" /> Заново
+            </button>
+            <button onClick={handleShare} className="btn-secondary text-sm" disabled={!plan.analysis_id || sharing}>
+              <Share2 className="h-4 w-4" />
+              {sharing ? 'Копируем...' : 'Поделиться результатом'}
             </button>
             <button onClick={handleCopy} className="btn-secondary text-sm">
               {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}

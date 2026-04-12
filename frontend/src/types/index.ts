@@ -49,6 +49,17 @@ export interface AnalysisRecord {
   created_at: string;
 }
 
+export interface SharedAnalysisResponse {
+  analysis_id: string;
+  markdown: string;
+  scenario?: string | null;
+  current_role?: string | null;
+  target_role?: string | null;
+  created_at?: string | null;
+  role_titles?: string[];
+  analysis?: Analysis;
+}
+
 export type ProgressStatus = 'todo' | 'in_progress' | 'done';
 
 export interface ProgressRecord {
