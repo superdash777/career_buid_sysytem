@@ -43,6 +43,11 @@ class Config:
     SKILLS_V2_COLLECTION_NAME = os.getenv("SKILLS_V2_COLLECTION_NAME", "skills_v2")
     SKILLS_V2_TOP_K = int(os.getenv("SKILLS_V2_TOP_K", "5"))
     SKILLS_V2_SCORE_THRESHOLD = float(os.getenv("SKILLS_V2_SCORE_THRESHOLD", "0.5"))
+    SKILLS_RETRIEVAL_MODE = os.getenv("SKILLS_RETRIEVAL_MODE", "hybrid_rerank")
+    SKILLS_HYBRID_DENSE_WEIGHT = float(os.getenv("SKILLS_HYBRID_DENSE_WEIGHT", "0.7"))
+    SKILLS_HYBRID_LEXICAL_WEIGHT = float(os.getenv("SKILLS_HYBRID_LEXICAL_WEIGHT", "0.3"))
+    SKILLS_HYBRID_MIN_SCORE = float(os.getenv("SKILLS_HYBRID_MIN_SCORE", "0.3"))
+    SKILLS_HYBRID_RERANK_TOP_N = int(os.getenv("SKILLS_HYBRID_RERANK_TOP_N", "20"))
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", "20"))
     RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.35"))
 

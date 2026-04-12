@@ -18,7 +18,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from rapidfuzz import fuzz
 from datetime import datetime, timedelta, timezone
 import uuid
 import json
@@ -31,6 +30,7 @@ from resume_parser import ResumeParser
 from gap_analyzer import GapAnalyzer
 from scenario_handler import ScenarioHandler
 from output_formatter import OutputFormatter
+from confidence_utils import get_skill_confidence
 from db import get_db_connection, init_db
 from config import Config
 
@@ -512,34 +512,8 @@ async def analyze_resume(file: UploadFile = File(...)):
                 if not name:
                     continue
 
-                confidence = None
-                band = None
+                confidence, band = get_skill_confidence(s)
                 alternatives = []
-
-                # 1) exact match после нормализации строк -> 1.0
-                if raw_name and name and raw_name.lower() == name.lower():
-                    confidence = 1.0
-                    band = "exact"
-                else:
-                    # 2) fuzzy -> 0.9
-                    ratio = fuzz.ratio(raw_name.lower(), name.lower()) if raw_name and name else 0
-                    if ratio > 85:
-                        confidence = 0.9
-                        band = "fuzzy"
-                    else:
-                        # 3) vector + llm rerank -> 0.6..0.95
-                        llm_conf = s.get("llm_rerank_confidence")
-                        if bool(s.get("is_unknown")):
-                            # 4) LLM classification для неизвестных навыков -> 0.5
-                            confidence = 0.5
-                            band = "llm_unknown"
-                        else:
-                            try:
-                                llm_conf = float(llm_conf) if llm_conf is not None else 0.75
-                            except Exception:
-                                llm_conf = 0.75
-                            confidence = max(0.6, min(0.95, llm_conf))
-                            band = "vector_llm"
 
                 cands = s.get("candidates") or []
                 for c in cands[:3]:
@@ -558,10 +532,14 @@ async def analyze_resume(file: UploadFile = File(...)):
                         "raw_name": raw_name,
                         "name": name,
                         "level": level_mapping.get(s.get("level"), 1),
-                        "confidence": confidence if confidence is not None else 0.5,
-                        "confidence_band": band or "llm_unknown",
+                        "confidence": confidence,
+                        "confidence_band": band,
                         "alternatives": alternatives,
                         "evidence": s.get("evidence", ""),
+                        "resume_evidence_span": s.get("resume_evidence_span", ""),
+                        "source_skill_id": s.get("source_skill_id"),
+                        "retrieval_mode": s.get("retrieval_mode"),
+                        "retrieval_trace": s.get("retrieval_trace", {}),
                     }
                 )
 

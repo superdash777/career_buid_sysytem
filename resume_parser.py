@@ -146,9 +146,20 @@ class ResumeParser:
         if not candidate_names:
             return {"match": None, "confidence": None}
 
+        rich_candidates = []
+        for c in candidates[:5]:
+            rich_candidates.append(
+                {
+                    "name": c.get("name"),
+                    "score": c.get("score"),
+                    "dense_score": c.get("dense_score"),
+                    "lexical_score": c.get("lexical_score"),
+                }
+            )
+
         prompt = (
             f"Навык пользователя: {raw_skill}\n"
-            f"Кандидаты: {candidate_names}\n\n"
+            f"Кандидаты: {json.dumps(rich_candidates, ensure_ascii=False)}\n\n"
             "Выбери лучший вариант из списка или ответь none.\n"
             "Верни только JSON: {\"match\": \"название или none\", \"confidence\": число от 0 до 1}."
         )
@@ -169,6 +180,28 @@ class ResumeParser:
         except Exception:
             confidence = None
         return {"match": (match or None), "confidence": confidence}
+
+    @staticmethod
+    def _extract_resume_evidence(raw_skill: str, resume_text: str, max_len: int = 220) -> str:
+        """
+        Возвращает короткий фрагмент резюме вокруг найденного raw_skill.
+        Если точного вхождения нет — fallback на начало резюме.
+        """
+        text = (resume_text or "").strip()
+        needle = (raw_skill or "").strip()
+        if not text:
+            return ""
+        if not needle:
+            return text[:max_len]
+        lower_text = text.lower()
+        lower_needle = needle.lower()
+        idx = lower_text.find(lower_needle)
+        if idx < 0:
+            return text[:max_len]
+        start = max(0, idx - max_len // 3)
+        end = min(len(text), idx + len(needle) + (2 * max_len // 3))
+        snippet = text[start:end].strip()
+        return snippet[:max_len]
 
     def _classify_unknown_skill(self, raw_skill: str, resume_text: str) -> Dict[str, Optional[float]]:
         """LLM-классификация неизвестного навыка: это действительно навык или шум."""
@@ -278,29 +311,49 @@ class ResumeParser:
                 unknown = self._classify_unknown_skill(raw_skill, resume_text)
                 if not unknown.get("is_skill"):
                     continue
+                evidence_quote = self._extract_resume_evidence(raw_skill, resume_text)
                 result_skills.append(
                     {
                         "raw_name": raw_skill,
                         "name": raw_skill,
                         "level": 1,
-                        "evidence": "",
+                        "evidence": evidence_quote,
+                        "resume_evidence_span": evidence_quote,
                         "llm_rerank_confidence": unknown.get("confidence"),
                         "candidates": [],
                         "is_unknown": True,
+                        "source_skill_id": None,
+                        "retrieval_mode": "llm_unknown",
+                        "retrieval_trace": {"candidates": []},
                     }
                 )
                 continue
 
             levels = self._skill_level_texts(allowed_skills, matched_name)
             level_info = self._assess_level(matched_name, resume_text, levels)
+            evidence_quote = (level_info.get("evidence") or "").strip() or self._extract_resume_evidence(raw_skill, resume_text)
             result_skills.append(
                 {
                     "raw_name": raw_skill,
                     "name": matched_name,
                     "level": level_info.get("level", 1),
-                    "evidence": level_info.get("evidence", ""),
+                    "evidence": evidence_quote,
+                    "resume_evidence_span": evidence_quote,
                     "llm_rerank_confidence": llm_conf,
                     "candidates": candidates[:5],
+                    "source_skill_id": matched_name,
+                    "retrieval_mode": "hybrid_dense_lexical",
+                    "retrieval_trace": {
+                        "candidates": [
+                            {
+                                "name": c.get("name"),
+                                "score": c.get("score"),
+                                "dense_score": c.get("dense_score"),
+                                "lexical_score": c.get("lexical_score"),
+                            }
+                            for c in candidates[:5]
+                        ]
+                    },
                 }
             )
 

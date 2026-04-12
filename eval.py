@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from data_loader import DataLoader, GRADE_TO_PARAM_ORDINAL
+from confidence_utils import get_skill_confidence
 from eval_metrics.faithfulness import rouge_l_faithfulness
 from gap_analyzer import GapAnalyzer
 from plan_generator import PlanGenerator
@@ -37,6 +38,11 @@ class SampleMetrics:
     estimated_input_tokens: int
     estimated_output_tokens: int
     estimated_cost_usd: float
+    confidence_avg: float
+    confidence_ece: float
+    confidence_brier: float
+    retrieval_hybrid_share: float
+    constraint_violations: int
 
 
 def _set_metrics(predicted: List[str], expected: List[str]) -> Tuple[float, float, float]:
@@ -77,6 +83,49 @@ def _estimate_cost_usd(
     output_price_per_1m: float,
 ) -> float:
     return (input_tokens / 1_000_000) * input_price_per_1m + (output_tokens / 1_000_000) * output_price_per_1m
+
+
+def _calc_ece_brier(confidences: List[float], labels: List[int], bins: int = 10) -> Tuple[float, float]:
+    if not confidences or not labels or len(confidences) != len(labels):
+        return 0.0, 0.0
+    n = len(confidences)
+    ece = 0.0
+    brier = 0.0
+    for c, y in zip(confidences, labels):
+        c = max(0.0, min(1.0, float(c)))
+        brier += (c - float(y)) ** 2
+    brier /= n
+
+    for b in range(bins):
+        lo = b / bins
+        hi = (b + 1) / bins
+        idx = [i for i, c in enumerate(confidences) if (lo <= c < hi) or (b == bins - 1 and c == 1.0)]
+        if not idx:
+            continue
+        avg_conf = sum(confidences[i] for i in idx) / len(idx)
+        avg_acc = sum(labels[i] for i in idx) / len(idx)
+        ece += (len(idx) / n) * abs(avg_conf - avg_acc)
+    return float(ece), float(brier)
+
+
+def _plan_constraint_violations(plan_text: str) -> int:
+    text = (plan_text or "").lower()
+    violations = 0
+    banned_tokens = [
+        "курс",
+        "курсы",
+        "тренинг",
+        "тренинги",
+        "bootcamp",
+        "удеми",
+        "coursera",
+        "skillbox",
+    ]
+    if any(tok in text for tok in banned_tokens):
+        violations += 1
+    if "книга" not in text and "книг" not in text:
+        violations += 1
+    return violations
 
 
 def _load_dataset(path: Path) -> List[Dict[str, Any]]:
@@ -169,6 +218,17 @@ def run_eval(
         latency = time.perf_counter() - started
         parsed_skills = parsed.get("skills", []) or []
         predicted_skills = [(s.get("name") or "").strip() for s in parsed_skills if s.get("name")]
+        expected_skill_set = {s.strip() for s in expected_skills if s and s.strip()}
+        confidence_vals: List[float] = []
+        confidence_labels: List[int] = []
+        hybrid_hits = 0
+        for s in parsed_skills:
+            conf, _band = get_skill_confidence(s)
+            confidence_vals.append(conf)
+            name = (s.get("name") or "").strip()
+            confidence_labels.append(1 if name and name in expected_skill_set else 0)
+            if str(s.get("retrieval_mode") or "").startswith("hybrid"):
+                hybrid_hits += 1
 
         p, r, f1 = _set_metrics(predicted_skills, expected_skills)
         normalization_acc = _jaccard(predicted_skills, expected_skills)
@@ -198,6 +258,10 @@ def run_eval(
             candidate_plan = reference_tasks
         faithfulness = rouge_l_faithfulness(candidate_plan, reference_tasks)
         faithful = faithfulness > 0.3
+        violations = _plan_constraint_violations(candidate_plan)
+        ece, brier = _calc_ece_brier(confidence_vals, confidence_labels, bins=10)
+        confidence_avg = sum(confidence_vals) / len(confidence_vals) if confidence_vals else 0.0
+        retrieval_share = hybrid_hits / len(parsed_skills) if parsed_skills else 0.0
 
         # Оценка cost (упрощённо): текст резюме + выход parser.
         input_tokens = _estimate_tokens(resume_text)
@@ -228,13 +292,19 @@ def run_eval(
             estimated_input_tokens=input_tokens,
             estimated_output_tokens=output_tokens,
             estimated_cost_usd=est_cost,
+            confidence_avg=confidence_avg,
+            confidence_ece=ece,
+            confidence_brier=brier,
+            retrieval_hybrid_share=retrieval_share,
+            constraint_violations=violations,
         )
         per_sample.append(m)
 
         if verbose:
             print(
                 f"[{sample_id}] F1={f1:.3f}, norm_acc={normalization_acc:.3f}, "
-                f"gap_f1={gf1:.3f}, faith={faithfulness:.3f}, latency={latency:.2f}s"
+                f"gap_f1={gf1:.3f}, faith={faithfulness:.3f}, "
+                f"ECE={ece:.3f}, viol={violations}, latency={latency:.2f}s"
             )
 
     def avg(fn):
@@ -257,6 +327,19 @@ def run_eval(
             "avg_rouge_l": avg(lambda x: x.faithfulness_rouge_l),
             "faithful_rate": avg(lambda x: 1.0 if x.faithful else 0.0),
             "threshold": 0.3,
+        },
+        "confidence_calibration": {
+            "avg_confidence": avg(lambda x: x.confidence_avg),
+            "ece": avg(lambda x: x.confidence_ece),
+            "brier": avg(lambda x: x.confidence_brier),
+        },
+        "retrieval_ablation": {
+            "hybrid_share_avg": avg(lambda x: x.retrieval_hybrid_share),
+            "mode": "hybrid_dense_lexical",
+        },
+        "constraint_violations": {
+            "avg_violations_per_sample": avg(lambda x: x.constraint_violations),
+            "total_violations": int(sum(x.constraint_violations for x in per_sample)),
         },
         "latency_sec_avg": avg(lambda x: x.latency_sec),
         "cost": {

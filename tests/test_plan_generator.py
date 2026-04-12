@@ -40,3 +40,11 @@ def test_system_policy_requires_books_only():
     policy = PlanGenerator._system_policy()  # type: ignore[attr-defined]
     assert "рекомендуй только книги" in policy
     assert "Не рекомендуй курсы" in policy
+
+
+def test_plan_constraint_verifier_detects_banned_learning_tokens():
+    from eval import _plan_constraint_violations  # type: ignore
+
+    bad_plan = "Рекомендуем пройти курс на Coursera и тренинг по SQL."
+    violations = _plan_constraint_violations(bad_plan)
+    assert violations >= 1

@@ -113,6 +113,131 @@ def normalize_user_input(text: str) -> str:
     return t
 
 
+def _tokenize_for_lexical(text: str) -> List[str]:
+    """Простая токенизация для lexical scoring (без внешних зависимостей)."""
+    import re
+
+    normalized = normalize_user_input(text or "")
+    if not normalized:
+        return []
+    tokens = re.findall(r"[a-zA-Zа-яА-Я0-9+#]+", normalized, flags=re.UNICODE)
+    return [t for t in tokens if len(t) >= 2]
+
+
+def _lexical_jaccard(query: str, candidate: str) -> float:
+    q = set(_tokenize_for_lexical(query))
+    c = set(_tokenize_for_lexical(candidate))
+    if not q or not c:
+        return 0.0
+    inter = len(q & c)
+    union = len(q | c)
+    return inter / union if union else 0.0
+
+
+def _rrf_rank_fusion(dense_rank: int, lexical_rank: int, rrf_k: float) -> float:
+    """
+    Reciprocal Rank Fusion:
+    score = 1/(k+rank_dense) + 1/(k+rank_lexical)
+    """
+    return (1.0 / (rrf_k + dense_rank)) + (1.0 / (rrf_k + lexical_rank))
+
+
+def _prepare_skills_cache() -> List[Dict[str, str]]:
+    """
+    Лёгкий кэш канонических навыков для lexical re-rank/fallback.
+    Формат: [{"name": "...", "profession": "..."}]
+    """
+    skills, _ = _load_skills_and_atlas()
+    out: List[Dict[str, str]] = []
+    seen = set()
+    for s in skills:
+        name = (s.get("Навык") or s.get("name") or "").strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        profession = s.get("Профессия (лист)") or s.get("Профессия") or s.get("Привязка к профессии") or ""
+        if isinstance(profession, list):
+            profession = profession[0] if profession else ""
+        out.append({"name": name, "profession": str(profession or "")})
+    return out
+
+
+_skills_cache: Optional[List[Dict[str, str]]] = None
+
+
+def _get_skills_cache() -> List[Dict[str, str]]:
+    global _skills_cache
+    if _skills_cache is not None:
+        return _skills_cache
+    _skills_cache = _prepare_skills_cache()
+    return _skills_cache
+
+
+def _lexical_skill_candidates(
+    user_input: str,
+    top_k: int,
+    min_score: float = 0.05,
+) -> List[Dict[str, Any]]:
+    """
+    Возвращает lexical-кандидаты с payload-like структурой:
+    [{"score": float, "payload": {"name": "...", "profession": "...", "type": "skill"}}]
+    """
+    query = normalize_user_input(user_input or "")
+    if not query:
+        return []
+    rows = _get_skills_cache()
+    scored: List[Tuple[float, Dict[str, str]]] = []
+    for row in rows:
+        name = row.get("name", "")
+        score = _lexical_jaccard(query, name)
+        if score < min_score:
+            continue
+        scored.append((score, row))
+    scored.sort(key=lambda x: -x[0])
+    out: List[Dict[str, Any]] = []
+    for score, row in scored[: max(top_k, 1)]:
+        out.append(
+            {
+                "score": float(score),
+                "payload": {
+                    "type": "skill",
+                    "name": row.get("name", ""),
+                    "profession": row.get("profession", ""),
+                },
+            }
+        )
+    return out
+
+
+def _dense_skill_candidates(
+    user_input: str,
+    top_k: int,
+    score_threshold: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """Dense-кандидаты из skills_v2 в payload-like формате."""
+    hits = search_skills_v2(user_input, top_k=top_k, score_threshold=score_threshold)
+    out: List[Dict[str, Any]] = []
+    for h in hits:
+        payload = h.get("payload") or {}
+        name = (payload.get("name") or "").strip()
+        if not name:
+            continue
+        out.append(
+            {
+                "score": float(h.get("score") or 0.0),
+                "payload": {
+                    "type": "skill",
+                    "name": name,
+                    "profession": payload.get("profession", ""),
+                },
+            }
+        )
+    return out
+
+
 def _get_embedder(model_name: Optional[str] = None):
     model = model_name or Config.EMBED_MODEL_NAME
     if model in _sentence_transformers:
@@ -427,17 +552,132 @@ def get_skills_v2_candidates(
     user_input: str,
     top_k: Optional[int] = None,
     score_threshold: Optional[float] = None,
+    retrieval_mode: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
+    """
+    Hybrid retrieval для навыков:
+    - dense: E5/Qdrant
+    - lexical: Jaccard по токенам имени навыка
+    - fusion: RRF + weighted blend
+    """
+    mode = (retrieval_mode or Config.SKILLS_RETRIEVAL_MODE or "hybrid_rerank").strip().lower()
     requested_top_k = top_k or Config.SKILLS_V2_TOP_K
-    hits = search_skills_v2(user_input, top_k=requested_top_k, score_threshold=score_threshold)
-    out = []
-    for h in hits:
+    dense_fetch_k = max(requested_top_k * 4, requested_top_k + 5)
+    dense_hits = _dense_skill_candidates(user_input, top_k=dense_fetch_k, score_threshold=score_threshold)
+    lexical_hits = _lexical_skill_candidates(user_input, top_k=dense_fetch_k)
+
+    if mode == "dense_only":
+        return [
+            {
+                "name": (h.get("payload") or {}).get("name", ""),
+                "score": float(h.get("score") or 0.0),
+                "dense_score": float(h.get("score") or 0.0),
+                "lexical_score": 0.0,
+                "retrieval_mode": "dense_only",
+            }
+            for h in dense_hits[:requested_top_k]
+            if (h.get("payload") or {}).get("name")
+        ]
+    if mode == "lexical_only":
+        return [
+            {
+                "name": (h.get("payload") or {}).get("name", ""),
+                "score": float(h.get("score") or 0.0),
+                "dense_score": 0.0,
+                "lexical_score": float(h.get("score") or 0.0),
+                "retrieval_mode": "lexical_only",
+            }
+            for h in lexical_hits[:requested_top_k]
+            if (h.get("payload") or {}).get("name")
+        ]
+
+    by_name: Dict[str, Dict[str, Any]] = {}
+    dense_rank = 1
+    for h in dense_hits:
         payload = h.get("payload") or {}
         name = (payload.get("name") or "").strip()
         if not name:
             continue
-        out.append({"name": name, "score": float(h.get("score") or 0.0)})
-    return out[:requested_top_k]
+        row = by_name.setdefault(
+            name,
+            {
+                "name": name,
+                "dense_score": 0.0,
+                "lexical_score": 0.0,
+                "dense_rank": dense_fetch_k + 1,
+                "lexical_rank": dense_fetch_k + 1,
+            },
+        )
+        row["dense_score"] = max(float(h.get("score") or 0.0), row["dense_score"])
+        row["dense_rank"] = min(int(row["dense_rank"]), dense_rank)
+        dense_rank += 1
+
+    lexical_rank = 1
+    for h in lexical_hits:
+        payload = h.get("payload") or {}
+        name = (payload.get("name") or "").strip()
+        if not name:
+            continue
+        row = by_name.setdefault(
+            name,
+            {
+                "name": name,
+                "dense_score": 0.0,
+                "lexical_score": 0.0,
+                "dense_rank": dense_fetch_k + 1,
+                "lexical_rank": dense_fetch_k + 1,
+            },
+        )
+        row["lexical_score"] = max(float(h.get("score") or 0.0), row["lexical_score"])
+        row["lexical_rank"] = min(int(row["lexical_rank"]), lexical_rank)
+        lexical_rank += 1
+
+    if not by_name:
+        return []
+
+    dense_weight = float(getattr(Config, "SKILLS_HYBRID_DENSE_WEIGHT", 0.7))
+    lexical_weight = float(getattr(Config, "SKILLS_HYBRID_LEXICAL_WEIGHT", 0.3))
+    rrf_k = float(getattr(Config, "SKILLS_HYBRID_RERANK_TOP_N", 60.0))
+    min_score = float(getattr(Config, "SKILLS_HYBRID_MIN_SCORE", 0.3))
+
+    fused_rows: List[Dict[str, Any]] = []
+    for row in by_name.values():
+        dense_score = float(row.get("dense_score", 0.0))
+        lexical_score = float(row.get("lexical_score", 0.0))
+        d_rank = int(row.get("dense_rank", dense_fetch_k + 1))
+        l_rank = int(row.get("lexical_rank", dense_fetch_k + 1))
+        rrf = _rrf_rank_fusion(d_rank, l_rank, rrf_k=rrf_k)
+        hybrid_score = (
+            dense_weight * dense_score
+            + lexical_weight * lexical_score
+            + 0.15 * rrf
+        )
+        fused_rows.append(
+            {
+                "name": row["name"],
+                "score": float(hybrid_score),
+                "dense_score": dense_score,
+                "lexical_score": lexical_score,
+                "retrieval_mode": "hybrid_rerank",
+                "retrieval_components": {
+                    "dense_rank": d_rank,
+                    "lexical_rank": l_rank,
+                    "rrf": float(rrf),
+                },
+            }
+        )
+
+    fused_rows.sort(
+        key=lambda x: (
+            -float(x.get("score", 0.0)),
+            -float(x.get("dense_score", 0.0)),
+            -float(x.get("lexical_score", 0.0)),
+        )
+    )
+    filtered = [x for x in fused_rows if float(x.get("score", 0.0)) >= min_score]
+    if not filtered:
+        filtered = fused_rows
+    return filtered[:requested_top_k]
 
 
 def get_rag_context_for_plan(step1_summary: str, target_name: str, top_k: Optional[int] = None) -> str:

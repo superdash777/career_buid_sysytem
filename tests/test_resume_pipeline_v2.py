@@ -40,6 +40,8 @@ def test_parse_skills_v2_flow_with_stubbed_llm_calls(monkeypatch):
     assert names == {"Python", "SQL, YQL"}
     assert all("llm_rerank_confidence" in s for s in out["skills"])
     assert all("candidates" in s for s in out["skills"])
+    assert all("retrieval_trace" in s for s in out["skills"])
+    assert all("source_skill_id" in s for s in out["skills"])
 
 
 def test_parse_skills_falls_back_to_legacy_on_v2_error():
