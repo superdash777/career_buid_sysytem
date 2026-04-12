@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  CalendarClock,
-  CheckCircle2,
-  Clock3,
-  FolderOpenDot,
-  Loader2,
-  PlayCircle,
-  Sparkles,
-  Target,
-} from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import { fetchAnalyses, fetchProgress, patchProgress, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { showToast } from '../components/toastStore';
 import type { AnalysisRecord, ProgressRecord } from '../types';
+import Button from '../components/ui/Button';
+import Eyebrow from '../components/ui/Eyebrow';
+import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   onBack: () => void;
@@ -204,18 +196,15 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
       <div className="space-y-6 slide-up">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary)">Личный кабинет</h1>
+            <Eyebrow className="mb-2">Dashboard // личный кабинет</Eyebrow>
+            <h1 className="text-3xl sm:text-4xl text-(--color-text-primary)">Личный кабинет</h1>
             <p className="text-(--color-text-muted) mt-1">
               Ваш прогресс, задачи на неделю и история анализов в одном месте.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={onBack} className="btn-secondary text-sm">
-              <ArrowLeft className="h-4 w-4" /> Назад
-            </button>
-            <button onClick={onStartNew} className="btn-primary text-sm">
-              <Sparkles className="h-4 w-4" /> Новый анализ
-            </button>
+            <Button variant="secondary" onClick={onBack}>← Назад</Button>
+            <Button onClick={onStartNew}>Новый анализ →</Button>
           </div>
         </div>
 
@@ -227,7 +216,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
 
         {loading ? (
           <div className="card flex items-center gap-3 text-(--color-text-secondary)">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="inline-flex h-4 w-4 animate-spin items-center justify-center rounded-full border border-(--color-border) text-[10px]">◎</span>
             Загружаем данные кабинета...
           </div>
         ) : (
@@ -237,29 +226,30 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                 title="Текущее совпадение"
                 value={`${matchPercent}%`}
                 subtitle="Совпадение с целевой ролью"
-                icon={<Target className="h-4 w-4 text-(--color-accent)" />}
+                marker="01"
               />
               <MetricCard
                 title="Освоено навыков"
                 value={`${doneCount}/${trackedSkills.length || 0}`}
                 subtitle="По задачам текущей недели"
-                icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                marker="02"
               />
               <MetricCard
                 title="Цель"
                 value={latestAnalysis?.target_role || latestAnalysis?.current_role || '—'}
                 subtitle={latestAnalysis ? SCENARIO_LABELS[latestAnalysis.scenario] || latestAnalysis.scenario : 'Пока нет анализа'}
-                icon={<PlayCircle className="h-4 w-4 text-purple-500" />}
+                marker="03"
               />
               <MetricCard
                 title="Прогноз цели"
                 value={forecastText}
                 subtitle="На основе вашего темпа развития"
-                icon={<CalendarClock className="h-4 w-4 text-amber-500" />}
+                marker="04"
               />
             </div>
 
             <div className="card">
+              <MonoLabel>Прогресс к цели</MonoLabel>
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="font-medium text-(--color-text-primary)">Прогресс к цели</span>
                 <span className="text-(--color-text-secondary)">{matchPercent}% → 100%</span>
@@ -271,6 +261,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
             </div>
 
             <div className="card space-y-4">
+              <MonoLabel>Weekly tasks</MonoLabel>
               <h2 className="text-lg font-semibold text-(--color-text-primary)">Задачи на неделю</h2>
               {trackedSkills.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
@@ -302,8 +293,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                                 : 'bg-(--color-surface-alt) text-(--color-text-secondary) border border-(--color-border)'
                             }`}
                           >
-                            <Clock3 className="h-3.5 w-3.5 inline mr-1" />
-                            В процессе
+                            {status === 'in_progress' ? 'В процессе' : 'В работу'}
                           </button>
                           <span className="text-xs text-(--color-text-muted)">
                             {status === 'done' ? 'Выполнено' : status === 'in_progress' ? 'В работе' : 'Запланировано'}
@@ -317,6 +307,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
             </div>
 
             <div className="card space-y-4">
+              <MonoLabel>History</MonoLabel>
               <h2 className="text-lg font-semibold text-(--color-text-primary)">История анализов</h2>
               {analyses.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
@@ -336,9 +327,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-(--color-accent)">{getMatchPercent(item)}%</span>
-                        <button onClick={() => onOpenAnalysis(item)} className="btn-secondary text-xs">
-                          <FolderOpenDot className="h-3.5 w-3.5" /> Открыть
-                        </button>
+                        <Button variant="secondary" onClick={() => onOpenAnalysis(item)}>Открыть →</Button>
                       </div>
                     </div>
                   ))}
@@ -356,18 +345,20 @@ function MetricCard({
   title,
   value,
   subtitle,
-  icon,
+  marker,
 }: {
   title: string;
   value: string;
   subtitle: string;
-  icon: React.ReactNode;
+  marker: string;
 }) {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-muted)">{title}</p>
-        {icon}
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-(--color-border) bg-[var(--chip)] font-[var(--font-mono)] text-[10px] text-(--color-text-muted)">
+          {marker}
+        </span>
       </div>
       <p className="text-xl font-bold text-(--color-text-primary) break-words">{value}</p>
       <p className="text-xs text-(--color-text-muted) mt-1">{subtitle}</p>

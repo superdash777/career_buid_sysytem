@@ -1,5 +1,6 @@
 import Stepper from './Stepper';
 import NavBar from './NavBar';
+import GridBg from './layout/GridBg';
 
 interface Props {
   step: number;
@@ -9,11 +10,11 @@ interface Props {
 }
 
 export default function Layout({ step, showStepper = true, wide = false, children }: Props) {
-  const maxW = wide ? 'max-w-5xl' : 'max-w-3xl';
+  const maxW = wide ? 'max-w-6xl' : 'max-w-4xl';
   return (
-    <div className="min-h-screen flex flex-col bg-(--color-surface)">
-      <header className="sticky top-0 z-30 border-b border-(--color-border) bg-(--color-surface-raised)/80 backdrop-blur-md">
-        <div className="mx-auto max-w-3xl px-4">
+    <GridBg className="min-h-screen bg-(--color-surface)">
+      <header className="sticky top-0 z-30 border-b border-(--color-border) bg-(--color-surface-raised)/85 backdrop-blur-md">
+        <div className={`mx-auto ${maxW} px-4`}>
           <NavBar />
           {showStepper && <Stepper current={step} />}
         </div>
@@ -24,6 +25,6 @@ export default function Layout({ step, showStepper = true, wide = false, childre
       <footer className="border-t border-(--color-border-muted) py-4 text-center text-xs text-(--color-text-muted)">
         Career Copilot
       </footer>
-    </div>
+    </GridBg>
   );
 }
