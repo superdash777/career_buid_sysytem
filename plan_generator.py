@@ -103,20 +103,21 @@ class PlanGenerator:
         out_parts: List[str] = []
         remaining = max_len
         for title, raw_text in sections:
+            prefix = "" if not out_parts else "\n\n"
             header = f"[{title}]\n"
-            body_limit = remaining - len(header) - 2
+            body_limit = remaining - len(prefix) - len(header)
             if body_limit <= 0:
                 break
             body = self._cut_text(raw_text, body_limit)
             if not body:
                 continue
-            block = f"{header}{body}\n"
+            block = f"{prefix}{header}{body}"
             out_parts.append(block)
             remaining -= len(block)
             if remaining <= 0:
                 break
 
-        return "\n".join(out_parts).strip()
+        return "".join(out_parts).strip()
 
     @staticmethod
     def _normalize_focused_json(result: Dict[str, Any]) -> Dict[str, Any]:
