@@ -870,56 +870,14 @@ def focused_plan_api(req: FocusedPlanRequest):
         skill_context += block + "\n\n"
 
     target = req.target_profession or req.profession
-    prompt = f"""Пользователь выбрал навыки для развития: {', '.join(req.selected_skills)}.
-Профессия: {req.profession}, грейд: {req.grade}, цель: {target}, сценарий: {req.scenario}.
-
-Данные по навыкам:
-{skill_context}
-
-Сгенерируй РОВНО три JSON-блока. Отвечай ТОЛЬКО валидным JSON без markdown.
-
-{{
-  "tasks": [
-    {{"skill": "название навыка", "items": ["конкретная задача 1", "конкретная задача 2"]}}
-  ],
-  "communication": ["рекомендация по развитию через общение 1", "рекомендация 2", "рекомендация 3"],
-  "learning": ["конкретная книга/курс/ресурс 1", "ресурс 2", "ресурс 3"]
-}}
-
-Правила:
-- tasks: для КАЖДОГО выбранного навыка 2-3 конкретные задачи, опираясь на данные выше
-- communication: 3-5 рекомендаций по менторству, code review, обратной связи
-- learning: 3-5 конкретных книг, курсов или ресурсов на русском или английском
-- Отвечай на русском
-- Только JSON, без пояснений"""
-
-    import json as _json
-    last_error = None
-    for attempt in range(3):
-        try:
-            response = gen.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Отвечай только валидным JSON. Без markdown, без пояснений."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.3,
-                max_tokens=2000,
-                response_format={"type": "json_object"},
-            )
-            result = _json.loads(response.choices[0].message.content)
-            if "tasks" not in result:
-                result["tasks"] = []
-            if "communication" not in result:
-                result["communication"] = []
-            if "learning" not in result:
-                result["learning"] = []
-            return result
-        except Exception as e:
-            last_error = e
-            import time; time.sleep(1)
-
-    raise HTTPException(status_code=500, detail=f"Ошибка генерации: {last_error}")
+    return gen.generate_focused_plan_json(
+        selected_skills=req.selected_skills[:10],
+        profession=req.profession,
+        grade=req.grade,
+        scenario=req.scenario,
+        target_name=target,
+        skill_context=skill_context,
+    )
 
 
 @app.get("/health")

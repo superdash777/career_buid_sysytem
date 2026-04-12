@@ -3,6 +3,7 @@
 
 import json
 import time
+from typing import Any, Dict, List, Optional, Tuple
 from config import Config
 
 try:
@@ -11,6 +12,7 @@ except ImportError:
     OpenAI = None
 
 MAX_TOKENS_RESPONSE = 4096
+FOCUSED_PLAN_MAX_TOKENS = 2200
 
 
 class PlanGenerator:
@@ -18,42 +20,171 @@ class PlanGenerator:
         self._api_key = Config.OPENAI_API_KEY
         self.client = OpenAI(api_key=self._api_key) if (OpenAI and self._api_key) else None
 
-    def generate_plan_702010(self, scenario_type, step1_markdown, target_name,
-                              context="", rag_context="", skill_context="",
-                              strong_skills=None, gap_summary=None):
+    @staticmethod
+    def _system_policy() -> str:
+        return (
+            "Ты — карьерный коуч с 10-летним опытом в IT.\n"
+            "Ты работаешь с Middle-специалистами и строишь практичные планы развития.\n"
+            "Критические правила:\n"
+            "1) Используй ТОЛЬКО информацию из переданного контекста.\n"
+            "2) Если данных недостаточно, явно пиши: 'Требуется уточнение'.\n"
+            "3) Все практические задачи должны быть выполнимы за 1–4 часа.\n"
+            "4) Не рекомендуй платные курсы дороже $50.\n"
+            "5) Не выдумывай навыки, роли, факты или достижения пользователя.\n"
+            "6) Отвечай на русском языке."
+        )
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        return " ".join((text or "").split()).strip()
+
+    @staticmethod
+    def _cut_text(text: str, limit: int) -> str:
+        text = (text or "").strip()
+        if limit <= 0 or not text:
+            return ""
+        if len(text) <= limit:
+            return text
+        cut = text[:limit].rstrip()
+        last_space = cut.rfind(" ")
+        if last_space > int(limit * 0.7):
+            cut = cut[:last_space]
+        return cut.rstrip()
+
+    def _build_context_block(
+        self,
+        *,
+        step1_markdown: str = "",
+        context: str = "",
+        rag_context: str = "",
+        skill_context: str = "",
+        strong_skills: Optional[List[str]] = None,
+        gap_summary: Optional[Dict[str, Any]] = None,
+        max_chars: Optional[int] = None,
+    ) -> str:
+        """
+        Собирает контекст с приоритетным усечением до заданного лимита.
+        Приоритет секций:
+        1) Структурированные gap-данные
+        2) Описания навыков/уровней
+        3) Уже сильные навыки пользователя
+        4) RAG-контекст
+        5) Диагностика в markdown
+        6) Доп. инструкции
+        """
+        max_len = int(max_chars or Config.PLAN_CONTEXT_MAX_CHARS or 4000)
+        sections: List[Tuple[str, str]] = []
+        if gap_summary:
+            sections.append(
+                (
+                    "СТРУКТУРИРОВАННЫЙ_GAP_JSON",
+                    json.dumps(gap_summary, ensure_ascii=False, indent=2),
+                )
+            )
+        if skill_context and skill_context.strip():
+            sections.append(("ОПИСАНИЯ_НАВЫКОВ", skill_context.strip()))
+        if strong_skills:
+            sections.append(
+                (
+                    "УЖЕ_СИЛЬНЫЕ_НАВЫКИ",
+                    ", ".join([s for s in strong_skills if str(s).strip()][:25]),
+                )
+            )
+        if rag_context and rag_context.strip():
+            sections.append(("RAG_КОНТЕКСТ", rag_context.strip()))
+        if step1_markdown and step1_markdown.strip():
+            sections.append(("ДИАГНОСТИКА_MARKDOWN", step1_markdown.strip()))
+        if context and context.strip():
+            sections.append(("ДОП_КОНТЕКСТ", context.strip()))
+
+        if not sections:
+            return ""
+
+        out_parts: List[str] = []
+        remaining = max_len
+        for title, raw_text in sections:
+            header = f"[{title}]\n"
+            body_limit = remaining - len(header) - 2
+            if body_limit <= 0:
+                break
+            body = self._cut_text(raw_text, body_limit)
+            if not body:
+                continue
+            block = f"{header}{body}\n"
+            out_parts.append(block)
+            remaining -= len(block)
+            if remaining <= 0:
+                break
+
+        return "\n".join(out_parts).strip()
+
+    @staticmethod
+    def _normalize_focused_json(result: Dict[str, Any]) -> Dict[str, Any]:
+        tasks = result.get("tasks") if isinstance(result.get("tasks"), list) else []
+        normalized_tasks = []
+        for item in tasks:
+            if not isinstance(item, dict):
+                continue
+            skill = str(item.get("skill") or "").strip()
+            if not skill:
+                continue
+            raw_items = item.get("items") if isinstance(item.get("items"), list) else []
+            task_items = [str(x).strip() for x in raw_items if str(x).strip()]
+            if not task_items:
+                task_items = ["Требуется уточнение"]
+            normalized_tasks.append({"skill": skill, "items": task_items[:4]})
+
+        communication = result.get("communication")
+        if not isinstance(communication, list):
+            communication = []
+        communication = [str(x).strip() for x in communication if str(x).strip()][:6]
+        if not communication:
+            communication = ["Требуется уточнение"]
+
+        learning = result.get("learning")
+        if not isinstance(learning, list):
+            learning = []
+        learning = [str(x).strip() for x in learning if str(x).strip()][:6]
+        if not learning:
+            learning = ["Требуется уточнение"]
+
+        return {
+            "tasks": normalized_tasks,
+            "communication": communication,
+            "learning": learning,
+        }
+
+    def generate_plan_702010(
+        self,
+        scenario_type,
+        step1_markdown,
+        target_name,
+        context="",
+        rag_context="",
+        skill_context="",
+        strong_skills=None,
+        gap_summary=None,
+    ):
         if not self.client:
             return self._fallback_plan(target_name)
 
-        # Structured gap data for the model (JSON is parsed better than markdown)
-        structured_block = ""
-        if gap_summary:
-            structured_block = "\n\nСтруктурированные данные анализа (JSON):\n```json\n"
-            structured_block += json.dumps(gap_summary, ensure_ascii=False, indent=2)[:3000]
-            structured_block += "\n```"
-
-        strong_block = ""
-        if strong_skills:
-            strong_block = "\n\nНавыки, которые пользователь УЖЕ ОСВОИЛ (НЕ включать в план развития): "
-            strong_block += ", ".join(strong_skills[:20])
-
-        extra_rag = ""
-        if rag_context and rag_context.strip():
-            extra_rag = "\n\nМатериалы из базы навыков (используй для конкретики):\n" + rag_context.strip()[:2000]
-
-        extra_skills = ""
-        if skill_context and skill_context.strip():
-            extra_skills = "\n\nОписания навыков и задачи на развитие (основа рекомендаций):\n" + skill_context.strip()[:3000]
+        context_block = self._build_context_block(
+            step1_markdown=step1_markdown,
+            context=context,
+            rag_context=rag_context,
+            skill_context=skill_context,
+            strong_skills=strong_skills or [],
+            gap_summary=gap_summary or {},
+            max_chars=Config.PLAN_CONTEXT_MAX_CHARS,
+        )
 
         prompt = f"""Цель: {target_name}
 Сценарий: {scenario_type}
-{structured_block}
-{strong_block}
-{extra_rag}
-{extra_skills}
 
-Дополнительно: {context}
+КОНТЕКСТ (ограниченный бюджет, до {Config.PLAN_CONTEXT_MAX_CHARS} символов):
+{context_block or "Требуется уточнение"}
 
-ЗАДАЧА: составь персональный план развития строго по данным выше.
+ЗАДАЧА: составь персональный план развития строго по данным из КОНТЕКСТА.
 
 СТРУКТУРА ОТВЕТА:
 
@@ -68,6 +199,7 @@ class PlanGenerator:
 
 ## Курсы и тренинги
 Конкретные направления обучения для каждого приоритетного навыка.
+Если даёшь платные рекомендации, цена не должна превышать $50.
 
 ## Метрики и чекпоинты
 Как измерить прогресс. Точки пересмотра: 4 / 8 / 12 недель.
@@ -77,15 +209,16 @@ class PlanGenerator:
 - Не повторяй диагностику, сразу план
 - Не предлагай изучать навыки из списка «уже освоил»
 - Не обрывай текст, не используй «…»
-- Опирайся ТОЛЬКО на данные из контекста"""
+- Опирайся ТОЛЬКО на данные из контекста
+- Если данных недостаточно, пиши «Требуется уточнение»"""
 
         last_error = None
         for attempt in range(3):
             try:
                 response = self.client.chat.completions.create(
-                    model="gpt-4o",
+                    model=Config.PLAN_GENERATOR_MODEL,
                     messages=[
-                        {"role": "system", "content": "Ты эксперт по карьерному развитию в IT. Отвечай структурированно, на русском. Никогда не обрывай текст. Не выдумывай навыки — используй только то, что есть в контексте."},
+                        {"role": "system", "content": self._system_policy()},
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.3,
@@ -97,6 +230,84 @@ class PlanGenerator:
                 if attempt < 2:
                     time.sleep(1 + attempt)
         return self._fallback_plan(target_name) + f"\n\n*(Ошибка генерации: {last_error})*"
+
+    def generate_focused_plan_json(
+        self,
+        *,
+        selected_skills: List[str],
+        profession: str,
+        grade: str,
+        scenario: str,
+        target_name: str,
+        skill_context: str,
+    ) -> Dict[str, Any]:
+        if not self.client:
+            return {
+                "tasks": [{"skill": s, "items": ["Требуется уточнение"]} for s in selected_skills[:10]],
+                "communication": ["Требуется уточнение"],
+                "learning": ["Требуется уточнение"],
+            }
+
+        context_block = self._build_context_block(
+            context=(
+                f"Профессия: {profession}. "
+                f"Грейд: {grade}. "
+                f"Сценарий: {scenario}. "
+                f"Цель: {target_name}. "
+                f"Выбранные навыки: {', '.join(selected_skills[:10])}."
+            ),
+            skill_context=skill_context,
+            strong_skills=[],
+            gap_summary={"selected_skills": selected_skills[:10]},
+            max_chars=Config.PLAN_CONTEXT_MAX_CHARS,
+        )
+
+        prompt = f"""Сгенерируй фокусный план развития в JSON-формате.
+
+КОНТЕКСТ (до {Config.PLAN_CONTEXT_MAX_CHARS} символов):
+{context_block or "Требуется уточнение"}
+
+Верни ТОЛЬКО валидный JSON:
+{{
+  "tasks": [
+    {{"skill": "название навыка", "items": ["конкретная задача 1", "конкретная задача 2"]}}
+  ],
+  "communication": ["рекомендация 1", "рекомендация 2"],
+  "learning": ["ресурс 1", "ресурс 2"]
+}}
+
+Правила:
+- tasks: для каждого выбранного навыка 2-3 практических задачи
+- каждая задача должна быть выполнима за 1-4 часа
+- не предлагай платные курсы дороже $50
+- если не хватает данных, используй «Требуется уточнение»
+- никаких пояснений вне JSON"""
+
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = self.client.chat.completions.create(
+                    model=Config.PLAN_GENERATOR_MODEL,
+                    messages=[
+                        {"role": "system", "content": self._system_policy() + "\nОтвечай строго JSON."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.3,
+                    max_tokens=FOCUSED_PLAN_MAX_TOKENS,
+                    response_format={"type": "json_object"},
+                )
+                parsed = json.loads(response.choices[0].message.content)
+                return self._normalize_focused_json(parsed if isinstance(parsed, dict) else {})
+            except Exception as e:
+                last_error = e
+                if attempt < 2:
+                    time.sleep(1 + attempt)
+
+        return {
+            "tasks": [{"skill": s, "items": ["Требуется уточнение"]} for s in selected_skills[:10]],
+            "communication": [f"Требуется уточнение ({last_error})" if last_error else "Требуется уточнение"],
+            "learning": ["Требуется уточнение"],
+        }
 
     def _fallback_plan(self, target_name):
         return f"""## План развития: {target_name}

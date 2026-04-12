@@ -7,7 +7,7 @@ from gap_analyzer import level_display
 def _build_skill_context(data_loader, skill_gaps, grade):
     """Собирает описания уровней + примеры задач для навыков из gap-списка (для LLM)."""
     parts = []
-    for g in skill_gaps[:15]:
+    for g in skill_gaps:
         detail = data_loader.get_skill_detail(g["name"], grade)
         if not detail:
             continue
@@ -187,7 +187,7 @@ class OutputFormatter:
                     pass
             gap_summary = {
                 "param_gaps": [{"name": g["name"], "delta": g["delta"]} for g in atlas_gaps],
-                "skill_gaps": [{"name": g["name"], "delta": g["delta"], "current": g["current"], "required": g["required"]} for g in skill_gaps[:15]],
+                "skill_gaps": [{"name": g["name"], "delta": g["delta"], "current": g["current"], "required": g["required"]} for g in skill_gaps],
             }
             strong_names = [s["name"] for s in skill_strong[:20]]
             step2 = gen.generate_plan_702010(
