@@ -15,6 +15,8 @@ import MonoLabel from '../components/ui/MonoLabel';
 interface Props {
   plan: PlanResponse;
   appState: AppState;
+  isAuthenticated?: boolean;
+  onSoftGate?: () => void;
   onReset: () => void;
   onBackToSkills: () => void;
   onOpenDashboard: () => void;
@@ -24,6 +26,8 @@ interface Props {
 export default function Result({
   plan,
   appState,
+  isAuthenticated = true,
+  onSoftGate,
   onReset,
   onBackToSkills,
   onOpenDashboard,
@@ -194,9 +198,29 @@ export default function Result({
         {activeTab === 'analysis' && focusedPlan && <FocusedPlanView plan={focusedPlan} />}
 
         {/* Footer */}
+        {!isAuthenticated && (
+          <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
+            <MonoLabel>Soft gate</MonoLabel>
+            <h3 className="mt-3 text-lg font-semibold text-(--color-text-primary)">
+              Сохранить результат и получить полный план
+            </h3>
+            <p className="mt-2 text-sm text-(--color-text-secondary)">
+              Сейчас вы видите бесплатный снэпшот: match, gap-анализ и базовые рекомендации.
+              Создайте аккаунт, чтобы сохранить историю, открыть полный план и трекинг прогресса.
+            </p>
+            {onSoftGate && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={onSoftGate}>Создать аккаунт и сохранить →</Button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3 pt-2">
           <Button variant="secondary" onClick={onBackToSkills}>← Уточнить навыки</Button>
-          <Button variant="secondary" onClick={onOpenDashboard}>Личный кабинет →</Button>
+          {isAuthenticated && (
+            <Button variant="secondary" onClick={onOpenDashboard}>Личный кабинет →</Button>
+          )}
         </div>
       </div>
     </Layout>

@@ -8,9 +8,10 @@ import { useAuth } from '../auth/AuthContext';
 interface Props {
   onSuccess?: () => void;
   onGoLogin: () => void;
+  onSkipToQuickStart?: () => void;
 }
 
-export default function Register({ onSuccess, onGoLogin }: Props) {
+export default function Register({ onSuccess, onGoLogin, onSkipToQuickStart }: Props) {
   const { register } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,6 +105,18 @@ export default function Register({ onSuccess, onGoLogin }: Props) {
             >
               Войти
             </button>
+            {onSkipToQuickStart && (
+              <>
+                {' '}•{' '}
+                <button
+                  type="button"
+                  onClick={onSkipToQuickStart}
+                  className="font-semibold text-[var(--muted)] underline underline-offset-4"
+                >
+                  Продолжить без регистрации
+                </button>
+              </>
+            )}
           </div>
         </section>
       </main>

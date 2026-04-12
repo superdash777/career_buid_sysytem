@@ -21,6 +21,9 @@ import { Loader2, ExternalLink, Home } from 'lucide-react';
 
 type Screen =
   | 'public'
+  | 'demo'
+  | 'quickstart'
+  | 'soft-gate'
   | 'login'
   | 'register'
   | 'share'
@@ -34,6 +37,9 @@ type Screen =
 
 const SCREEN_ORDER: Screen[] = [
   'public',
+  'demo',
+  'quickstart',
+  'soft-gate',
   'login',
   'register',
   'share',
@@ -179,6 +185,7 @@ export default function App() {
   const [sharedPlan, setSharedPlan] = useState<SharedAnalysisResponse | null>(null);
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedError, setSharedError] = useState('');
+  const [pendingAuthScreen, setPendingAuthScreen] = useState<Screen | null>(null);
 
   const setScreen = useCallback((s: Screen, replace = false) => {
     if (s === 'share') return;
@@ -195,14 +202,29 @@ export default function App() {
 
   useEffect(() => {
     if (screen === 'share') return;
-    if (isAuthenticated && (screen === 'public' || screen === 'login' || screen === 'register')) {
-      setScreen('welcome', true);
+    if (isAuthenticated && screen === 'soft-gate') {
+      setScreen('dashboard', true);
       return;
     }
-    if (!isAuthenticated && screen !== 'public' && screen !== 'login' && screen !== 'register') {
+    if (isAuthenticated && (screen === 'public' || screen === 'login' || screen === 'register' || screen === 'demo')) {
+      setScreen(pendingAuthScreen || 'welcome', true);
+      setPendingAuthScreen(null);
+      return;
+    }
+    if (!isAuthenticated
+      && screen !== 'public'
+      && screen !== 'demo'
+      && screen !== 'quickstart'
+      && screen !== 'goal'
+      && screen !== 'skills'
+      && screen !== 'login'
+      && screen !== 'register'
+      && screen !== 'confirm'
+      && screen !== 'result'
+      && screen !== 'soft-gate') {
       setScreen('public', true);
     }
-  }, [isAuthenticated, screen, setScreen]);
+  }, [isAuthenticated, screen, setScreen, pendingAuthScreen]);
 
   useEffect(() => {
     if (typeof user?.development_hours_per_week === 'number' && user.development_hours_per_week > 0) {
@@ -416,9 +438,21 @@ export default function App() {
       );
     }
 
-    if (!isAuthenticated && screen !== 'public' && screen !== 'login' && screen !== 'register') {
+    if (
+      !isAuthenticated
+      && screen !== 'public'
+      && screen !== 'demo'
+      && screen !== 'quickstart'
+      && screen !== 'soft-gate'
+      && screen !== 'login'
+      && screen !== 'register'
+      && screen !== 'confirm'
+      && screen !== 'result'
+    ) {
       return (
         <PublicLanding
+          onTryInstant={() => setScreen('quickstart')}
+          onWatchDemo={() => setScreen('demo')}
           onLogin={() => setScreen('login')}
           onRegister={() => setScreen('register')}
         />
@@ -429,22 +463,104 @@ export default function App() {
       case 'public':
         return (
           <PublicLanding
+            onTryInstant={() => setScreen('quickstart')}
+            onWatchDemo={() => setScreen('demo')}
             onLogin={() => setScreen('login')}
             onRegister={() => setScreen('register')}
           />
         );
+      case 'demo':
+        return (
+          <div className="min-h-screen bg-(--color-surface)">
+            <div className="mx-auto max-w-4xl px-4 py-10 space-y-6">
+              <NavBar />
+              <div className="card space-y-3">
+                <h1 className="text-2xl font-semibold text-(--color-text-primary)">Демо-режим</h1>
+                <p className="text-sm text-(--color-text-secondary)">
+                  За 60 секунд вы получите персональный career snapshot: match%, ключевые gap-навыки и
+                  следующий шаг развития.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button className="btn-primary" onClick={() => setScreen('quickstart')}>
+                    Запустить на своих данных
+                  </button>
+                  <button className="btn-secondary" onClick={() => setScreen('public')}>
+                    Назад
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'quickstart':
+        return (
+          <GoalSetup
+            state={state}
+            onChange={update}
+            onNext={() => setScreen('skills')}
+            onBack={() => setScreen('public')}
+          />
+        );
+      case 'soft-gate':
+        return (
+          <div className="min-h-screen bg-(--color-surface)">
+            <div className="mx-auto max-w-4xl px-4 py-10 space-y-6">
+              <NavBar />
+              <div className="card space-y-3">
+                <h1 className="text-2xl font-semibold text-(--color-text-primary)">
+                  Сохраните результат и продолжайте
+                </h1>
+                <p className="text-sm text-(--color-text-secondary)">
+                  Мы уже показали бесплатный snapshot. Создайте аккаунт, чтобы сохранить историю,
+                  открыть полный план и трекинг прогресса.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      setPendingAuthScreen('dashboard');
+                      setScreen('register');
+                    }}
+                  >
+                    Создать аккаунт
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      setPendingAuthScreen('dashboard');
+                      setScreen('login');
+                    }}
+                  >
+                    Войти
+                  </button>
+                  <button className="btn-secondary" onClick={() => setScreen('quickstart')}>
+                    Продолжить без сохранения
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
       case 'login':
         return (
           <Login
-            onSuccess={() => setScreen('welcome', true)}
+            onSuccess={() => {
+              setScreen(pendingAuthScreen || 'welcome', true);
+              setPendingAuthScreen(null);
+            }}
             onGoRegister={() => setScreen('register')}
+            onBackToPublic={() => setScreen('public')}
           />
         );
       case 'register':
         return (
           <Register
-            onSuccess={() => setScreen('onboarding', true)}
+            onSuccess={() => {
+              setScreen(pendingAuthScreen || 'onboarding', true);
+              setPendingAuthScreen(null);
+            }}
             onGoLogin={() => setScreen('login')}
+            onSkipToQuickStart={() => setScreen('quickstart')}
           />
         );
       case 'welcome':
@@ -483,6 +599,16 @@ export default function App() {
           </ProtectedRoute>
         );
       case 'goal':
+        if (!isAuthenticated) {
+          return (
+            <GoalSetup
+              state={state}
+              onChange={update}
+              onNext={() => setScreen('skills')}
+              onBack={() => setScreen('public')}
+            />
+          );
+        }
         return (
           <ProtectedRoute>
             <GoalSetup
@@ -494,6 +620,16 @@ export default function App() {
           </ProtectedRoute>
         );
       case 'skills':
+        if (!isAuthenticated) {
+          return (
+            <Skills
+              state={state}
+              onChange={update}
+              onNext={() => setScreen('confirm')}
+              onBack={() => setScreen('goal')}
+            />
+          );
+        }
         return (
           <ProtectedRoute>
             <Skills
@@ -505,6 +641,20 @@ export default function App() {
           </ProtectedRoute>
         );
       case 'confirm':
+        if (!isAuthenticated) {
+          return (
+            <Confirmation
+              state={state}
+              isAuthenticated={false}
+              onRequireAuth={() => setScreen('soft-gate')}
+              onBack={() => setScreen('skills')}
+              onResult={(p) => {
+                setPlan(p);
+                setScreen('result');
+              }}
+            />
+          );
+        }
         return (
           <ProtectedRoute>
             <Confirmation
@@ -518,33 +668,49 @@ export default function App() {
           </ProtectedRoute>
         );
       case 'result':
+        if (!plan) {
+          return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
+              <div className="max-w-md w-full text-center">
+                <NavBar />
+                <Alert variant="info" title="План ещё не создан">
+                  Вернитесь к предыдущему шагу и сгенерируйте план.
+                </Alert>
+                <button
+                  onClick={() => setScreen('confirm')}
+                  className="btn-primary mt-6"
+                >
+                  Вернуться к подтверждению
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (!isAuthenticated) {
+          return (
+            <Result
+              plan={plan}
+              appState={state}
+              isAuthenticated={false}
+              onSoftGate={() => setScreen('soft-gate')}
+              onReset={reset}
+              onBackToSkills={() => setScreen('skills')}
+              onOpenDashboard={() => setScreen('soft-gate')}
+              onOpenShare={openShare}
+            />
+          );
+        }
         return (
           <ProtectedRoute>
-            {plan ? (
-              <Result
-                plan={plan}
-                appState={state}
-                onReset={reset}
-                onBackToSkills={() => setScreen('skills')}
-                onOpenDashboard={() => setScreen('dashboard')}
-                onOpenShare={openShare}
-              />
-            ) : (
-              <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
-                <div className="max-w-md w-full text-center">
-                  <NavBar />
-                  <Alert variant="info" title="План ещё не создан">
-                    Вернитесь к предыдущему шагу и сгенерируйте план.
-                  </Alert>
-                  <button
-                    onClick={() => setScreen('confirm')}
-                    className="btn-primary mt-6"
-                  >
-                    Вернуться к подтверждению
-                  </button>
-                </div>
-              </div>
-            )}
+            <Result
+              plan={plan}
+              appState={state}
+              isAuthenticated
+              onReset={reset}
+              onBackToSkills={() => setScreen('skills')}
+              onOpenDashboard={() => setScreen('dashboard')}
+              onOpenShare={openShare}
+            />
           </ProtectedRoute>
         );
       default:

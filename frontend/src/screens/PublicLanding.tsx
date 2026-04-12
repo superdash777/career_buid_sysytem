@@ -7,11 +7,13 @@ import Mark from '../components/ui/Mark';
 import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
+  onTryInstant: () => void;
+  onWatchDemo: () => void;
   onLogin: () => void;
   onRegister: () => void;
 }
 
-export default function PublicLanding({ onLogin, onRegister }: Props) {
+export default function PublicLanding({ onTryInstant, onWatchDemo, onLogin, onRegister }: Props) {
   return (
     <GridBg className="min-h-screen bg-[var(--bg)]">
       <header className="mx-auto w-full max-w-6xl px-5 md:px-8">
@@ -34,10 +36,19 @@ export default function PublicLanding({ onLogin, onRegister }: Props) {
               переход к следующей карьерной точке.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button onClick={onRegister}>Начать бесплатно →</Button>
-              <Button variant="secondary" onClick={onLogin}>
-                Уже есть аккаунт →
+              <Button onClick={onTryInstant}>Попробовать за 60 секунд →</Button>
+              <Button variant="secondary" onClick={onWatchDemo}>
+                Смотреть демо →
               </Button>
+              <Button variant="secondary" onClick={onLogin}>
+                Войти →
+              </Button>
+              <button
+                onClick={onRegister}
+                className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)] underline underline-offset-4"
+              >
+                Сначала зарегистрироваться
+              </button>
             </div>
           </article>
 

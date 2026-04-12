@@ -10,9 +10,10 @@ import Mark from '../components/ui/Mark';
 interface Props {
   onSuccess: () => void;
   onGoRegister: () => void;
+  onBackToPublic?: () => void;
 }
 
-export default function Login({ onSuccess, onGoRegister }: Props) {
+export default function Login({ onSuccess, onGoRegister, onBackToPublic }: Props) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -108,6 +109,17 @@ export default function Login({ onSuccess, onGoRegister }: Props) {
                 У меня ещё нет аккаунта →
               </Button>
             </div>
+            {onBackToPublic && (
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  onClick={onBackToPublic}
+                  className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)] underline underline-offset-4"
+                >
+                  Назад к быстрому старту
+                </button>
+              </div>
+            )}
           </article>
         </section>
       </main>
