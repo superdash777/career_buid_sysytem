@@ -133,6 +133,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class OnboardingRequest(BaseModel):
+    experience_level: str
+    pain_point: str
+    development_hours_per_week: int
+
+
 class AnalysisCreateRequest(BaseModel):
     scenario: str
     current_role: Optional[str] = None
@@ -167,6 +173,16 @@ def _serialize_analysis_row(row: Any) -> Dict[str, Any]:
         "result_json": result,
         "created_at": row["created_at"],
     }
+
+
+def _recommend_scenario_from_pain_point(pain_point: str) -> str:
+    mapping = {
+        "рост": "Следующий грейд",
+        "смена": "Смена профессии",
+        "стагнация": "Исследование возможностей",
+        "неопределённость": "Исследование возможностей",
+    }
+    return mapping.get((pain_point or "").strip().lower(), "Исследование возможностей")
 
 
 @app.post("/api/auth/register")
@@ -215,6 +231,38 @@ def login(req: LoginRequest):
 @app.get("/api/auth/me")
 def me(current_user: Dict[str, Any] = Depends(_get_current_user)):
     return {"user": current_user}
+
+
+@app.patch("/api/auth/onboarding")
+def save_onboarding(
+    req: OnboardingRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    experience_level = (req.experience_level or "").strip()
+    pain_point = (req.pain_point or "").strip().lower()
+    hours = int(req.development_hours_per_week or 0)
+
+    if not experience_level:
+        raise HTTPException(status_code=400, detail="Укажите уровень опыта")
+    if len(experience_level) > 80:
+        raise HTTPException(status_code=400, detail="Слишком длинное значение опыта")
+    if pain_point not in {"рост", "смена", "стагнация", "неопределённость"}:
+        raise HTTPException(status_code=400, detail="Некорректная болевая точка")
+    if hours < 1 or hours > 40:
+        raise HTTPException(status_code=400, detail="Укажите время развития в диапазоне 1-40 часов в неделю")
+
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET experience_level = ?, pain_point = ?, development_hours_per_week = ? WHERE id = ?",
+            (experience_level, pain_point, hours, current_user["id"]),
+        )
+        conn.commit()
+
+    user = _get_user_by_id(current_user["id"])
+    return {
+        "user": user,
+        "recommended_scenario": _recommend_scenario_from_pain_point(pain_point),
+    }
 
 
 @app.get("/api/analyses")

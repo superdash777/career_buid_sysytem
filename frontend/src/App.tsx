@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Welcome from './screens/Welcome';
 import Dashboard from './screens/Dashboard';
+import OnboardingQuiz from './screens/OnboardingQuiz';
 import GoalSetup from './screens/GoalSetup';
 import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
@@ -15,10 +16,30 @@ import { useAuth } from './auth/AuthContext';
 import { healthCheck } from './api/client';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill } from './types';
 import { GRADES, INITIAL_STATE } from './types';
+import { hasCompletedOnboarding } from './utils/onboarding';
 
-type Screen = 'login' | 'register' | 'welcome' | 'dashboard' | 'goal' | 'skills' | 'confirm' | 'result';
+type Screen =
+  | 'login'
+  | 'register'
+  | 'welcome'
+  | 'onboarding'
+  | 'dashboard'
+  | 'goal'
+  | 'skills'
+  | 'confirm'
+  | 'result';
 
-const SCREEN_ORDER: Screen[] = ['login', 'register', 'welcome', 'dashboard', 'goal', 'skills', 'confirm', 'result'];
+const SCREEN_ORDER: Screen[] = [
+  'login',
+  'register',
+  'welcome',
+  'onboarding',
+  'dashboard',
+  'goal',
+  'skills',
+  'confirm',
+  'result',
+];
 
 const STORAGE_KEY = 'career_copilot_state';
 const PLAN_STORAGE_KEY = 'career_copilot_plan';
@@ -129,7 +150,7 @@ function toPlanResponse(item: AnalysisRecord): PlanResponse | null {
 }
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, refreshMe } = useAuth();
   const [screen, setScreenRaw] = useState<Screen>(screenFromHash);
   const [state, setStateRaw] = useState<AppState>(loadSavedState);
   const [plan, setPlanRaw] = useState<PlanResponse | null>(loadSavedPlan);
@@ -143,13 +164,19 @@ export default function App() {
 
   useEffect(() => {
     if (isAuthenticated && (screen === 'login' || screen === 'register')) {
-      setScreen('welcome', true);
+      setScreen(hasCompletedOnboarding(user) ? 'welcome' : 'onboarding', true);
       return;
     }
     if (!isAuthenticated && screen !== 'login' && screen !== 'register') {
       setScreen('login', true);
     }
-  }, [isAuthenticated, screen, setScreen]);
+  }, [isAuthenticated, screen, setScreen, user]);
+
+  useEffect(() => {
+    if (typeof user?.development_hours_per_week === 'number' && user.development_hours_per_week > 0) {
+      setStateRaw((prev) => ({ ...prev, developmentHoursPerWeek: user.development_hours_per_week ?? undefined }));
+    }
+  }, [user?.development_hours_per_week]);
 
   useEffect(() => {
     healthCheck().then((ok) => {
@@ -280,6 +307,22 @@ export default function App() {
             <Welcome
               onStart={() => setScreen('goal')}
               onOpenDashboard={() => setScreen('dashboard')}
+            />
+          </ProtectedRoute>
+        );
+      case 'onboarding':
+        return (
+          <ProtectedRoute>
+            <OnboardingQuiz
+              onComplete={async (answers) => {
+                update({
+                  scenario: answers.recommendedScenario,
+                  developmentHoursPerWeek: answers.developmentHoursPerWeek,
+                  onboardingPainPoint: answers.painPoint,
+                });
+                await refreshMe();
+                setScreen('welcome', true);
+              }}
             />
           </ProtectedRoute>
         );

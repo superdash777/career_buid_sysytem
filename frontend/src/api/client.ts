@@ -8,6 +8,8 @@ import type {
   AnalysisRecord,
   ProgressRecord,
   ProgressStatus,
+  OnboardingRequest,
+  OnboardingResponse,
 } from '../types';
 
 const BASE = '';
@@ -147,6 +149,21 @@ export async function authMe(signal?: AbortSignal): Promise<{ user: UserProfile 
 export async function fetchMe(signal?: AbortSignal): Promise<UserProfile> {
   const data = await request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
   return data.user;
+}
+
+export async function saveOnboarding(
+  payload: OnboardingRequest,
+  signal?: AbortSignal,
+): Promise<OnboardingResponse> {
+  return request<OnboardingResponse>(
+    '/api/auth/onboarding',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
 }
 
 export async function fetchAnalyses(signal?: AbortSignal): Promise<AnalysisRecord[]> {

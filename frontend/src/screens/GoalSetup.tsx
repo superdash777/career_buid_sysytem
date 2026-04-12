@@ -8,8 +8,9 @@ import SoftOnboardingHint from '../components/SoftOnboardingHint';
 import SearchableSelect from '../components/SearchableSelect';
 import { SkeletonForm } from '../components/Skeleton';
 import { fetchProfessions } from '../api/client';
-import type { AppState, Scenario, Grade } from '../types';
+import type { AppState, Scenario, Grade, QuizPainPoint } from '../types';
 import { GRADES, SCENARIOS } from '../types';
+import { recommendScenarioFromPainPoint } from '../utils/onboarding';
 
 interface Props {
   state: AppState;
@@ -45,6 +46,14 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
       .finally(() => setLoading(false));
     return () => { abortRef.current?.abort(); };
   }, []);
+
+  useEffect(() => {
+    const painPoint = state.onboardingPainPoint as QuizPainPoint | undefined;
+    if (!painPoint || state.scenario) return;
+    const recommended = recommendScenarioFromPainPoint(painPoint);
+    if (recommended) onChange({ scenario: recommended });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.onboardingPainPoint, state.scenario]);
 
   const handleNext = () => {
     if (!state.profession) {

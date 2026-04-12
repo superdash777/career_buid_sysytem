@@ -23,6 +23,21 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
+export type OnboardingPainPoint = 'рост' | 'смена' | 'стагнация' | 'неопределённость';
+
+export interface OnboardingRequest {
+  experience_level: string;
+  pain_point: OnboardingPainPoint;
+  development_hours_per_week: number;
+}
+
+export interface OnboardingResponse {
+  user: UserProfile;
+  recommended_scenario: Scenario;
+}
+
+export type QuizPainPoint = OnboardingPainPoint;
+
 export interface AnalysisRecord {
   id: string;
   user_id: string;
@@ -222,6 +237,7 @@ export interface AppState {
   targetProfession: string;
   skills: Skill[];
   developmentHoursPerWeek?: number;
+  onboardingPainPoint?: QuizPainPoint;
 }
 
 export const INITIAL_STATE: AppState = {
@@ -231,4 +247,5 @@ export const INITIAL_STATE: AppState = {
   targetProfession: '',
   skills: [],
   developmentHoursPerWeek: undefined,
+  onboardingPainPoint: undefined,
 };
