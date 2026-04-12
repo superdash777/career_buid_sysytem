@@ -8,6 +8,87 @@ export interface Skill {
   evidence?: string;
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  created_at: string;
+  experience_level?: string | null;
+  pain_point?: string | null;
+  development_hours_per_week?: number | null;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: UserProfile;
+}
+
+export type OnboardingPainPoint = 'рост' | 'смена' | 'стагнация' | 'неопределённость';
+
+export interface OnboardingRequest {
+  experience_level: string;
+  pain_point: OnboardingPainPoint;
+  development_hours_per_week: number;
+}
+
+export interface OnboardingResponse {
+  user: UserProfile;
+  recommended_scenario: Scenario;
+}
+
+export type QuizPainPoint = OnboardingPainPoint;
+
+export interface AnalysisRecord {
+  id: string;
+  user_id: string;
+  scenario: string;
+  current_role?: string | null;
+  target_role?: string | null;
+  skills_json: Record<string, unknown>;
+  result_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SharedAnalysisResponse {
+  analysis_id: string;
+  markdown: string;
+  scenario?: string | null;
+  current_role?: string | null;
+  target_role?: string | null;
+  created_at?: string | null;
+  role_titles?: string[];
+  analysis?: Analysis;
+}
+
+export type ProgressStatus = 'todo' | 'in_progress' | 'done';
+
+export interface ProgressRecord {
+  id: string;
+  user_id: string;
+  skill_name: string;
+  status: ProgressStatus;
+  updated_at: string;
+}
+
+export interface AnalysisItem {
+  id: string;
+  user_id: string;
+  scenario: string;
+  current_role?: string | null;
+  target_role?: string | null;
+  skills_json: Record<string, unknown>;
+  result_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProgressItem {
+  id: string;
+  user_id: string;
+  skill_name: string;
+  status: 'todo' | 'in_progress' | 'done';
+  updated_at: string;
+}
+
 export const SKILL_LEVELS = [
   { value: 0,   label: 'Нет навыка',    short: '0',   tooltip: 'Не использую' },
   { value: 0.5, label: 'Начальный',     short: '0.5', tooltip: 'Иногда сталкивался' },
@@ -146,6 +227,7 @@ export interface PlanResponse {
   markdown: string;
   role_titles?: string[];
   analysis?: Analysis;
+  analysis_id?: string;
 }
 
 export interface FocusedPlanTask {
@@ -166,6 +248,7 @@ export interface AppState {
   targetProfession: string;
   skills: Skill[];
   developmentHoursPerWeek?: number;
+  onboardingPainPoint?: QuizPainPoint;
 }
 
 export const INITIAL_STATE: AppState = {
@@ -175,4 +258,5 @@ export const INITIAL_STATE: AppState = {
   targetProfession: '',
   skills: [],
   developmentHoursPerWeek: undefined,
+  onboardingPainPoint: undefined,
 };

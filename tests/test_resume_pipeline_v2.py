@@ -14,19 +14,19 @@ def test_parse_skills_v2_flow_with_stubbed_llm_calls(monkeypatch):
     parser = ResumeParser()
 
     # Стабим все этапы LLM pipeline
-    parser._extract_raw_skills = lambda _text: ["питон", "sql"]  # type: ignore[attr-defined]
-    parser._llm_rerank_candidate = lambda raw, cands: {  # type: ignore[attr-defined]
+    parser._extract_raw_skills = lambda _text, **_kwargs: ["питон", "sql"]  # type: ignore[attr-defined]
+    parser._llm_rerank_candidate = lambda raw, cands, **_kwargs: {  # type: ignore[attr-defined]
         "match": "Python" if raw == "питон" else "SQL, YQL",
         "confidence": 0.88,
     }
-    parser._assess_level = lambda skill, _text, _levels: {  # type: ignore[attr-defined]
+    parser._assess_level = lambda skill, _text, _levels, **_kwargs: {  # type: ignore[attr-defined]
         "level": 2 if skill == "Python" else 1,
         "evidence": f"Упоминание навыка {skill}",
     }
 
     monkeypatch.setattr(
         "resume_parser.get_skills_v2_candidates",
-        lambda _raw, top_k=5: [{"name": "Python", "score": 0.93}] if top_k else [],
+        lambda _raw, top_k=5, retrieval_mode=None: [{"name": "Python", "score": 0.93}] if top_k else [],
     )
 
     allowed = [
@@ -40,6 +40,8 @@ def test_parse_skills_v2_flow_with_stubbed_llm_calls(monkeypatch):
     assert names == {"Python", "SQL, YQL"}
     assert all("llm_rerank_confidence" in s for s in out["skills"])
     assert all("candidates" in s for s in out["skills"])
+    assert all("retrieval_trace" in s for s in out["skills"])
+    assert all("source_skill_id" in s for s in out["skills"])
 
 
 def test_parse_skills_falls_back_to_legacy_on_v2_error():

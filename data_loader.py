@@ -148,6 +148,56 @@ class DataLoader:
                 skill_names.add(skill_name)
         return sorted(skill_names)
 
+    def get_skills_for_role_grouped(self, role_name):
+        """
+        Возвращает навыки роли, сгруппированные по категориям из clean_skills.json.
+        Формат:
+        [
+          {"name": "...", "skills": ["...", "..."]},
+          ...
+        ]
+        """
+        internals = self.get_internal_role_names(role_name) if role_name else []
+        if not internals:
+            return []
+
+        internal_set = set(internals)
+        grouped: dict[str, set[str]] = {}
+        uncategorized = "Без категории"
+
+        for skill in self.skills:
+            skill_name = (skill.get('Навык') or skill.get('name') or "").strip()
+            if not skill_name:
+                continue
+
+            professions = (
+                skill.get('Профессия (лист)') or
+                skill.get('Профессия') or
+                skill.get('Привязка к профессии') or
+                []
+            )
+            if isinstance(professions, str):
+                professions = [professions]
+            if not (internal_set & set(professions)):
+                continue
+
+            category = (skill.get('Категория') or "").strip() or uncategorized
+            grouped.setdefault(category, set()).add(skill_name)
+
+        out = []
+        for category in sorted(grouped.keys()):
+            out.append(
+                {
+                    "name": category,
+                    "skills": sorted(grouped[category]),
+                }
+            )
+        return out
+
+    def get_skills_by_category_for_role(self, role_name):
+        """Совместимый алиас для API-слоя."""
+        return self.get_skills_for_role_grouped(role_name)
+
     def get_skill_detail(self, skill_name, grade):
         skill_obj = self.skills_map.get(skill_name)
         if not skill_obj:

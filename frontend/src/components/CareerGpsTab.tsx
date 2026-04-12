@@ -1,4 +1,5 @@
 import type { Analysis, AppState } from '../types';
+import { deriveWeeklyHours } from '../utils/onboarding';
 
 interface Props {
   analysis?: Analysis;
@@ -51,7 +52,8 @@ function buildMilestones(analysis: Analysis | undefined, appState: AppState): Mi
   const now = new Date();
   const current = deriveCurrentMatch(analysis);
   const goal = analysis?.scenario === 'explore' ? 80 : 90;
-  const pace = paceByHours(appState.developmentHoursPerWeek);
+  const weeklyHours = deriveWeeklyHours(appState.developmentHoursPerWeek);
+  const pace = paceByHours(weeklyHours);
   const skills = deriveTargetSkills(analysis);
 
   const m3 = Math.min(goal, current + pace);
@@ -99,7 +101,8 @@ export default function CareerGpsTab({ analysis, appState }: Props) {
   }
 
   const milestones = buildMilestones(analysis, appState);
-  const hasHours = typeof appState.developmentHoursPerWeek === 'number' && appState.developmentHoursPerWeek > 0;
+  const weeklyHours = deriveWeeklyHours(appState.developmentHoursPerWeek);
+  const hasHours = typeof weeklyHours === 'number' && weeklyHours > 0;
 
   return (
     <div className="space-y-5">
@@ -108,7 +111,7 @@ export default function CareerGpsTab({ analysis, appState }: Props) {
           <h3 className="text-lg font-semibold text-(--color-text-primary)">Карьерный GPS</h3>
           <span className="text-xs text-(--color-text-muted)">
             {hasHours
-              ? `Темп: ${appState.developmentHoursPerWeek} ч/нед`
+              ? `Темп: ${weeklyHours} ч/нед`
               : 'Темп: Требуется уточнение'}
           </span>
         </div>

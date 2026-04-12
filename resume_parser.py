@@ -5,9 +5,30 @@ from openai import OpenAI
 from pypdf import PdfReader
 import json
 from config import Config
-from typing import Dict, List, Optional
+from pydantic import BaseModel, ValidationError, Field
+from typing import Dict, List, Optional, Any
 
 from rag_service import get_skills_v2_candidates
+from llm_observability import LLMCallMetrics, log_llm_call
+
+
+class _ExtractSkillsResponse(BaseModel):
+    skills: List[str] = Field(default_factory=list)
+
+
+class _RerankResponse(BaseModel):
+    match: str = ""
+    confidence: Optional[float] = None
+
+
+class _UnknownSkillResponse(BaseModel):
+    is_skill: bool = False
+    confidence: Optional[float] = None
+
+
+class _LevelResponse(BaseModel):
+    level: int = 1
+    evidence: str = ""
 
 class ResumeParser:
     def __init__(self):
@@ -30,22 +51,80 @@ class ResumeParser:
             text = text[:max_len] + "\n\n[Текст обрезан. Извлеки навыки из приведённой части.]"
         return text
 
+    def _validate_payload(self, schema_cls: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            model = schema_cls(**(payload or {}))
+            return model.model_dump()
+        except ValidationError:
+            return schema_cls().model_dump()
+
     def _run_json_chat(
         self,
         messages: List[Dict[str, str]],
         temperature: float,
         max_tokens: int = 1800,
+        operation: str = "generic_json_chat",
+        schema_cls: Optional[Any] = None,
+        request_id: Optional[str] = None,
     ) -> Dict:
         model = getattr(Config, "RESUME_PARSER_MODEL", "gpt-4o")
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        raw = response.choices[0].message.content
-        return json.loads(raw)
+        prompt_chars = sum(len(m.get("content", "")) for m in messages)
+        start_ms = None
+        if Config.LLM_OBSERVABILITY_ENABLED:
+            import time as _time
+            start_ms = int(_time.time() * 1000)
+        last_error = None
+        for _attempt in range(2):
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                raw = response.choices[0].message.content
+                payload = json.loads(raw)
+                if schema_cls is not None:
+                    payload = self._validate_payload(schema_cls, payload)
+                if Config.LLM_OBSERVABILITY_ENABLED:
+                    import time as _time
+                    latency = int(_time.time() * 1000) - int(start_ms or 0)
+                    log_llm_call(
+                        LLMCallMetrics(
+                            component="resume_parser",
+                            operation=operation,
+                            model=model,
+                            request_id=request_id,
+                            success=True,
+                            latency_ms=latency,
+                            prompt_chars=prompt_chars,
+                            completion_chars=len(raw or ""),
+                        )
+                    )
+                return payload
+            except Exception as e:
+                last_error = e
+                continue
+        if Config.LLM_OBSERVABILITY_ENABLED:
+            import time as _time
+            latency = int(_time.time() * 1000) - int(start_ms or 0)
+            log_llm_call(
+                LLMCallMetrics(
+                    component="resume_parser",
+                    operation=operation,
+                    model=model,
+                    request_id=request_id,
+                    success=False,
+                    latency_ms=latency,
+                    prompt_chars=prompt_chars,
+                    completion_chars=0,
+                    error=str(last_error),
+                )
+            )
+        if schema_cls is not None:
+            return schema_cls().model_dump()
+        return {}
 
     def _legacy_parse_skills(self, resume_text, allowed_skills):
         """Старый монолитный extraction: extraction+normalization+level одним вызовом."""
@@ -92,7 +171,7 @@ class ResumeParser:
                 time.sleep(1)
         return {"skills": []}
 
-    def _extract_raw_skills(self, resume_text: str) -> List[str]:
+    def _extract_raw_skills(self, resume_text: str, request_id: Optional[str] = None) -> List[str]:
         """Вызов 1: чистое извлечение навыков без уровней и без нормализации."""
         system_prompt = (
             "Ты — HR-аналитик. Извлеки только навыки из резюме.\n"
@@ -102,6 +181,8 @@ class ResumeParser:
             "- НЕ извлекай компании\n"
             "- НЕ извлекай города\n"
             "- НЕ извлекай университеты\n"
+            "- НЕ извлекай названия сертификатов и курсов\n"
+            "- НЕ извлекай названия продуктов/команд/проектов как навыки\n"
             "- Удали дубликаты\n"
             "- Короткие формулировки навыков"
         )
@@ -119,6 +200,9 @@ class ResumeParser:
             ],
             temperature=0.0,
             max_tokens=1200,
+            operation="extract_raw_skills",
+            schema_cls=_ExtractSkillsResponse,
+            request_id=request_id,
         )
         skills = result.get("skills", [])
         if not isinstance(skills, list):
@@ -140,15 +224,27 @@ class ResumeParser:
         self,
         raw_skill: str,
         candidates: List[Dict[str, float]],
+        request_id: Optional[str] = None,
     ) -> Dict[str, Optional[float]]:
         """Вызов 2: LLM re-ranking по top-5 кандидатам из E5."""
         candidate_names = [c.get("name", "") for c in candidates if c.get("name")]
         if not candidate_names:
             return {"match": None, "confidence": None}
 
+        rich_candidates = []
+        for c in candidates[:5]:
+            rich_candidates.append(
+                {
+                    "name": c.get("name"),
+                    "score": c.get("score"),
+                    "dense_score": c.get("dense_score"),
+                    "lexical_score": c.get("lexical_score"),
+                }
+            )
+
         prompt = (
             f"Навык пользователя: {raw_skill}\n"
-            f"Кандидаты: {candidate_names}\n\n"
+            f"Кандидаты: {json.dumps(rich_candidates, ensure_ascii=False)}\n\n"
             "Выбери лучший вариант из списка или ответь none.\n"
             "Верни только JSON: {\"match\": \"название или none\", \"confidence\": число от 0 до 1}."
         )
@@ -159,6 +255,9 @@ class ResumeParser:
             ],
             temperature=0.0,
             max_tokens=300,
+            operation="llm_rerank_candidate",
+            schema_cls=_RerankResponse,
+            request_id=request_id,
         )
         match = str(result.get("match", "")).strip()
         if match.lower() == "none":
@@ -170,7 +269,29 @@ class ResumeParser:
             confidence = None
         return {"match": (match or None), "confidence": confidence}
 
-    def _classify_unknown_skill(self, raw_skill: str, resume_text: str) -> Dict[str, Optional[float]]:
+    @staticmethod
+    def _extract_resume_evidence(raw_skill: str, resume_text: str, max_len: int = 220) -> str:
+        """
+        Возвращает короткий фрагмент резюме вокруг найденного raw_skill.
+        Если точного вхождения нет — fallback на начало резюме.
+        """
+        text = (resume_text or "").strip()
+        needle = (raw_skill or "").strip()
+        if not text:
+            return ""
+        if not needle:
+            return text[:max_len]
+        lower_text = text.lower()
+        lower_needle = needle.lower()
+        idx = lower_text.find(lower_needle)
+        if idx < 0:
+            return text[:max_len]
+        start = max(0, idx - max_len // 3)
+        end = min(len(text), idx + len(needle) + (2 * max_len // 3))
+        snippet = text[start:end].strip()
+        return snippet[:max_len]
+
+    def _classify_unknown_skill(self, raw_skill: str, resume_text: str, request_id: Optional[str] = None) -> Dict[str, Optional[float]]:
         """LLM-классификация неизвестного навыка: это действительно навык или шум."""
         prompt = (
             f"Фраза из резюме: {raw_skill}\n\n"
@@ -185,6 +306,9 @@ class ResumeParser:
             ],
             temperature=0.0,
             max_tokens=250,
+            operation="classify_unknown_skill",
+            schema_cls=_UnknownSkillResponse,
+            request_id=request_id,
         )
         is_skill = bool(result.get("is_skill"))
         confidence = result.get("confidence")
@@ -199,6 +323,7 @@ class ResumeParser:
         canonical_skill: str,
         resume_text: str,
         skill_levels: Dict[str, str],
+        request_id: Optional[str] = None,
     ) -> Dict[str, Optional[str]]:
         """Вызов 3: оценка уровня (0..3) с цитатой-доказательством."""
         prompt = (
@@ -218,6 +343,9 @@ class ResumeParser:
             ],
             temperature=0.0,
             max_tokens=400,
+            operation="assess_level",
+            schema_cls=_LevelResponse,
+            request_id=request_id,
         )
         level = result.get("level")
         try:
@@ -253,54 +381,74 @@ class ResumeParser:
             }
         return {"basic": "", "proficiency": "", "advanced": ""}
 
-    def parse_skills_v2(self, resume_text: str, allowed_skills: List[Dict]) -> Dict:
+    def parse_skills_v2(
+        self,
+        resume_text: str,
+        allowed_skills: List[Dict],
+        request_id: Optional[str] = None,
+        retrieval_mode: Optional[str] = None,
+    ) -> Dict:
         """Новый pipeline: extraction -> normalization/rerank -> level assessment."""
-        raw_skills = self._extract_raw_skills(resume_text)
+        raw_skills = self._extract_raw_skills(resume_text, request_id=request_id)
         if not raw_skills:
             return {"skills": [], "used_fallback": False}
 
-        skill_by_name = {}
-        for s in allowed_skills:
-            n = (s.get("Навык") or s.get("name") or "").strip()
-            if n:
-                skill_by_name[n] = s
-
         result_skills = []
         for raw_skill in raw_skills:
-            candidates = get_skills_v2_candidates(raw_skill, top_k=5)
-            rerank = self._llm_rerank_candidate(raw_skill, candidates)
+            candidates = get_skills_v2_candidates(raw_skill, top_k=5, retrieval_mode=retrieval_mode)
+            rerank = self._llm_rerank_candidate(raw_skill, candidates, request_id=request_id)
             matched_name = rerank.get("match")
             llm_conf = rerank.get("confidence")
 
             if not matched_name and candidates:
                 matched_name = candidates[0].get("name")
             if not matched_name:
-                unknown = self._classify_unknown_skill(raw_skill, resume_text)
+                unknown = self._classify_unknown_skill(raw_skill, resume_text, request_id=request_id)
                 if not unknown.get("is_skill"):
                     continue
+                evidence_quote = self._extract_resume_evidence(raw_skill, resume_text)
                 result_skills.append(
                     {
                         "raw_name": raw_skill,
                         "name": raw_skill,
                         "level": 1,
-                        "evidence": "",
+                        "evidence": evidence_quote,
+                        "resume_evidence_span": evidence_quote,
                         "llm_rerank_confidence": unknown.get("confidence"),
                         "candidates": [],
                         "is_unknown": True,
+                        "source_skill_id": None,
+                        "retrieval_mode": "llm_unknown",
+                        "retrieval_trace": {"candidates": []},
                     }
                 )
                 continue
 
             levels = self._skill_level_texts(allowed_skills, matched_name)
-            level_info = self._assess_level(matched_name, resume_text, levels)
+            level_info = self._assess_level(matched_name, resume_text, levels, request_id=request_id)
+            evidence_quote = (level_info.get("evidence") or "").strip() or self._extract_resume_evidence(raw_skill, resume_text)
             result_skills.append(
                 {
                     "raw_name": raw_skill,
                     "name": matched_name,
                     "level": level_info.get("level", 1),
-                    "evidence": level_info.get("evidence", ""),
+                    "evidence": evidence_quote,
+                    "resume_evidence_span": evidence_quote,
                     "llm_rerank_confidence": llm_conf,
                     "candidates": candidates[:5],
+                    "source_skill_id": matched_name,
+                    "retrieval_mode": "hybrid_dense_lexical",
+                    "retrieval_trace": {
+                        "candidates": [
+                            {
+                                "name": c.get("name"),
+                                "score": c.get("score"),
+                                "dense_score": c.get("dense_score"),
+                                "lexical_score": c.get("lexical_score"),
+                            }
+                            for c in candidates[:5]
+                        ]
+                    },
                 }
             )
 
@@ -313,7 +461,13 @@ class ResumeParser:
                 dedup[key] = s
         return {"skills": list(dedup.values()), "used_fallback": False}
 
-    def parse_skills(self, resume_text, allowed_skills):
+    def parse_skills(
+        self,
+        resume_text,
+        allowed_skills,
+        request_id: Optional[str] = None,
+        retrieval_mode: Optional[str] = None,
+    ):
         """Совместимый интерфейс: сначала v2, при ошибке — legacy fallback."""
         if not self.client:
             raise ValueError(
@@ -321,7 +475,12 @@ class ResumeParser:
             )
 
         try:
-            return self.parse_skills_v2(resume_text, allowed_skills)
+            return self.parse_skills_v2(
+                resume_text,
+                allowed_skills,
+                request_id=request_id,
+                retrieval_mode=retrieval_mode,
+            )
         except Exception:
             legacy = self._legacy_parse_skills(
                 resume_text,

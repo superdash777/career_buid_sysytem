@@ -7,7 +7,7 @@ from gap_analyzer import level_display
 def _build_skill_context(data_loader, skill_gaps, grade):
     """Собирает описания уровней + примеры задач для навыков из gap-списка (для LLM)."""
     parts = []
-    for g in skill_gaps[:15]:
+    for g in skill_gaps:
         detail = data_loader.get_skill_detail(g["name"], grade)
         if not detail:
             continue
@@ -187,7 +187,7 @@ class OutputFormatter:
                     pass
             gap_summary = {
                 "param_gaps": [{"name": g["name"], "delta": g["delta"]} for g in atlas_gaps],
-                "skill_gaps": [{"name": g["name"], "delta": g["delta"], "current": g["current"], "required": g["required"]} for g in skill_gaps[:15]],
+                "skill_gaps": [{"name": g["name"], "delta": g["delta"], "current": g["current"], "required": g["required"]} for g in skill_gaps],
             }
             strong_names = [s["name"] for s in skill_strong[:20]]
             step2 = gen.generate_plan_702010(
@@ -203,7 +203,7 @@ class OutputFormatter:
             out += "*Для генерации персонального плана укажите OPENAI_API_KEY в .env.*\n\n"
             out += "**Развитие через реальные задачи:** задачи из диагностики с фиксацией результата.\n"
             out += "**Взаимодействие и обратная связь:** обратная связь, наставник, калибровки каждые 2–4 недели.\n"
-            out += "**Курсы и тренинги:** материалы по недостающим навыкам.\n\n"
+            out += "**Книги:** подберите профильные книги по недостающим навыкам.\n\n"
             out += "**Чекпоинты:** пересмотр через 4, 8 и 12 недель.\n"
 
         return out
@@ -296,7 +296,7 @@ class OutputFormatter:
             out += "*Укажите OPENAI_API_KEY для генерации плана.*\n\n"
             out += "**Развитие через реальные задачи:** мини-проекты по недостающим навыкам.\n"
             out += "**Взаимодействие и обратная связь:** наставник, интервью.\n"
-            out += "**Курсы и тренинги:** курсы по ключевым навыкам.\n"
+            out += "**Книги:** профильные книги по ключевым навыкам.\n"
         return out
 
     def format_change_profession_legacy(self, structured, target_role_name, target_profession_display):

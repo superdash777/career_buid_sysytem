@@ -1,11 +1,12 @@
-import { ArrowRight, Compass } from 'lucide-react';
+import { ArrowRight, Compass, LayoutDashboard } from 'lucide-react';
 import NavBar from '../components/NavBar';
 
 interface Props {
   onStart: () => void;
+  onOpenDashboard?: () => void;
 }
 
-export default function Welcome({ onStart }: Props) {
+export default function Welcome({ onStart, onOpenDashboard }: Props) {
   return (
     <div className="min-h-screen flex flex-col bg-(--color-surface)">
       <header className="mx-auto w-full max-w-3xl px-4">
@@ -31,6 +32,14 @@ export default function Welcome({ onStart }: Props) {
           <button onClick={onStart} className="btn-primary text-lg px-8 py-4 mb-8">
             Начать путь <ArrowRight className="h-5 w-5" />
           </button>
+
+          {onOpenDashboard && (
+            <div className="mb-8">
+              <button onClick={onOpenDashboard} className="btn-secondary text-sm">
+                <LayoutDashboard className="h-4 w-4" /> Личный кабинет
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-6 sm:gap-8 text-sm text-(--color-text-muted)">
             {[

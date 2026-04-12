@@ -21,9 +21,26 @@ if _env_file.exists():
 
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "4320"))  # 3 days
+    # Backward-compatible aliases used in API code.
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", JWT_SECRET)
+    JWT_ACCESS_TOKEN_TTL_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_TTL_MINUTES", str(JWT_EXPIRE_MINUTES)))
+    JWT_REFRESH_TOKEN_TTL_MINUTES = int(os.getenv("JWT_REFRESH_TOKEN_TTL_MINUTES", "43200"))  # 30 days
+    # Backward-compatible alias
+    JWT_REFRESH_EXPIRE_MINUTES = int(os.getenv("JWT_REFRESH_EXPIRE_MINUTES", str(JWT_REFRESH_TOKEN_TTL_MINUTES)))
+    AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "60"))
+    AUTH_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("AUTH_RATE_LIMIT_MAX_ATTEMPTS", "10"))
+    # Per-endpoint aliases (same default window budget)
+    AUTH_LOGIN_RATE_LIMIT = int(os.getenv("AUTH_LOGIN_RATE_LIMIT", str(AUTH_RATE_LIMIT_MAX_ATTEMPTS)))
+    AUTH_REGISTER_RATE_LIMIT = int(os.getenv("AUTH_REGISTER_RATE_LIMIT", str(AUTH_RATE_LIMIT_MAX_ATTEMPTS)))
     RESUME_PARSER_MODEL = os.getenv("RESUME_PARSER_MODEL", "gpt-4o")
+    PLAN_GENERATOR_MODEL = os.getenv("PLAN_GENERATOR_MODEL", "gpt-4o")
+    PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "4000"))
     RESUME_TEXT_MAX_CHARS = int(os.getenv("RESUME_TEXT_MAX_CHARS", "14000"))
     DATA_DIR = _PROJECT_DIR / "data"
+    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "data" / "app.db")))
     SKILLS_FILE = DATA_DIR / "clean_skills.json"
     ATLAS_FILE = DATA_DIR / "atlas_params_clean.json"
     ROLES_FILE = DATA_DIR / "roles.json"
@@ -37,6 +54,13 @@ class Config:
     SKILLS_V2_COLLECTION_NAME = os.getenv("SKILLS_V2_COLLECTION_NAME", "skills_v2")
     SKILLS_V2_TOP_K = int(os.getenv("SKILLS_V2_TOP_K", "5"))
     SKILLS_V2_SCORE_THRESHOLD = float(os.getenv("SKILLS_V2_SCORE_THRESHOLD", "0.5"))
+    SKILLS_RETRIEVAL_MODE = os.getenv("SKILLS_RETRIEVAL_MODE", "hybrid_rerank")
+    SKILLS_HYBRID_DENSE_WEIGHT = float(os.getenv("SKILLS_HYBRID_DENSE_WEIGHT", "0.7"))
+    SKILLS_HYBRID_LEXICAL_WEIGHT = float(os.getenv("SKILLS_HYBRID_LEXICAL_WEIGHT", "0.3"))
+    SKILLS_HYBRID_MIN_SCORE = float(os.getenv("SKILLS_HYBRID_MIN_SCORE", "0.3"))
+    SKILLS_HYBRID_RRF_K = float(os.getenv("SKILLS_HYBRID_RRF_K", "60.0"))
+    SKILLS_HYBRID_RERANK_TOP_N = int(os.getenv("SKILLS_HYBRID_RERANK_TOP_N", "20"))
+    SKILLS_CROSS_ENCODER_MODEL = os.getenv("SKILLS_CROSS_ENCODER_MODEL", "")
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", "20"))
     RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.35"))
 

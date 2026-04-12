@@ -13,11 +13,17 @@ if str(PROJECT_DIR) not in sys.path:
 if os.getcwd() != str(PROJECT_DIR):
     os.chdir(PROJECT_DIR)
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List, Optional
-from rapidfuzz import fuzz
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta, timezone
+import hashlib
+import uuid
+import json
+import jwt
+import bcrypt
 
 # Инициализация модулей (как в main)
 from data_loader import DataLoader
@@ -25,12 +31,17 @@ from resume_parser import ResumeParser
 from gap_analyzer import GapAnalyzer
 from scenario_handler import ScenarioHandler
 from output_formatter import OutputFormatter
+from confidence_utils import get_skill_confidence
+from db import get_db_connection, init_db
+from config import Config
+from rate_limiter import check_rate_limit_or_raise
 
 data = DataLoader()
 parser = ResumeParser()
 analyzer = GapAnalyzer()
 scenarios = ScenarioHandler(data)
 formatter = OutputFormatter(data)
+auth_scheme = HTTPBearer(auto_error=False)
 
 GRADE_MAP = {
     "Младший (Junior)": "Junior",
@@ -50,6 +61,494 @@ app.add_middleware(
 )
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+
+def _create_access_token(user_id: str, email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=Config.JWT_ACCESS_TOKEN_TTL_MINUTES)).timestamp()),
+        "type": "access",
+    }
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+
+
+def _create_refresh_token(user_id: str, email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=Config.JWT_REFRESH_TOKEN_TTL_MINUTES)).timestamp()),
+        "type": "refresh",
+    }
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _store_refresh_token(user_id: str, refresh_token: str) -> None:
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=Config.JWT_REFRESH_TOKEN_TTL_MINUTES)
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO refresh_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (token_hash, user_id, now.isoformat(), expires_at.isoformat()),
+        )
+        conn.commit()
+
+
+def _revoke_refresh_token(refresh_token: str) -> None:
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,))
+        conn.commit()
+
+
+def _is_refresh_token_active(refresh_token: str) -> bool:
+    token_hash = _hash_token(refresh_token)
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT expires_at FROM refresh_tokens WHERE token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+    if row is None:
+        return False
+    expires_at = row["expires_at"] or ""
+    try:
+        exp_dt = datetime.fromisoformat(expires_at)
+    except Exception:
+        return False
+    return exp_dt > datetime.now(timezone.utc)
+
+
+def _get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, created_at, experience_level, pain_point, development_hours_per_week "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "created_at": row["created_at"],
+        "experience_level": row["experience_level"],
+        "pain_point": row["pain_point"],
+        "development_hours_per_week": row["development_hours_per_week"],
+    }
+
+
+def _get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme),
+) -> Dict[str, Any]:
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Недействительный токен")
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Неверный тип токена")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Недействительный токен")
+    user = _get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
+    return user
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+
+class OnboardingRequest(BaseModel):
+    experience_level: str
+    pain_point: str
+    development_hours_per_week: int
+
+
+class AnalysisCreateRequest(BaseModel):
+    scenario: str
+    current_role: Optional[str] = None
+    target_role: Optional[str] = None
+    skills_json: Dict[str, Any] = {}
+    result_json: Dict[str, Any] = {}
+
+
+class ProgressPatchRequest(BaseModel):
+    skill_name: str
+    status: str
+
+
+def _serialize_analysis_row(row: Any) -> Dict[str, Any]:
+    skills_json = row["skills_json"] or "{}"
+    result_json = row["result_json"] or "{}"
+    try:
+        skills = json.loads(skills_json)
+    except Exception:
+        skills = {}
+    try:
+        result = json.loads(result_json)
+    except Exception:
+        result = {}
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "scenario": row["scenario"],
+        "current_role": row["current_role"],
+        "target_role": row["target_role"],
+        "skills_json": skills,
+        "result_json": result,
+        "created_at": row["created_at"],
+    }
+
+
+def _recommend_scenario_from_pain_point(pain_point: str) -> str:
+    mapping = {
+        "рост": "Следующий грейд",
+        "смена": "Смена профессии",
+        "стагнация": "Исследование возможностей",
+        "неопределённость": "Исследование возможностей",
+    }
+    return mapping.get((pain_point or "").strip().lower(), "Исследование возможностей")
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    check_rate_limit_or_raise(
+        f"register:{(req.email or '').strip().lower()}",
+        limit=Config.AUTH_REGISTER_RATE_LIMIT,
+        window_sec=Config.AUTH_RATE_LIMIT_WINDOW_SEC,
+    )
+    email = (req.email or "").strip().lower()
+    password = req.password or ""
+    if "@" not in email or len(email) < 5:
+        raise HTTPException(status_code=400, detail="Введите корректный email")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Пароль должен быть не короче 8 символов")
+
+    with get_db_connection() as conn:
+        exists = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        if exists:
+            raise HTTPException(status_code=409, detail="Пользователь с таким email уже существует")
+
+        user_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+            (user_id, email, _hash_password(password), _utc_now_iso()),
+        )
+        conn.commit()
+
+    token = _create_access_token(user_id=user_id, email=email)
+    refresh_token = _create_refresh_token(user_id=user_id, email=email)
+    _store_refresh_token(user_id, refresh_token)
+    user = _get_user_by_id(user_id)
+    return {
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    email = (req.email or "").strip().lower()
+    check_rate_limit_or_raise(
+        f"login:{email}",
+        limit=Config.AUTH_LOGIN_RATE_LIMIT,
+        window_sec=Config.AUTH_RATE_LIMIT_WINDOW_SEC,
+    )
+    password = req.password or ""
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, email, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+    if row is None or not _verify_password(password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Неверный email или пароль")
+
+    token = _create_access_token(user_id=row["id"], email=row["email"])
+    refresh_token = _create_refresh_token(user_id=row["id"], email=row["email"])
+    _store_refresh_token(row["id"], refresh_token)
+    user = _get_user_by_id(row["id"])
+    return {
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
+
+
+@app.post("/api/auth/refresh")
+def refresh_access_token(req: RefreshRequest):
+    token = (req.refresh_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Требуется refresh_token")
+    try:
+        payload = jwt.decode(token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Недействительный refresh token")
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Неверный тип токена")
+    if not _is_refresh_token_active(token):
+        raise HTTPException(status_code=401, detail="Refresh token неактивен")
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    if not user_id or not email:
+        raise HTTPException(status_code=401, detail="Некорректный refresh token")
+    access = _create_access_token(user_id=user_id, email=email)
+    new_refresh = _create_refresh_token(user_id=user_id, email=email)
+    _store_refresh_token(user_id, new_refresh)
+    _revoke_refresh_token(token)
+    return {"access_token": access, "refresh_token": new_refresh, "token_type": "bearer"}
+
+
+@app.post("/api/auth/logout")
+def logout(req: LogoutRequest):
+    token = (req.refresh_token or "").strip()
+    if token:
+        _revoke_refresh_token(token)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def me(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    return {"user": current_user}
+
+
+@app.get("/api/share/{analysis_id}")
+def get_shared_analysis(analysis_id: str):
+    """
+    Публичный read-only доступ к результату анализа по его ID.
+    Используется для шаринга карточки результата.
+    """
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, scenario, current_role, target_role, result_json, created_at "
+            "FROM analyses WHERE id = ?",
+            (analysis_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    try:
+        result_json = json.loads(row["result_json"] or "{}")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    markdown = result_json.get("markdown")
+    if not isinstance(markdown, str) or not markdown.strip():
+        raise HTTPException(status_code=404, detail="Публичный результат не найден")
+
+    out: Dict[str, Any] = {
+        "analysis_id": row["id"],
+        "markdown": markdown,
+        "scenario": row["scenario"],
+        "current_role": row["current_role"],
+        "target_role": row["target_role"],
+        "created_at": row["created_at"],
+    }
+    if isinstance(result_json.get("role_titles"), list):
+        out["role_titles"] = result_json.get("role_titles")
+    if isinstance(result_json.get("analysis"), dict):
+        out["analysis"] = result_json.get("analysis")
+    return out
+
+
+@app.patch("/api/auth/onboarding")
+def save_onboarding(
+    req: OnboardingRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    experience_level = (req.experience_level or "").strip()
+    pain_point = (req.pain_point or "").strip().lower()
+    hours = int(req.development_hours_per_week or 0)
+
+    if not experience_level:
+        raise HTTPException(status_code=400, detail="Укажите уровень опыта")
+    if len(experience_level) > 80:
+        raise HTTPException(status_code=400, detail="Слишком длинное значение опыта")
+    if pain_point not in {"рост", "смена", "стагнация", "неопределённость"}:
+        raise HTTPException(status_code=400, detail="Некорректная болевая точка")
+    if hours < 1 or hours > 40:
+        raise HTTPException(status_code=400, detail="Укажите время развития в диапазоне 1-40 часов в неделю")
+
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET experience_level = ?, pain_point = ?, development_hours_per_week = ? WHERE id = ?",
+            (experience_level, pain_point, hours, current_user["id"]),
+        )
+        conn.commit()
+
+    user = _get_user_by_id(current_user["id"])
+    return {
+        "user": user,
+        "recommended_scenario": _recommend_scenario_from_pain_point(pain_point),
+    }
+
+
+@app.get("/api/analyses")
+def get_analyses(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE user_id = ? ORDER BY created_at DESC",
+            (current_user["id"],),
+        ).fetchall()
+    return {"items": [_serialize_analysis_row(row) for row in rows]}
+
+
+@app.post("/api/analyses")
+def create_analysis(
+    req: AnalysisCreateRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    analysis_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO analyses (id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                analysis_id,
+                current_user["id"],
+                req.scenario,
+                req.current_role,
+                req.target_role,
+                json.dumps(req.skills_json, ensure_ascii=False),
+                json.dumps(req.result_json, ensure_ascii=False),
+                _utc_now_iso(),
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE id = ?",
+            (analysis_id,),
+        ).fetchone()
+    return {"item": _serialize_analysis_row(row)}
+
+
+@app.get("/api/analyses/{analysis_id}")
+def get_analysis_detail(
+    analysis_id: str,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE id = ? AND user_id = ?",
+            (analysis_id, current_user["id"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Анализ не найден")
+    return {"item": _serialize_analysis_row(row)}
+
+
+@app.get("/api/progress")
+def get_progress(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, user_id, skill_name, status, updated_at "
+            "FROM progress WHERE user_id = ? ORDER BY updated_at DESC",
+            (current_user["id"],),
+        ).fetchall()
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "skill_name": row["skill_name"],
+                "status": row["status"],
+                "updated_at": row["updated_at"],
+            }
+        )
+    return {"items": items}
+
+
+@app.patch("/api/progress")
+def patch_progress(
+    req: ProgressPatchRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    status = (req.status or "").strip()
+    if status not in {"todo", "in_progress", "done"}:
+        raise HTTPException(status_code=400, detail="Некорректный статус прогресса")
+    skill_name = (req.skill_name or "").strip()
+    if not skill_name:
+        raise HTTPException(status_code=400, detail="Укажите skill_name")
+
+    with get_db_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM progress WHERE user_id = ? AND skill_name = ?",
+            (current_user["id"], skill_name),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE progress SET status = ?, updated_at = ? WHERE id = ?",
+                (status, _utc_now_iso(), existing["id"]),
+            )
+            progress_id = existing["id"]
+        else:
+            progress_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO progress (id, user_id, skill_name, status, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (progress_id, current_user["id"], skill_name, status, _utc_now_iso()),
+            )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, user_id, skill_name, status, updated_at FROM progress WHERE id = ?",
+            (progress_id,),
+        ).fetchone()
+    return {
+        "item": {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "skill_name": row["skill_name"],
+            "status": row["status"],
+            "updated_at": row["updated_at"],
+        }
+    }
+
+
 @app.get("/api/professions")
 def get_professions():
     """Список профессий для выбора."""
@@ -65,6 +564,21 @@ def get_skills_for_role(profession: str):
     if not profession:
         return {"skills": []}
     return {"skills": data.get_skills_for_role(profession)}
+
+
+@app.get("/api/skills-by-category")
+def get_skills_by_category(profession: str):
+    """
+    Навыки с разбивкой по категориям для ручного выбора.
+    Возвращает: {"categories": [{"name": str, "skills": [str, ...]}, ...]}
+    """
+    if not profession:
+        return {"categories": []}
+    try:
+        categories = data.get_skills_by_category_for_role(profession)
+        return {"categories": categories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/suggest-skills")
@@ -119,34 +633,8 @@ async def analyze_resume(file: UploadFile = File(...)):
                 if not name:
                     continue
 
-                confidence = None
-                band = None
+                confidence, band = get_skill_confidence(s)
                 alternatives = []
-
-                # 1) exact match после нормализации строк -> 1.0
-                if raw_name and name and raw_name.lower() == name.lower():
-                    confidence = 1.0
-                    band = "exact"
-                else:
-                    # 2) fuzzy -> 0.9
-                    ratio = fuzz.ratio(raw_name.lower(), name.lower()) if raw_name and name else 0
-                    if ratio > 85:
-                        confidence = 0.9
-                        band = "fuzzy"
-                    else:
-                        # 3) vector + llm rerank -> 0.6..0.95
-                        llm_conf = s.get("llm_rerank_confidence")
-                        if bool(s.get("is_unknown")):
-                            # 4) LLM classification для неизвестных навыков -> 0.5
-                            confidence = 0.5
-                            band = "llm_unknown"
-                        else:
-                            try:
-                                llm_conf = float(llm_conf) if llm_conf is not None else 0.75
-                            except Exception:
-                                llm_conf = 0.75
-                            confidence = max(0.6, min(0.95, llm_conf))
-                            band = "vector_llm"
 
                 cands = s.get("candidates") or []
                 for c in cands[:3]:
@@ -165,10 +653,14 @@ async def analyze_resume(file: UploadFile = File(...)):
                         "raw_name": raw_name,
                         "name": name,
                         "level": level_mapping.get(s.get("level"), 1),
-                        "confidence": confidence if confidence is not None else 0.5,
-                        "confidence_band": band or "llm_unknown",
+                        "confidence": confidence,
+                        "confidence_band": band,
                         "alternatives": alternatives,
                         "evidence": s.get("evidence", ""),
+                        "resume_evidence_span": s.get("resume_evidence_span", ""),
+                        "source_skill_id": s.get("source_skill_id"),
+                        "retrieval_mode": s.get("retrieval_mode"),
+                        "retrieval_trace": s.get("retrieval_trace", {}),
                     }
                 )
 
@@ -477,56 +969,14 @@ def focused_plan_api(req: FocusedPlanRequest):
         skill_context += block + "\n\n"
 
     target = req.target_profession or req.profession
-    prompt = f"""Пользователь выбрал навыки для развития: {', '.join(req.selected_skills)}.
-Профессия: {req.profession}, грейд: {req.grade}, цель: {target}, сценарий: {req.scenario}.
-
-Данные по навыкам:
-{skill_context}
-
-Сгенерируй РОВНО три JSON-блока. Отвечай ТОЛЬКО валидным JSON без markdown.
-
-{{
-  "tasks": [
-    {{"skill": "название навыка", "items": ["конкретная задача 1", "конкретная задача 2"]}}
-  ],
-  "communication": ["рекомендация по развитию через общение 1", "рекомендация 2", "рекомендация 3"],
-  "learning": ["конкретная книга/курс/ресурс 1", "ресурс 2", "ресурс 3"]
-}}
-
-Правила:
-- tasks: для КАЖДОГО выбранного навыка 2-3 конкретные задачи, опираясь на данные выше
-- communication: 3-5 рекомендаций по менторству, code review, обратной связи
-- learning: 3-5 конкретных книг, курсов или ресурсов на русском или английском
-- Отвечай на русском
-- Только JSON, без пояснений"""
-
-    import json as _json
-    last_error = None
-    for attempt in range(3):
-        try:
-            response = gen.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Отвечай только валидным JSON. Без markdown, без пояснений."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.3,
-                max_tokens=2000,
-                response_format={"type": "json_object"},
-            )
-            result = _json.loads(response.choices[0].message.content)
-            if "tasks" not in result:
-                result["tasks"] = []
-            if "communication" not in result:
-                result["communication"] = []
-            if "learning" not in result:
-                result["learning"] = []
-            return result
-        except Exception as e:
-            last_error = e
-            import time; time.sleep(1)
-
-    raise HTTPException(status_code=500, detail=f"Ошибка генерации: {last_error}")
+    return gen.generate_focused_plan_json(
+        selected_skills=req.selected_skills[:10],
+        profession=req.profession,
+        grade=req.grade,
+        scenario=req.scenario,
+        target_name=target,
+        skill_context=skill_context,
+    )
 
 
 @app.get("/health")
@@ -559,6 +1009,7 @@ logger = logging.getLogger("career-pathfinder")
 
 @app.on_event("startup")
 async def on_startup():
+    init_db()
     port = os.environ.get("PORT", "?")
     fe = "YES" if FRONTEND_DIR.is_dir() else "NO"
     logger.info(f"=== Career Pathfinder started === PORT={port}, frontend={fe}")

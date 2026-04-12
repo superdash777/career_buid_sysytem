@@ -13,8 +13,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import random
 
 from data_loader import DataLoader, GRADE_TO_PARAM_ORDINAL
+from confidence_utils import get_skill_confidence
 from eval_metrics.faithfulness import rouge_l_faithfulness
 from gap_analyzer import GapAnalyzer
 from plan_generator import PlanGenerator
@@ -37,6 +39,11 @@ class SampleMetrics:
     estimated_input_tokens: int
     estimated_output_tokens: int
     estimated_cost_usd: float
+    confidence_avg: float
+    confidence_ece: float
+    confidence_brier: float
+    retrieval_hybrid_share: float
+    constraint_violations: int
 
 
 def _set_metrics(predicted: List[str], expected: List[str]) -> Tuple[float, float, float]:
@@ -77,6 +84,135 @@ def _estimate_cost_usd(
     output_price_per_1m: float,
 ) -> float:
     return (input_tokens / 1_000_000) * input_price_per_1m + (output_tokens / 1_000_000) * output_price_per_1m
+
+
+def _bootstrap_mean_ci(values: List[float], iterations: int = 500, alpha: float = 0.05) -> Dict[str, float]:
+    if not values:
+        return {"mean": 0.0, "ci_low": 0.0, "ci_high": 0.0}
+    if len(values) == 1:
+        v = float(values[0])
+        return {"mean": v, "ci_low": v, "ci_high": v}
+    means = []
+    n = len(values)
+    for _ in range(iterations):
+        sample = [values[random.randrange(0, n)] for _ in range(n)]
+        means.append(sum(sample) / n)
+    means.sort()
+    low_i = int((alpha / 2) * len(means))
+    high_i = int((1 - alpha / 2) * len(means)) - 1
+    low_i = max(0, min(low_i, len(means) - 1))
+    high_i = max(0, min(high_i, len(means) - 1))
+    return {
+        "mean": float(sum(values) / n),
+        "ci_low": float(means[low_i]),
+        "ci_high": float(means[high_i]),
+    }
+
+
+def _error_taxonomy_row(
+    expected_skills: List[str],
+    predicted_skills: List[str],
+    parsed_skills: List[Dict[str, Any]],
+) -> Dict[str, int]:
+    expected = {s.strip() for s in expected_skills if s and s.strip()}
+    predicted = {s.strip() for s in predicted_skills if s and s.strip()}
+    unknown_count = sum(1 for s in parsed_skills if bool(s.get("is_unknown")))
+    llm_unknown_band = sum(1 for s in parsed_skills if str(s.get("retrieval_mode") or "") == "llm_unknown")
+    fp = len(predicted - expected)
+    fn = len(expected - predicted)
+    return {
+        "false_positives": fp,
+        "false_negatives": fn,
+        "unknown_skills": unknown_count,
+        "llm_unknown_mode_hits": llm_unknown_band,
+    }
+
+
+def _calc_ece_brier(confidences: List[float], labels: List[int], bins: int = 10) -> Tuple[float, float]:
+    if not confidences or not labels or len(confidences) != len(labels):
+        return 0.0, 0.0
+    n = len(confidences)
+    ece = 0.0
+    brier = 0.0
+    for c, y in zip(confidences, labels):
+        c = max(0.0, min(1.0, float(c)))
+        brier += (c - float(y)) ** 2
+    brier /= n
+
+    for b in range(bins):
+        lo = b / bins
+        hi = (b + 1) / bins
+        idx = [i for i, c in enumerate(confidences) if (lo <= c < hi) or (b == bins - 1 and c == 1.0)]
+        if not idx:
+            continue
+        avg_conf = sum(confidences[i] for i in idx) / len(idx)
+        avg_acc = sum(labels[i] for i in idx) / len(idx)
+        ece += (len(idx) / n) * abs(avg_conf - avg_acc)
+    return float(ece), float(brier)
+
+
+def _plan_constraint_violations(plan_text: str) -> int:
+    text = (plan_text or "").lower()
+    violations = 0
+    banned_tokens = [
+        "курс",
+        "курсы",
+        "тренинг",
+        "тренинги",
+        "bootcamp",
+        "удеми",
+        "coursera",
+        "skillbox",
+    ]
+    if any(tok in text for tok in banned_tokens):
+        violations += 1
+    if "книга" not in text and "книг" not in text:
+        violations += 1
+    return violations
+
+
+def _aggregate_error_taxonomy(rows: List[Dict[str, int]]) -> Dict[str, int]:
+    out = {
+        "false_positives": 0,
+        "false_negatives": 0,
+        "unknown_skills": 0,
+        "llm_unknown_mode_hits": 0,
+    }
+    for r in rows:
+        for k in out:
+            out[k] += int(r.get(k, 0))
+    return out
+
+
+def _run_retrieval_ablation(
+    dataset: List[Dict[str, Any]],
+    parser: ResumeParser,
+    data_loader: DataLoader,
+) -> Dict[str, Dict[str, float]]:
+    from rag_service import get_skills_v2_candidates
+
+    modes = ["dense_only", "lexical_only", "hybrid_rerank"]
+    out: Dict[str, Dict[str, float]] = {}
+    for mode in modes:
+        f1_values: List[float] = []
+        for row in dataset:
+            resume_text = str(row.get("resume_text", ""))
+            expected_skills = [str(x) for x in row.get("expected_skills", [])]
+            raw_skills = parser._extract_raw_skills(resume_text, request_id=f"abl-{mode}")  # noqa: SLF001
+            predicted: List[str] = []
+            for rs in raw_skills:
+                cands = get_skills_v2_candidates(rs, top_k=1, retrieval_mode=mode)
+                if cands and cands[0].get("name"):
+                    predicted.append(str(cands[0]["name"]))
+            _p, _r, f1 = _set_metrics(predicted, expected_skills)
+            f1_values.append(f1)
+        ci = _bootstrap_mean_ci(f1_values)
+        out[mode] = {
+            "f1_mean": ci["mean"],
+            "f1_ci_low": ci["ci_low"],
+            "f1_ci_high": ci["ci_high"],
+        }
+    return out
 
 
 def _load_dataset(path: Path) -> List[Dict[str, Any]]:
@@ -148,6 +284,7 @@ def run_eval(
     verbose: bool,
     input_price_per_1m: float,
     output_price_per_1m: float,
+    retrieval_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     data_loader = DataLoader()
     parser = ResumeParser()
@@ -156,6 +293,8 @@ def run_eval(
     atlas_param_names = list(data_loader.atlas_map.keys())
 
     per_sample: List[SampleMetrics] = []
+    taxonomy_rows: List[Dict[str, int]] = []
+    taxonomy_acc = {"false_positives": 0, "false_negatives": 0, "unknown_skills": 0, "llm_unknown_mode_hits": 0}
 
     for row in dataset:
         sample_id = str(row.get("id", "unknown"))
@@ -165,13 +304,34 @@ def run_eval(
         target_role = str(row.get("target_role", "")).strip() or "Менеджер продукта"
 
         started = time.perf_counter()
-        parsed = _run_resume_pipeline(version, parser, resume_text, data_loader.skills)
+        parsed = _run_resume_pipeline(
+            version,
+            parser,
+            resume_text,
+            data_loader.skills,
+            retrieval_mode=retrieval_mode,
+        )
         latency = time.perf_counter() - started
         parsed_skills = parsed.get("skills", []) or []
         predicted_skills = [(s.get("name") or "").strip() for s in parsed_skills if s.get("name")]
+        expected_skill_set = {s.strip() for s in expected_skills if s and s.strip()}
+        confidence_vals: List[float] = []
+        confidence_labels: List[int] = []
+        hybrid_hits = 0
+        for s in parsed_skills:
+            conf, _band = get_skill_confidence(s)
+            confidence_vals.append(conf)
+            name = (s.get("name") or "").strip()
+            confidence_labels.append(1 if name and name in expected_skill_set else 0)
+            if str(s.get("retrieval_mode") or "").startswith("hybrid"):
+                hybrid_hits += 1
 
         p, r, f1 = _set_metrics(predicted_skills, expected_skills)
         normalization_acc = _jaccard(predicted_skills, expected_skills)
+        taxonomy_rows.append(_error_taxonomy_row(expected_skills, predicted_skills, parsed_skills))
+        row_tax = _error_taxonomy_row(expected_skills, predicted_skills, parsed_skills)
+        for k in taxonomy_acc:
+            taxonomy_acc[k] += int(row_tax.get(k, 0))
 
         user_skills = _build_user_skills(parsed_skills, atlas_param_names)
         target_internal = data_loader.get_internal_role_name(target_role)
@@ -198,6 +358,10 @@ def run_eval(
             candidate_plan = reference_tasks
         faithfulness = rouge_l_faithfulness(candidate_plan, reference_tasks)
         faithful = faithfulness > 0.3
+        violations = _plan_constraint_violations(candidate_plan)
+        ece, brier = _calc_ece_brier(confidence_vals, confidence_labels, bins=10)
+        confidence_avg = sum(confidence_vals) / len(confidence_vals) if confidence_vals else 0.0
+        retrieval_share = hybrid_hits / len(parsed_skills) if parsed_skills else 0.0
 
         # Оценка cost (упрощённо): текст резюме + выход parser.
         input_tokens = _estimate_tokens(resume_text)
@@ -228,35 +392,62 @@ def run_eval(
             estimated_input_tokens=input_tokens,
             estimated_output_tokens=output_tokens,
             estimated_cost_usd=est_cost,
+            confidence_avg=confidence_avg,
+            confidence_ece=ece,
+            confidence_brier=brier,
+            retrieval_hybrid_share=retrieval_share,
+            constraint_violations=violations,
         )
         per_sample.append(m)
 
         if verbose:
             print(
                 f"[{sample_id}] F1={f1:.3f}, norm_acc={normalization_acc:.3f}, "
-                f"gap_f1={gf1:.3f}, faith={faithfulness:.3f}, latency={latency:.2f}s"
+                f"gap_f1={gf1:.3f}, faith={faithfulness:.3f}, "
+                f"ECE={ece:.3f}, viol={violations}, latency={latency:.2f}s"
             )
 
     def avg(fn):
         return sum(fn(x) for x in per_sample) / len(per_sample) if per_sample else 0.0
 
+    extraction_f1_vals = [x.extraction_f1 for x in per_sample]
+    norm_acc_vals = [x.normalization_accuracy for x in per_sample]
+    gap_f1_vals = [x.gap_f1 for x in per_sample]
+    confidence_ece_vals = [x.confidence_ece for x in per_sample]
+    taxonomy = _aggregate_error_taxonomy(taxonomy_rows)
     summary = {
         "samples": len(per_sample),
         "extraction": {
             "precision": avg(lambda x: x.extraction_precision),
             "recall": avg(lambda x: x.extraction_recall),
             "f1": avg(lambda x: x.extraction_f1),
+            "f1_ci95": _bootstrap_mean_ci(extraction_f1_vals),
         },
         "normalization_accuracy": avg(lambda x: x.normalization_accuracy),
+        "normalization_ci95": _bootstrap_mean_ci(norm_acc_vals),
         "gap_detection": {
             "precision": avg(lambda x: x.gap_precision),
             "recall": avg(lambda x: x.gap_recall),
             "f1": avg(lambda x: x.gap_f1),
+            "f1_ci95": _bootstrap_mean_ci(gap_f1_vals),
         },
         "faithfulness": {
             "avg_rouge_l": avg(lambda x: x.faithfulness_rouge_l),
             "faithful_rate": avg(lambda x: 1.0 if x.faithful else 0.0),
             "threshold": 0.3,
+        },
+        "confidence_calibration": {
+            "avg_confidence": avg(lambda x: x.confidence_avg),
+            "ece": avg(lambda x: x.confidence_ece),
+            "brier": avg(lambda x: x.confidence_brier),
+        },
+        "retrieval_ablation": {
+            "hybrid_share_avg": avg(lambda x: x.retrieval_hybrid_share),
+            "mode": retrieval_mode or "hybrid_rerank",
+        },
+        "constraint_violations": {
+            "avg_violations_per_sample": avg(lambda x: x.constraint_violations),
+            "total_violations": int(sum(x.constraint_violations for x in per_sample)),
         },
         "latency_sec_avg": avg(lambda x: x.latency_sec),
         "cost": {
@@ -265,7 +456,20 @@ def run_eval(
             "total_input_tokens": int(sum(x.estimated_input_tokens for x in per_sample)),
             "total_output_tokens": int(sum(x.estimated_output_tokens for x in per_sample)),
         },
+        "bootstrap_ci": {
+            "extraction_f1": _bootstrap_mean_ci(extraction_f1_vals),
+            "normalization_accuracy": _bootstrap_mean_ci(norm_acc_vals),
+            "gap_f1": _bootstrap_mean_ci(gap_f1_vals),
+            "confidence_ece": _bootstrap_mean_ci(confidence_ece_vals),
+        },
+        "error_taxonomy": taxonomy,
     }
+    if retrieval_mode is None:
+        summary["retrieval_ablation"]["matrix"] = _run_retrieval_ablation(
+            dataset=dataset,
+            parser=parser,
+            data_loader=data_loader,
+        )
 
     return {
         "version": version,
@@ -282,6 +486,11 @@ def main() -> int:
     parser.add_argument("--dataset", default="eval_dataset.json")
     parser.add_argument("--input-price-per-1m", type=float, default=5.0)
     parser.add_argument("--output-price-per-1m", type=float, default=15.0)
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=["dense_only", "lexical_only", "hybrid_rerank"],
+        default=None,
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.dataset).resolve()
@@ -292,6 +501,7 @@ def main() -> int:
         verbose=args.verbose,
         input_price_per_1m=args.input_price_per_1m,
         output_price_per_1m=args.output_price_per_1m,
+        retrieval_mode=args.retrieval_mode,
     )
 
     out_dir = Path("eval_results")

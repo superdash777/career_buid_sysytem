@@ -1,4 +1,16 @@
-import type { PlanRequest, PlanResponse, Skill, FocusedPlan } from '../types';
+import type {
+  PlanRequest,
+  PlanResponse,
+  Skill,
+  FocusedPlan,
+  AuthResponse,
+  UserProfile,
+  AnalysisRecord,
+  ProgressRecord,
+  ProgressStatus,
+  OnboardingRequest,
+  OnboardingResponse,
+} from '../types';
 
 const BASE = '';
 
@@ -16,7 +28,13 @@ async function request<T>(
   init?: RequestInit,
   signal?: AbortSignal,
 ): Promise<T> {
-  const res = await fetch(`${BASE}${url}`, { ...init, signal });
+  const authToken = localStorage.getItem('career_copilot_jwt') || '';
+  const initHeaders = new Headers(init?.headers || {});
+  if (authToken && !initHeaders.has('Authorization')) {
+    initHeaders.set('Authorization', `Bearer ${authToken}`);
+  }
+
+  const res = await fetch(`${BASE}${url}`, { ...init, headers: initHeaders, signal });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -43,6 +61,18 @@ export async function fetchSkillsForRole(
     signal,
   );
   return data.skills;
+}
+
+export async function fetchSkillsByCategoryForRole(
+  profession: string,
+  signal?: AbortSignal,
+): Promise<Array<{ name: string; skills: string[] }>> {
+  const data = await request<{ categories: Array<{ name: string; skills: string[] }> }>(
+    `/api/skills-by-category?profession=${encodeURIComponent(profession)}`,
+    undefined,
+    signal,
+  );
+  return data.categories;
 }
 
 export async function suggestSkills(q: string, signal?: AbortSignal): Promise<string[]> {
@@ -92,6 +122,124 @@ export async function buildFocusedPlan(
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) },
     signal,
   );
+}
+
+export async function register(
+  params: { email: string; password: string },
+  signal?: AbortSignal,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/api/auth/register',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    },
+    signal,
+  );
+}
+
+export async function login(
+  params: { email: string; password: string },
+  signal?: AbortSignal,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/api/auth/login',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    },
+    signal,
+  );
+}
+
+export async function authMe(signal?: AbortSignal): Promise<{ user: UserProfile }> {
+  return request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
+}
+
+export async function fetchMe(signal?: AbortSignal): Promise<UserProfile> {
+  const data = await request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
+  return data.user;
+}
+
+export async function saveOnboarding(
+  payload: OnboardingRequest,
+  signal?: AbortSignal,
+): Promise<OnboardingResponse> {
+  return request<OnboardingResponse>(
+    '/api/auth/onboarding',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
+}
+
+export async function fetchAnalyses(signal?: AbortSignal): Promise<AnalysisRecord[]> {
+  const data = await request<{ items: AnalysisRecord[] }>('/api/analyses', undefined, signal);
+  return data.items;
+}
+
+export async function createAnalysis(
+  payload: {
+    scenario: string;
+    current_role?: string;
+    target_role?: string;
+    skills_json?: Record<string, unknown>;
+    result_json?: Record<string, unknown>;
+  },
+  signal?: AbortSignal,
+): Promise<AnalysisRecord> {
+  const data = await request<{ item: AnalysisRecord }>(
+    '/api/analyses',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
+  return data.item;
+}
+
+export async function fetchAnalysisById(analysisId: string, signal?: AbortSignal): Promise<AnalysisRecord> {
+  const data = await request<{ item: AnalysisRecord }>(`/api/analyses/${encodeURIComponent(analysisId)}`, undefined, signal);
+  return data.item;
+}
+
+export async function fetchSharedAnalysis(
+  analysisId: string,
+  signal?: AbortSignal,
+): Promise<import('../types').SharedAnalysisResponse> {
+  return request<import('../types').SharedAnalysisResponse>(
+    `/api/share/${encodeURIComponent(analysisId)}`,
+    undefined,
+    signal,
+  );
+}
+
+export async function patchProgress(
+  payload: { skill_name: string; status: ProgressStatus },
+  signal?: AbortSignal,
+): Promise<ProgressRecord> {
+  const data = await request<{ item: ProgressRecord }>(
+    '/api/progress',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
+  return data.item;
+}
+
+export async function fetchProgress(signal?: AbortSignal): Promise<ProgressRecord[]> {
+  const data = await request<{ items: ProgressRecord[] }>('/api/progress', undefined, signal);
+  return data.items;
 }
 
 export async function healthCheck(): Promise<boolean> {
