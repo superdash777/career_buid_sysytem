@@ -5,7 +5,8 @@ import Alert from '../components/Alert';
 import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
-import { buildPlan, ApiError } from '../api/client';
+import { buildPlan, createAnalysis, ApiError } from '../api/client';
+import { showToast } from '../components/toastStore';
 import type { AppState, PlanResponse, Scenario } from '../types';
 import { skillLevelLabel } from '../types';
 
@@ -36,15 +37,37 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
     setLoading(true);
     setError('');
     try {
+      const scenario = (state.scenario || 'Следующий грейд') as Scenario;
       const plan = await buildPlan({
         profession: state.profession,
         grade: state.grade,
         skills: state.skills,
-        scenario: state.scenario as Scenario,
+        scenario,
         target_profession:
           state.scenario === 'Смена профессии' ? state.targetProfession : undefined,
       });
-      onResult(plan);
+
+      let enrichedPlan = plan;
+      try {
+        const saved = await createAnalysis({
+          scenario,
+          current_role: state.profession || undefined,
+          target_role: state.scenario === 'Смена профессии' ? state.targetProfession || undefined : undefined,
+          skills_json: {
+            profession: state.profession,
+            grade: state.grade,
+            scenario,
+            target_profession: state.targetProfession,
+            skills: state.skills,
+          },
+          result_json: plan as unknown as Record<string, unknown>,
+        });
+        enrichedPlan = { ...plan, analysis_id: saved.id };
+      } catch {
+        showToast('План построен, но не удалось сохранить его в историю');
+      }
+
+      onResult(enrichedPlan);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

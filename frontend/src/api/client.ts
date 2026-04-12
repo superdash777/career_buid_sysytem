@@ -7,6 +7,7 @@ import type {
   UserProfile,
   AnalysisRecord,
   ProgressRecord,
+  ProgressStatus,
 } from '../types';
 
 const BASE = '';
@@ -181,7 +182,7 @@ export async function fetchAnalysisById(analysisId: string, signal?: AbortSignal
 }
 
 export async function patchProgress(
-  payload: { skill_name: string; status: 'todo' | 'in_progress' | 'done' },
+  payload: { skill_name: string; status: ProgressStatus },
   signal?: AbortSignal,
 ): Promise<ProgressRecord> {
   const data = await request<{ item: ProgressRecord }>(
@@ -194,6 +195,11 @@ export async function patchProgress(
     signal,
   );
   return data.item;
+}
+
+export async function fetchProgress(signal?: AbortSignal): Promise<ProgressRecord[]> {
+  const data = await request<{ items: ProgressRecord[] }>('/api/progress', undefined, signal);
+  return data.items;
 }
 
 export async function healthCheck(): Promise<boolean> {

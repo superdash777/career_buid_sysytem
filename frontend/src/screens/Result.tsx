@@ -6,7 +6,7 @@ import {
 import {
   Copy, RotateCcw, ArrowLeft, ChevronRight, ChevronDown, Check,
   TrendingUp, FileText, CheckCircle2, Target, Sparkles,
-  BookOpen, MessageCircle, ListTodo,
+  BookOpen, MessageCircle, ListTodo, LayoutDashboard,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
@@ -22,9 +22,10 @@ interface Props {
   appState: AppState;
   onReset: () => void;
   onBackToSkills: () => void;
+  onOpenDashboard: () => void;
 }
 
-export default function Result({ plan, appState, onReset, onBackToSkills }: Props) {
+export default function Result({ plan, appState, onReset, onBackToSkills, onOpenDashboard }: Props) {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'analysis' | 'gps'>('analysis');
   const [selectedGaps, setSelectedGaps] = useState<Set<string>>(new Set());
@@ -185,6 +186,9 @@ export default function Result({ plan, appState, onReset, onBackToSkills }: Prop
         <div className="flex flex-wrap gap-3 pt-2">
           <button onClick={onBackToSkills} className="btn-secondary text-sm">
             <ArrowLeft className="h-4 w-4" /> Уточнить навыки
+          </button>
+          <button onClick={onOpenDashboard} className="btn-secondary text-sm">
+            <LayoutDashboard className="h-4 w-4" /> Личный кабинет
           </button>
         </div>
       </div>

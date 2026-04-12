@@ -34,11 +34,13 @@ export interface AnalysisRecord {
   created_at: string;
 }
 
+export type ProgressStatus = 'todo' | 'in_progress' | 'done';
+
 export interface ProgressRecord {
   id: string;
   user_id: string;
   skill_name: string;
-  status: 'todo' | 'in_progress' | 'done';
+  status: ProgressStatus;
   updated_at: string;
 }
 
@@ -199,6 +201,7 @@ export interface PlanResponse {
   markdown: string;
   role_titles?: string[];
   analysis?: Analysis;
+  analysis_id?: string;
 }
 
 export interface FocusedPlanTask {

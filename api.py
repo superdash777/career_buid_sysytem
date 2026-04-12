@@ -21,6 +21,7 @@ from typing import List, Optional, Dict, Any
 from rapidfuzz import fuzz
 from datetime import datetime, timedelta, timezone
 import uuid
+import json
 import jwt
 import bcrypt
 
@@ -271,6 +272,28 @@ def get_analysis_detail(
     if row is None:
         raise HTTPException(status_code=404, detail="Анализ не найден")
     return {"item": _serialize_analysis_row(row)}
+
+
+@app.get("/api/progress")
+def get_progress(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, user_id, skill_name, status, updated_at "
+            "FROM progress WHERE user_id = ? ORDER BY updated_at DESC",
+            (current_user["id"],),
+        ).fetchall()
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "skill_name": row["skill_name"],
+                "status": row["status"],
+                "updated_at": row["updated_at"],
+            }
+        )
+    return {"items": items}
 
 
 @app.patch("/api/progress")
