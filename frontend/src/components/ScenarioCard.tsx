@@ -1,10 +1,9 @@
-import { TrendingUp, RefreshCw, Search } from 'lucide-react';
 import type { Scenario } from '../types';
 
-const ICONS: Record<Scenario, React.ReactNode> = {
-  'Следующий грейд': <TrendingUp className="h-5 w-5" />,
-  'Смена профессии': <RefreshCw className="h-5 w-5" />,
-  'Исследование возможностей': <Search className="h-5 w-5" />,
+const SYMBOLS: Record<Scenario, string> = {
+  'Следующий грейд': '↗',
+  'Смена профессии': '⇄',
+  'Исследование возможностей': '⌕',
 };
 
 interface Props {
@@ -21,28 +20,28 @@ export default function ScenarioCard({ value, label, description, selected, onSe
       type="button"
       onClick={onSelect}
       className={`
-        w-full text-left rounded-xl border-2 p-5 transition-all duration-200 cursor-pointer
+        w-full text-left rounded-[18px] border p-5 transition-all duration-200 cursor-pointer
         ${selected
-          ? 'border-(--color-accent) bg-(--color-accent-light) shadow-md'
-          : 'border-(--color-border) bg-(--color-surface-raised) hover:border-(--color-accent)/40 hover:shadow-sm'
+          ? 'border-[var(--blue-deep)] bg-[color-mix(in_srgb,var(--paper)_90%,white)] shadow-[var(--shadow-soft)]'
+          : 'border-[var(--line)] bg-[var(--paper)] hover:border-[var(--blue-deep)]/40'
         }
       `}
     >
       <div className="flex items-start gap-4">
         <div
-          className={`shrink-0 mt-0.5 flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-200 ${
+          className={`shrink-0 mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border text-sm transition-colors duration-200 ${
             selected
-              ? 'bg-(--color-accent) text-white'
-              : 'bg-(--color-accent-light) text-(--color-accent)'
+              ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)] text-[#f8f4ec]'
+              : 'border-[var(--line)] bg-[var(--paper)] text-[var(--blue-deep)]'
           }`}
         >
-          {ICONS[value]}
+          {SYMBOLS[value]}
         </div>
         <div>
-          <p className={`font-semibold mb-1 ${selected ? 'text-(--color-accent)' : 'text-(--color-text-primary)'}`}>
+          <p className={`mb-1 font-semibold ${selected ? 'text-[var(--blue-deep)]' : 'text-[var(--ink)]'}`}>
             {label}
           </p>
-          <p className="text-sm text-(--color-text-muted) leading-relaxed">{description}</p>
+          <p className="text-sm leading-relaxed text-[var(--muted)]">{description}</p>
         </div>
       </div>
     </button>

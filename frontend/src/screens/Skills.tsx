@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { ArrowRight, ArrowLeft, Upload, Search, Plus, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import SkillCard from '../components/SkillCard';
@@ -13,6 +12,8 @@ import { showToast } from '../components/toastStore';
 import { analyzeResume, suggestSkills, fetchSkillsForRole, fetchSkillsByCategoryForRole } from '../api/client';
 import { ApiError } from '../api/client';
 import type { AppState, Skill } from '../types';
+import Button from '../components/ui/Button';
+import Eyebrow from '../components/ui/Eyebrow';
 
 interface Props {
   state: AppState;
@@ -194,7 +195,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (!showSuggestions || suggestions.length === 0) {
       if (e.key === 'Enter' && query.trim()) {
         e.preventDefault();
@@ -298,8 +299,9 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
     <Layout step={2}>
       <div className="space-y-8 slide-up">
         <div>
+          <Eyebrow className="mb-2">Skills input // профиль навыков</Eyebrow>
           <MiniProgress current={2} total={3} label="Навыки" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mt-2 mb-2">
+          <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Опишите ваши навыки
           </h1>
           <p className="text-(--color-text-secondary)">
@@ -319,7 +321,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Как добавить навыки</h2>
+            <h2 className="mb-1 text-xl text-(--color-text-primary)">Как добавить навыки</h2>
             <p className="text-sm text-(--color-text-muted)">
               Выберите удобный вариант: загрузка PDF или ручной выбор по категориям.
             </p>
@@ -327,10 +329,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={() => setInputMode('resume')}
-              className={`rounded-xl border p-3 text-left transition-colors ${
+              className={`rounded-2xl border p-3 text-left transition-colors ${
                 inputMode === 'resume'
-                  ? 'border-(--color-accent) bg-(--color-accent-light)'
-                  : 'border-(--color-border) hover:border-(--color-accent)/40'
+                  ? 'border-[var(--blue-deep)] bg-[var(--chip)]'
+                  : 'border-(--color-border) hover:border-[var(--blue-deep)]/40'
               }`}
             >
               <p className="font-medium text-(--color-text-primary)">Загрузить резюме (PDF)</p>
@@ -338,10 +340,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             </button>
             <button
               onClick={() => setInputMode('manual')}
-              className={`rounded-xl border p-3 text-left transition-colors ${
+              className={`rounded-2xl border p-3 text-left transition-colors ${
                 inputMode === 'manual'
-                  ? 'border-(--color-accent) bg-(--color-accent-light)'
-                  : 'border-(--color-border) hover:border-(--color-accent)/40'
+                  ? 'border-[var(--blue-deep)] bg-[var(--chip)]'
+                  : 'border-(--color-border) hover:border-[var(--blue-deep)]/40'
               }`}
             >
               <p className="font-medium text-(--color-text-primary)">Выбрать навыки вручную</p>
@@ -354,7 +356,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
         {inputMode === 'resume' && (
           <div className="card space-y-4 fade-in">
             <div>
-              <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">Загрузите резюме</h2>
+              <h2 className="mb-1 text-xl text-(--color-text-primary)">Загрузите резюме</h2>
               <p className="text-sm text-(--color-text-muted)">PDF — мы извлечём навыки автоматически.</p>
             </div>
 
@@ -363,17 +365,19 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             ) : (
               <div
                 {...getRootProps()}
-                className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all cursor-pointer ${
+                className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 transition-all ${
                   isDragActive
-                    ? 'border-(--color-accent) bg-(--color-accent-light)'
-                    : 'border-(--color-border) bg-(--color-surface-alt) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light)/50'
+                    ? 'border-[var(--blue-deep)] bg-[var(--chip)]'
+                    : 'border-(--color-border) bg-(--color-surface-alt) hover:border-[var(--blue-deep)]/40 hover:bg-[var(--chip)]/60'
                 }`}
               >
                 <input {...getInputProps()} />
-                <Upload className="h-8 w-8 text-(--color-text-muted)" />
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface-raised) text-[18px] text-(--color-text-muted)">
+                  ⤴
+                </span>
                 <p className="text-sm text-(--color-text-secondary) text-center">
                   Перетащите PDF сюда или{' '}
-                  <span className="font-medium text-(--color-accent)">выберите файл</span>
+                  <span className="font-medium text-[var(--blue-deep)]">выберите файл</span>
                 </p>
               </div>
             )}
@@ -399,7 +403,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
         {/* Manual input */}
         <div className="card space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-(--color-text-primary) mb-1">
+            <h2 className="mb-1 text-xl text-(--color-text-primary)">
               {inputMode === 'manual' ? 'Выбор навыков вручную' : 'Или добавьте вручную'}
             </h2>
             <p className="text-sm text-(--color-text-muted)">
@@ -409,7 +413,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
           <div className="relative" ref={suggestRef}>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
+              <span
+                aria-hidden
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-(--color-text-muted)"
+              >
+                ⌕
+              </span>
               <input
                 type="text"
                 value={query}
@@ -425,17 +434,17 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               {query.trim() && (
                 <button
                   onClick={() => addSkill(query)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-(--color-accent-light) p-1.5 text-(--color-accent) hover:bg-(--color-accent)/20 transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-[var(--chip)] p-1.5 text-[var(--blue-deep)] transition-colors hover:bg-[var(--line)]/60"
                   title="Добавить"
                 >
-                  <Plus className="h-4 w-4" />
+                  +
                 </button>
               )}
             </div>
 
             {showSuggestions && suggestions.length > 0 && (
               <div
-                className="absolute z-20 mt-1 w-full rounded-xl border border-(--color-border) bg-(--color-surface-raised) shadow-lg max-h-60 overflow-y-auto"
+                className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-2xl border border-(--color-border) bg-(--color-surface-raised) shadow-lg"
                 role="listbox"
                 aria-live="polite"
               >
@@ -445,10 +454,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                     onClick={() => addSkill(s)}
                     role="option"
                     aria-selected={i === highlightedIdx}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-2xl last:rounded-b-2xl ${
                       i === highlightedIdx
-                        ? 'bg-(--color-accent-light) text-(--color-accent) font-medium'
-                        : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+                        ? 'bg-[var(--chip)] font-medium text-[var(--blue-deep)]'
+                        : 'text-(--color-text-secondary) hover:bg-[var(--chip)]'
                     }`}
                   >
                     {s}
@@ -474,9 +483,9 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                         <button
                           key={`${category.name}-${skillName}`}
                           onClick={() => addSkill(skillName)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light) transition-colors"
+                          className="inline-flex items-center gap-1 rounded-full border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) transition-colors hover:border-[var(--blue-deep)]/40 hover:bg-[var(--chip)]"
                         >
-                          <Plus className="h-3 w-3" /> {skillName}
+                          + {skillName}
                         </button>
                       ))}
                     </div>
@@ -496,21 +505,21 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
                   <button
                     key={s}
                     onClick={() => addSkill(s)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) hover:border-(--color-accent)/40 hover:bg-(--color-accent-light) transition-colors"
+                    className="inline-flex items-center gap-1 rounded-full border border-(--color-border) bg-(--color-surface-raised) px-3 py-1.5 text-sm text-(--color-text-secondary) transition-colors hover:border-[var(--blue-deep)]/40 hover:bg-[var(--chip)]"
                   >
-                    <Plus className="h-3 w-3" /> {s}
+                    + {s}
                   </button>
                 ))}
               </div>
               {filteredRoleSkills.length > RECOMMENDED_VISIBLE && (
                 <button
                   onClick={() => setShowAllRecommended(!showAllRecommended)}
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--blue-deep)] transition-colors hover:text-[var(--color-accent-hover)]"
                 >
                   {showAllRecommended ? (
-                    <>Свернуть <ChevronUp className="h-3 w-3" /></>
+                    <>Свернуть ▲</>
                   ) : (
-                    <>Показать все ({filteredRoleSkills.length}) <ChevronDown className="h-3 w-3" /></>
+                    <>Показать все ({filteredRoleSkills.length}) ▼</>
                   )}
                 </button>
               )}
@@ -537,7 +546,9 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
           {skills.length === 0 ? (
             <div className="card flex flex-col items-center justify-center py-10 text-center">
-              <FileText className="h-10 w-10 text-(--color-text-muted)/40 mb-3" />
+              <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) text-lg text-(--color-text-muted)/60">
+                ◎
+              </span>
               <p className="text-sm text-(--color-text-muted)">
                 Добавьте 3–7 навыков — это улучшит точность рекомендаций.
               </p>
@@ -574,12 +585,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <button onClick={onBack} className="btn-secondary">
-            <ArrowLeft className="h-4 w-4" /> Назад
-          </button>
-          <button onClick={handleNext} className="btn-primary">
-            Продолжить <ArrowRight className="h-4 w-4" />
-          </button>
+          <Button variant="secondary" onClick={onBack}>
+            ← Назад
+          </Button>
+          <Button onClick={handleNext}>Продолжить →</Button>
         </div>
       </div>
     </Layout>
