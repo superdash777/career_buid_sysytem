@@ -11,11 +11,11 @@ export default function SkillAlternativeSelect({ skill, onSelectAlternative }: P
 
   return (
     <div className="mt-2 flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold text-(--color-text-muted) uppercase tracking-wide">
+      <label className="font-[var(--font-mono)] text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
         Подтвердите навык
       </label>
       <select
-        className="rounded-lg border border-(--color-border) bg-(--color-surface-raised) px-3 py-2 text-sm text-(--color-text-primary)"
+        className="rounded-xl border border-[var(--line)] bg-[color-mix(in_srgb,var(--paper)_90%,white)] px-3 py-2 text-sm text-[var(--ink)]"
         value=""
         onChange={(e) => {
           if (!e.target.value) return;

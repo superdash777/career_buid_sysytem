@@ -1,13 +1,4 @@
 import { useState } from 'react';
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip,
-} from 'recharts';
-import {
-  Copy, RotateCcw, ArrowLeft, ChevronRight, ChevronDown, Check,
-  TrendingUp, FileText, CheckCircle2, Target, Sparkles,
-  BookOpen, MessageCircle, ListTodo, LayoutDashboard, Share2,
-} from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
 import CareerGpsTab from '../components/CareerGpsTab';
@@ -17,6 +8,9 @@ import type {
   PlanResponse, GrowthAnalysis, SwitchAnalysis, ExploreAnalysis,
   AppState, FocusedPlan,
 } from '../types';
+import Button from '../components/ui/Button';
+import Eyebrow from '../components/ui/Eyebrow';
+import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   plan: PlanResponse;
@@ -107,46 +101,40 @@ export default function Result({
   return (
     <Layout step={4} wide>
       <div className="space-y-6 slide-up">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary)">
-              Результаты анализа
-            </h1>
-            <p className="text-(--color-text-muted) mt-1">Выберите навыки для развития и сформируйте план.</p>
+            <Eyebrow className="mb-2">Result // аналитика и план</Eyebrow>
+            <h1 className="text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">Результаты анализа</h1>
+            <p className="mt-1 text-(--color-text-muted)">Выберите навыки для развития и сформируйте план.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={onReset} className="btn-secondary text-sm">
-              <RotateCcw className="h-4 w-4" /> Заново
-            </button>
-            <button onClick={handleShare} className="btn-secondary text-sm" disabled={!plan.analysis_id || sharing}>
-              <Share2 className="h-4 w-4" />
-              {sharing ? 'Копируем...' : 'Поделиться результатом'}
-            </button>
-            <button onClick={handleCopy} className="btn-secondary text-sm">
-              {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            <Button variant="secondary" onClick={onReset}>Заново ↺</Button>
+            <Button variant="secondary" onClick={handleShare} disabled={!plan.analysis_id || sharing}>
+              {sharing ? 'Копируем...' : 'Поделиться результатом →'}
+            </Button>
+            <Button variant="secondary" onClick={handleCopy}>
               {copied ? 'Скопировано' : 'Скопировать'}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="inline-flex rounded-xl border border-(--color-border) bg-(--color-surface-raised) p-1">
+        <div className="inline-flex rounded-full border border-(--color-border) bg-(--color-surface-raised) p-1">
           <button
             onClick={() => setActiveTab('analysis')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === 'analysis'
-                ? 'bg-(--color-accent) text-white'
-                : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+                ? 'bg-[var(--blue-deep)] text-white'
+                : 'text-(--color-text-secondary) hover:bg-[var(--chip)]'
             }`}
           >
             Анализ
           </button>
           <button
             onClick={() => setActiveTab('gps')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === 'gps'
-                ? 'bg-(--color-accent) text-white'
-                : 'text-(--color-text-secondary) hover:bg-(--color-accent-light)'
+                ? 'bg-[var(--blue-deep)] text-white'
+                : 'text-(--color-text-secondary) hover:bg-[var(--chip)]'
             }`}
           >
             Карьерный GPS
@@ -171,15 +159,9 @@ export default function Result({
         {/* Gap selection for plan generation */}
         {activeTab === 'analysis' && gapNames.length > 0 && !focusedPlan && !planLoading && (
           <div className="card fade-in">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-9 w-9 rounded-lg bg-(--color-accent-light) flex items-center justify-center">
-                <Target className="h-5 w-5 text-(--color-accent)" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-(--color-text-primary)">Что хотите развить?</h3>
-                <p className="text-xs text-(--color-text-muted)">Выберите навыки — мы сформируем фокусный план</p>
-              </div>
-            </div>
+            <MonoLabel>Фокус плана</MonoLabel>
+            <h3 className="mt-3 font-semibold text-(--color-text-primary)">Что хотите развить?</h3>
+            <p className="text-xs text-(--color-text-muted)">Выберите навыки — мы сформируем фокусный план</p>
             <div className="flex flex-wrap gap-2 mb-4">
               {gapNames.map(name => (
                 <button
@@ -187,20 +169,17 @@ export default function Result({
                   onClick={() => toggleGap(name)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
                     selectedGaps.has(name)
-                      ? 'bg-(--color-accent) text-white border-(--color-accent)'
-                      : 'bg-(--color-surface-alt) text-(--color-text-secondary) border-(--color-border) hover:border-(--color-accent)/40'
+                      ? 'bg-[var(--blue-deep)] text-white border-[var(--blue-deep)]'
+                      : 'bg-(--color-surface-alt) text-(--color-text-secondary) border-(--color-border) hover:border-[var(--blue-deep)]/40'
                   }`}
                 >
-                  {selectedGaps.has(name) && <Check className="h-3 w-3 inline mr-1" />}
+                  {selectedGaps.has(name) && '✓ '}
                   {name}
                 </button>
               ))}
             </div>
             {selectedGaps.size > 0 && (
-              <button onClick={handleGeneratePlan} className="btn-primary">
-                <Sparkles className="h-4 w-4" />
-                Сформировать план ({selectedGaps.size})
-              </button>
+              <Button onClick={handleGeneratePlan}>Сформировать план ({selectedGaps.size}) →</Button>
             )}
             {planError && <p className="text-sm text-red-500 mt-3">{planError}</p>}
           </div>
@@ -216,12 +195,8 @@ export default function Result({
 
         {/* Footer */}
         <div className="flex flex-wrap gap-3 pt-2">
-          <button onClick={onBackToSkills} className="btn-secondary text-sm">
-            <ArrowLeft className="h-4 w-4" /> Уточнить навыки
-          </button>
-          <button onClick={onOpenDashboard} className="btn-secondary text-sm">
-            <LayoutDashboard className="h-4 w-4" /> Личный кабинет
-          </button>
+          <Button variant="secondary" onClick={onBackToSkills}>← Уточнить навыки</Button>
+          <Button variant="secondary" onClick={onOpenDashboard}>Личный кабинет →</Button>
         </div>
       </div>
     </Layout>
@@ -236,12 +211,8 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
     <div className="space-y-4 fade-in">
       {/* Tasks */}
       <div className="card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-            <ListTodo className="h-5 w-5 text-blue-600" />
-          </div>
-          <h3 className="font-semibold text-(--color-text-primary)">Задачи на развитие</h3>
-        </div>
+        <MonoLabel>70%</MonoLabel>
+        <h3 className="mt-3 font-semibold text-(--color-text-primary)">Задачи на развитие</h3>
         <div className="space-y-4">
           {plan.tasks.map((t, i) => (
             <div key={i}>
@@ -249,7 +220,7 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
               <ul className="space-y-1.5">
                 {t.items.map((item, j) => (
                   <li key={j} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
-                    <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-(--color-text-muted)" />
+                    <span className="mt-0.5 shrink-0 text-(--color-text-muted)">—</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -261,16 +232,12 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
 
       {/* Communication */}
       <div className="card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
-            <MessageCircle className="h-5 w-5 text-purple-600" />
-          </div>
-          <h3 className="font-semibold text-(--color-text-primary)">Развитие через общение</h3>
-        </div>
+        <MonoLabel>20%</MonoLabel>
+        <h3 className="mt-3 mb-4 font-semibold text-(--color-text-primary)">Развитие через общение</h3>
         <ul className="space-y-2">
           {plan.communication.map((item, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
-              <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-purple-400" />
+              <span className="mt-0.5 shrink-0 text-(--color-text-muted)">—</span>
               <span>{item}</span>
             </li>
           ))}
@@ -279,16 +246,12 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
 
       {/* Learning */}
       <div className="card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-emerald-600" />
-          </div>
-          <h3 className="font-semibold text-(--color-text-primary)">Книги и тренинги</h3>
-        </div>
+        <MonoLabel>10%</MonoLabel>
+        <h3 className="mt-3 mb-4 font-semibold text-(--color-text-primary)">Книги для обучения</h3>
         <ul className="space-y-2">
           {plan.learning.map((item, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
-              <ChevronRight className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" />
+              <span className="mt-0.5 shrink-0 text-(--color-text-muted)">—</span>
               <span>{item}</span>
             </li>
           ))}
@@ -302,65 +265,41 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
 // ======================== GROWTH ========================
 
 function GrowthView({ data }: { data: GrowthAnalysis }) {
-  const radarMax = Math.max(...data.radar_data.map(d => d.target), 5);
-  const radarForChart = data.radar_data.map(d => ({
-    subject: d.param,
-    current: d.current,
-    target: d.target,
-  }));
-
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">План роста</span>
-              <h2 className="text-xl font-bold text-(--color-text-primary)">
-                {data.current_grade} <span className="text-(--color-text-muted) mx-1">→</span> {data.target_grade}
-              </h2>
-            </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <MonoLabel>План роста</MonoLabel>
+            <h2 className="mt-2 text-xl font-bold text-(--color-text-primary)">
+              {data.current_grade} <span className="text-(--color-text-muted) mx-1">→</span> {data.target_grade}
+            </h2>
           </div>
-          <div className="text-right px-5 py-3 rounded-xl bg-(--color-accent-light)">
+          <div className="text-right px-5 py-3 rounded-xl bg-[var(--chip)]">
             <div className="text-xs text-(--color-text-muted) font-medium">Совпадение</div>
-            <div className="text-2xl font-bold text-(--color-accent)">{data.match_percent}%</div>
+            <div className="text-2xl font-bold text-[var(--blue-deep)]">{data.match_percent}%</div>
           </div>
         </div>
       </div>
 
-      {radarForChart.length > 2 && (
+      {data.radar_data.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-(--color-text-primary) mb-4">Параметры атласа</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarForChart}>
-                  <PolarGrid stroke="var(--color-border)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} />
-                  <PolarRadiusAxis domain={[0, radarMax]} tick={false} axisLine={false} />
-                  <Radar name="Текущий" dataKey="current" stroke="#818cf8" fill="#818cf8" fillOpacity={0.5} />
-                  <Radar name="Цель" dataKey="target" stroke="#34d399" fill="#34d399" fillOpacity={0.15} />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-(--color-text-muted) uppercase tracking-wide mb-3">Зоны развития</p>
-              {data.radar_data.filter(d => d.target > d.current).map((d, i) => (
-                <div key={i} className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                  <div className="flex justify-between text-sm font-medium mb-1">
+          <MonoLabel>Параметры атласа</MonoLabel>
+          <div className="mt-3 space-y-2">
+            {data.radar_data.map((d, i) => {
+              const progress = d.target > 0 ? Math.min(100, (d.current / d.target) * 100) : 0;
+              return (
+                <div key={i} className="rounded-xl border border-(--color-border) p-3">
+                  <div className="mb-1 flex justify-between text-sm font-medium">
                     <span className="text-(--color-text-primary)">{d.param}</span>
-                    <span className="text-amber-600">{d.current_label} → {d.target_label}</span>
+                    <span className="text-(--color-text-muted)">{d.current_label} → {d.target_label}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-amber-200 overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(d.current / d.target) * 100}%` }} />
+                  <div className="h-1.5 overflow-hidden rounded-full bg-(--color-border)">
+                    <div className="h-full rounded-full bg-[var(--blue-deep)]" style={{ width: `${progress}%` }} />
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -370,11 +309,11 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
       {data.skill_strong.length > 0 && (
         <div className="card">
           <h3 className="font-semibold text-(--color-text-primary) mb-3 flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Сильные стороны
+            ✓ Сильные стороны
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.skill_strong.map(s => (
-              <span key={s.name} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-medium border border-emerald-500/20">
+              <span key={s.name} className="rounded-full border border-(--color-border) bg-[var(--chip)] px-3 py-1.5 text-sm font-medium text-(--color-text-primary)">
                 {s.name}
               </span>
             ))}
@@ -397,38 +336,38 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
             <span className="text-xs font-bold text-(--color-text-muted) uppercase">Из профессии</span>
             <div className="font-semibold text-(--color-text-primary)">{data.from_role}</div>
           </div>
-          <ChevronRight className="h-5 w-5 text-(--color-text-muted) hidden sm:block" />
+          <span className="hidden text-(--color-text-muted) sm:block">→</span>
           <div className="flex-1 text-center sm:text-left">
             <span className="text-xs font-bold text-(--color-text-muted) uppercase">В профессию</span>
-            <div className="font-semibold text-purple-600">{data.to_role}</div>
+            <div className="font-semibold text-[var(--blue-deep)]">{data.to_role}</div>
           </div>
-          <div className="px-5 py-3 rounded-xl bg-purple-500/10 text-center">
-            <div className="text-xs text-purple-600 font-bold uppercase">Совместимость</div>
-            <div className="text-2xl font-bold text-purple-700">{data.match_percent}%</div>
+          <div className="px-5 py-3 rounded-xl bg-[var(--chip)] text-center">
+            <div className="text-xs text-(--color-text-muted) font-bold uppercase">Совместимость</div>
+            <div className="text-2xl font-bold text-[var(--blue-deep)]">{data.match_percent}%</div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card">
-          <h3 className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400 mb-3">
-            <CheckCircle2 className="h-5 w-5" /> Переносимые навыки
+          <h3 className="mb-3 flex items-center gap-2 font-semibold text-(--color-text-primary)">
+            ✓ Переносимые навыки
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.transferable.map(s => (
-              <span key={s.name} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 rounded-lg text-sm font-medium border border-emerald-500/20">
+              <span key={s.name} className="rounded-full border border-(--color-border) bg-[var(--chip)] px-3 py-1.5 text-sm font-medium text-(--color-text-primary)">
                 {s.name}
               </span>
             ))}
           </div>
         </div>
         <div className="card">
-          <h3 className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400 mb-3">
-            <Target className="h-5 w-5" /> Зона роста
+          <h3 className="mb-3 flex items-center gap-2 font-semibold text-(--color-text-primary)">
+            ○ Зона роста
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.gaps.map(g => (
-              <span key={g.name} className="px-3 py-1.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 rounded-lg text-sm font-medium border border-amber-500/20">
+              <span key={g.name} className="rounded-full border border-(--color-border) bg-(--color-surface-alt) px-3 py-1.5 text-sm font-medium text-(--color-text-primary)">
                 {g.name}
               </span>
             ))}
@@ -444,7 +383,7 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
 
 function ExploreView({ data }: { data: ExploreAnalysis }) {
   const categoryColor: Record<string, string> = {
-    closest: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
+    closest: 'bg-[var(--chip)] text-[var(--blue-deep)] border-(--color-border)',
     adjacent: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
     far: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
   };
@@ -491,7 +430,7 @@ function ExploreRoleCard({ role, categoryColor, categoryLabel }: {
           <ul className="space-y-1">
             {role.reasons.map((r, i) => (
               <li key={i} className="text-sm text-(--color-text-secondary) flex items-start gap-2">
-                <ChevronRight className="h-3.5 w-3.5 mt-0.5 shrink-0 text-(--color-accent)" /> {r}
+                <span className="mt-0.5 shrink-0 text-(--color-text-muted)">—</span> {r}
               </li>
             ))}
           </ul>
@@ -512,7 +451,7 @@ function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: 
   return (
     <div className="card">
       <h3 className="font-semibold text-(--color-text-primary) mb-4 flex items-center gap-2">
-        <FileText className="h-5 w-5 text-(--color-accent)" /> Навыки: описание и задачи
+        Навыки: описание и задачи
       </h3>
       <div className="space-y-2">
         {withDetails.map((g, i) => (
@@ -529,7 +468,9 @@ function SkillGapsSection({ gaps }: { gaps: Array<{ name: string; description?: 
                   </span>
                 )}
               </div>
-              <ChevronDown className={`h-4 w-4 text-(--color-text-muted) transition-transform ${expandedIdx === i ? 'rotate-180' : ''}`} />
+              <span className={`text-(--color-text-muted) transition-transform ${expandedIdx === i ? 'rotate-180' : ''}`}>
+                ▾
+              </span>
             </button>
             {expandedIdx === i && (
               <div className="px-4 pb-4 fade-in space-y-3">

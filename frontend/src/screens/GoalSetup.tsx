@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import ScenarioCard from '../components/ScenarioCard';
@@ -11,6 +10,9 @@ import { fetchProfessions } from '../api/client';
 import type { AppState, Scenario, Grade, QuizPainPoint } from '../types';
 import { GRADES, SCENARIOS } from '../types';
 import { recommendScenarioFromPainPoint } from '../utils/onboarding';
+import Button from '../components/ui/Button';
+import Eyebrow from '../components/ui/Eyebrow';
+import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   state: AppState;
@@ -87,8 +89,9 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
     <Layout step={1}>
       <div className="space-y-8 slide-up">
         <div>
+          <Eyebrow className="mb-2">Goal setup // карьерная цель</Eyebrow>
           <MiniProgress current={1} total={3} label="Цель" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mt-2 mb-2">
+          <h1 className="mb-2 mt-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Определим вашу цель
           </h1>
           <p className="text-(--color-text-secondary)">
@@ -109,6 +112,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
         )}
 
         <div className="card space-y-6">
+          <MonoLabel>Шаг 1 — профиль</MonoLabel>
           {/* Profession */}
           <div>
             <label className="label">Ваша текущая профессия</label>
@@ -135,7 +139,12 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
                     <option key={g} value={g}>{g}</option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-(--color-text-muted)" />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted)"
+                >
+                  ▾
+                </span>
               </div>
               <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
             </div>
@@ -182,12 +191,10 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <button onClick={onBack} className="btn-secondary">
-            <ArrowLeft className="h-4 w-4" /> Назад
-          </button>
-          <button onClick={handleNext} className="btn-primary">
-            Продолжить <ArrowRight className="h-4 w-4" />
-          </button>
+          <Button variant="secondary" onClick={onBack}>
+            ← Назад
+          </Button>
+          <Button onClick={handleNext}>Продолжить →</Button>
         </div>
       </div>
     </Layout>

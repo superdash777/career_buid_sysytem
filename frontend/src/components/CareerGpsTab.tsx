@@ -107,6 +107,7 @@ export default function CareerGpsTab({ analysis, appState }: Props) {
   return (
     <div className="space-y-5">
       <div className="card">
+        <span className="mono-label">GPS timeline</span>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-semibold text-(--color-text-primary)">Карьерный GPS</h3>
           <span className="text-xs text-(--color-text-muted)">
@@ -130,19 +131,19 @@ export default function CareerGpsTab({ analysis, appState }: Props) {
                   <div
                     className={`mx-auto h-8 w-8 rounded-full border-4 ${
                       m.active
-                        ? 'border-(--color-accent) bg-(--color-accent)'
-                        : 'border-(--color-accent)/50 bg-(--color-surface-raised)'
+                        ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)]'
+                        : 'border-[var(--line)] bg-(--color-surface-raised)'
                     }`}
                   />
                   <p className="mt-3 text-sm font-semibold text-(--color-text-primary)">{m.label}</p>
                   <p className="text-xs text-(--color-text-muted)">{m.dateLabel}</p>
-                  <p className="mt-1 text-base font-bold text-(--color-accent)">{m.percent}%</p>
+                  <p className="mt-1 text-base font-bold text-[var(--blue-deep)]">{m.percent}%</p>
                   {m.skills.length > 0 && (
                     <div className="mt-2 flex flex-wrap justify-center gap-1">
                       {m.skills.map((s) => (
                         <span
                           key={`${m.label}-${s}`}
-                          className="rounded-md bg-(--color-accent-light) px-2 py-1 text-[11px] text-(--color-accent)"
+                          className="rounded-md bg-[var(--chip)] px-2 py-1 text-[11px] text-[var(--blue-deep)]"
                         >
                           {s}
                         </span>

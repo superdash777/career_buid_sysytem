@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ArrowLeft, Sparkles, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import ProgressLoader from '../components/ProgressLoader';
@@ -9,6 +8,9 @@ import { buildPlan, createAnalysis, ApiError } from '../api/client';
 import { showToast } from '../components/toastStore';
 import type { AppState, PlanResponse, Scenario } from '../types';
 import { skillLevelLabel } from '../types';
+import Button from '../components/ui/Button';
+import Eyebrow from '../components/ui/Eyebrow';
+import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   state: AppState;
@@ -93,8 +95,9 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
     <Layout step={3}>
       <div className="space-y-8 slide-up">
         <div>
+          <Eyebrow className="mb-2">Final check // подтверждение</Eyebrow>
           <MiniProgress current={3} total={3} label="Подтверждение" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-(--color-text-primary) mt-2 mb-2">
+          <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Проверьте данные перед анализом
           </h1>
           <p className="text-(--color-text-secondary)">
@@ -114,7 +117,7 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
 
         {/* Goal summary */}
         <div className="card space-y-4">
-          <h2 className="text-lg font-semibold text-(--color-text-primary)">Цель</h2>
+          <MonoLabel>Цель и сценарий</MonoLabel>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="font-medium text-(--color-text-muted)">Профессия</dt>
             <dd className="text-(--color-text-primary)">{state.profession}</dd>
@@ -135,6 +138,7 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
 
         {/* Skills summary — expandable */}
         <div className="card space-y-4">
+          <MonoLabel>Навыки профиля</MonoLabel>
           <h2 className="text-lg font-semibold text-(--color-text-primary)">
             Навыки
             <span className="ml-2 text-sm font-normal text-(--color-text-muted)">
@@ -145,7 +149,7 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
             {visibleSkills.map((s) => (
               <span
                 key={s.name}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-(--color-accent-light) px-3 py-1.5 text-sm font-medium text-(--color-accent)"
+                className="inline-flex items-center gap-1.5 rounded-full border border-(--color-border) bg-[var(--chip)] px-3 py-1.5 text-sm font-medium text-[var(--blue-deep)]"
               >
                 {s.name}
                 <span className="opacity-60 text-xs">
@@ -157,39 +161,39 @@ export default function Confirmation({ state, onBack, onResult }: Props) {
           {hasMore && (
             <button
               onClick={() => setShowAllSkills(!showAllSkills)}
-              className="inline-flex items-center gap-1 text-sm font-medium text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
+              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--blue-deep)] transition-colors hover:text-(--color-accent-hover)"
             >
               {showAllSkills ? (
-                <>Свернуть <ChevronUp className="h-3.5 w-3.5" /></>
+                <>Свернуть ▲</>
               ) : (
-                <>Показать все {sortedSkills.length} навыков <ChevronDown className="h-3.5 w-3.5" /></>
+                <>Показать все {sortedSkills.length} навыков ▼</>
               )}
             </button>
           )}
         </div>
 
         {/* How we build the plan — simplified */}
-        <div className="card bg-(--color-accent-light)/50 border-(--color-accent)/10">
+        <div className="card border-(--color-border) bg-[var(--chip)]">
           <div className="flex items-start gap-3">
-            <Cpu className="h-5 w-5 shrink-0 mt-0.5 text-(--color-accent)" />
+            <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-xs text-[var(--blue-deep)]">
+              ◎
+            </span>
             <div>
-              <p className="font-semibold text-sm text-(--color-text-primary) mb-1">Что произойдёт дальше</p>
+              <p className="mb-1 text-sm font-semibold text-(--color-text-primary)">Что произойдёт дальше</p>
               <p className="text-sm text-(--color-text-secondary) leading-relaxed">
                 Мы сравним ваш уровень с требованиями рынка, определим зоны роста
                 и сформируем конкретные шаги: 70% — практика на работе, 20% — обучение у коллег,
-                10% — курсы и книги.
+                10% — книги.
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <button onClick={onBack} className="btn-secondary">
-            <ArrowLeft className="h-4 w-4" /> Назад
-          </button>
-          <button onClick={handleGenerate} className="btn-primary text-lg px-8 py-4">
-            <Sparkles className="h-5 w-5" /> Построить план
-          </button>
+          <Button variant="secondary" onClick={onBack}>
+            ← Назад
+          </Button>
+          <Button onClick={handleGenerate}>Построить план →</Button>
         </div>
       </div>
     </Layout>

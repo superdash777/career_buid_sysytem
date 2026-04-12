@@ -1,0 +1,56 @@
+:root {
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-sans: "Instrument Sans", "Inter", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    letter-spacing: 0.01em;
+    text-rendering: geometricPrecision;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .editorial-eyebrow {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .editorial-mark {
+    border-bottom: 3px solid var(--accent-red);
+    padding-bottom: 1px;
+  }
+
+  .editorial-em {
+    color: var(--blue-deep);
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  .mono-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--chip) 82%, white);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    color: var(--muted);
+  }
+}

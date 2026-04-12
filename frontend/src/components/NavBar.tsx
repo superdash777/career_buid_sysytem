@@ -1,4 +1,3 @@
-import { Sun, Moon, Compass } from 'lucide-react';
 import { useTheme } from '../useTheme';
 import { useAuth } from '../auth/AuthContext';
 
@@ -10,35 +9,39 @@ export default function NavBar({ showBrand = true }: Props) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   return (
-    <div className="flex items-center justify-between py-3">
+    <div className="flex items-center justify-between py-3.5">
       {showBrand ? (
-        <div className="flex items-center gap-2">
-          <Compass className="h-5 w-5 text-(--color-accent)" />
-          <span className="text-sm font-semibold text-(--color-text-primary) tracking-tight">
+        <div className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[11px] text-[var(--blue-deep)]"
+          >
+            ◎
+          </span>
+          <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[var(--ink)]">
             Career Copilot
           </span>
         </div>
       ) : (
         <div />
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {user && (
           <button
             onClick={logout}
-            className="inline-flex items-center rounded-lg border border-(--color-border) px-3 py-1.5 text-xs font-medium text-(--color-text-secondary) hover:bg-(--color-accent-light)"
+            className="inline-flex items-center rounded-full border border-[var(--line)] px-3.5 py-1.5 font-[var(--font-mono)] text-[10px] uppercase tracking-[0.1em] text-[var(--muted)] transition-colors hover:bg-[var(--chip)]"
           >
             Выйти
           </button>
         )}
         <button
           onClick={toggle}
-          className="flex items-center justify-center h-9 w-9 rounded-lg
-                     bg-(--color-surface-alt) border border-(--color-border)
-                     text-(--color-text-secondary) transition-all duration-200
-                     hover:bg-(--color-accent-light) hover:text-(--color-accent)"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)] transition-colors hover:bg-[var(--chip)] hover:text-[var(--ink)]"
           aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
         >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          <span className="text-xs" aria-hidden>
+            {theme === 'dark' ? '☼' : '◐'}
+          </span>
         </button>
       </div>
     </div>
