@@ -1,5 +1,10 @@
-import { ArrowRight, ShieldCheck, Sparkles, Target, UserRound } from 'lucide-react';
 import NavBar from '../components/NavBar';
+import Button from '../components/ui/Button';
+import Em from '../components/ui/Em';
+import Eyebrow from '../components/ui/Eyebrow';
+import GridBg from '../components/layout/GridBg';
+import Mark from '../components/ui/Mark';
+import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   onLogin: () => void;
@@ -8,56 +13,70 @@ interface Props {
 
 export default function PublicLanding({ onLogin, onRegister }: Props) {
   return (
-    <div className="min-h-screen flex flex-col bg-(--color-surface)">
-      <header className="mx-auto w-full max-w-5xl px-4">
+    <GridBg className="min-h-screen bg-[var(--bg)]">
+      <header className="mx-auto w-full max-w-6xl px-5 md:px-8">
         <NavBar />
       </header>
+      <main className="mx-auto w-full max-w-6xl px-5 pb-14 pt-6 md:px-8 md:pt-10">
+        <section className="grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
+          <article className="rounded-[28px] border border-[var(--line)] bg-[color-mix(in_srgb,var(--paper)_92%,white)] p-7 shadow-[var(--shadow-soft)] md:p-10">
+            <Eyebrow className="mb-5">Career Copilot // AI navigator</Eyebrow>
+            <h1 className="text-4xl leading-[1.05] text-[var(--ink)] md:text-[62px]">
+              Планируй рост как <Mark>системный проект</Mark>, а не как догадку.
+            </h1>
+            <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-[var(--muted)]">
+              Мы извлекаем навыки из резюме, сопоставляем их с целевой ролью и строим понятный
+              roadmap в формате недельных итераций. Каждый шаг подкреплён evidence и прозрачной
+              confidence-оценкой.
+            </p>
+            <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-[var(--muted)]">
+              Подход рассчитан на специалистов уровня <Em>Middle</Em>, которым нужен структурный
+              переход к следующей карьерной точке.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Button onClick={onRegister}>Начать бесплатно →</Button>
+              <Button variant="secondary" onClick={onLogin}>
+                Уже есть аккаунт →
+              </Button>
+            </div>
+          </article>
 
-      <main className="flex-1">
-        <section className="mx-auto max-w-5xl px-4 pt-10 pb-6">
-          <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
-            <div className="space-y-5">
-              <p className="inline-flex items-center gap-2 rounded-full bg-(--color-accent-light) px-3 py-1 text-xs font-semibold text-(--color-accent)">
-                <Sparkles className="h-3.5 w-3.5" />
-                AI Career Copilot
-              </p>
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-(--color-text-primary)">
-                Платформа карьерного развития с AI
-              </h1>
-              <p className="text-base sm:text-lg text-(--color-text-secondary) leading-relaxed">
-                Загружаем резюме, оцениваем навыки и уровни, находим gap’ы под целевую роль и строим
-                персональный план роста с понятными шагами.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button onClick={onRegister} className="btn-primary">
-                  Начать бесплатно <ArrowRight className="h-4 w-4" />
-                </button>
-                <button onClick={onLogin} className="btn-secondary">
-                  Войти <UserRound className="h-4 w-4" />
-                </button>
+          <aside className="space-y-4">
+            <div className="rounded-[26px] border border-[var(--line)] bg-[var(--blue-deep)] p-7 text-[#f3ecdf] shadow-[var(--shadow-soft)]">
+              <MonoLabel className="border-[#5d73a8] bg-[#1f2e56] text-[#c9d4ee]">
+                KPI
+              </MonoLabel>
+              <div className="mt-5 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="font-[var(--font-display)] text-[36px] leading-none">70 / 20 / 10</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.12em] text-[#d9cdb9]">
+                    framework
+                  </p>
+                </div>
+                <div>
+                  <p className="font-[var(--font-display)] text-[36px] leading-none">4 000</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.12em] text-[#d9cdb9]">
+                    символов контекст
+                  </p>
+                </div>
               </div>
+              <p className="mt-6 text-sm leading-relaxed text-[#d9cdb9]">
+                В рекомендациях используем только книги, задачи 1–4 часа и строгую привязку к
+                данным пользователя.
+              </p>
             </div>
 
-            <div className="card space-y-4">
-              <h2 className="text-lg font-semibold text-(--color-text-primary)">Что делает сервис</h2>
-              <ul className="space-y-3 text-sm text-(--color-text-secondary)">
-                <li className="flex items-start gap-2">
-                  <Target className="mt-0.5 h-4 w-4 text-(--color-accent)" />
-                  Определяет текущий профиль и сравнивает его с целевой ролью.
-                </li>
-                <li className="flex items-start gap-2">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 text-(--color-accent)" />
-                  Даёт прозрачные confidence-индикаторы и альтернативы по навыкам.
-                </li>
-                <li className="flex items-start gap-2">
-                  <Sparkles className="mt-0.5 h-4 w-4 text-(--color-accent)" />
-                  Формирует практичный план развития с задачами и книгами.
-                </li>
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--paper)] p-6">
+              <Eyebrow className="mb-3">Что внутри</Eyebrow>
+              <ul className="space-y-3 text-sm leading-relaxed text-[var(--muted)]">
+                <li>01 — Извлечение навыков и уровней из резюме.</li>
+                <li>02 — Gap-анализ под целевую роль и сценарий.</li>
+                <li>03 — Пошаговый план развития + карьерный GPS.</li>
               </ul>
             </div>
-          </div>
+          </aside>
         </section>
       </main>
-    </div>
+    </GridBg>
   );
 }

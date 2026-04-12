@@ -1,0 +1,50 @@
+:root {
+  --bg: #f4f1ea;
+  --paper: #f8f4ec;
+  --ink: #151515;
+  --muted: #6f6a62;
+  --line: #d9d2c7;
+  --blue-deep: #162347;
+  --accent-red: #e5442e;
+  --accent-green: #2e8b57;
+  --chip: #ebe6dc;
+  --shadow-soft: 0 18px 48px rgba(22, 35, 71, 0.08);
+
+  /* Compatibility with existing utility classes. */
+  --color-surface: var(--bg);
+  --color-surface-alt: var(--paper);
+  --color-surface-raised: #fffdf8;
+  --color-border: var(--line);
+  --color-border-muted: #e8e2d8;
+  --color-text-primary: var(--ink);
+  --color-text-secondary: #464038;
+  --color-text-muted: var(--muted);
+  --color-accent: var(--blue-deep);
+  --color-accent-light: #dde4f7;
+  --color-accent-hover: #101b3a;
+}
+
+.dark {
+  --bg: #111317;
+  --paper: #161a20;
+  --ink: #f4f1ea;
+  --muted: #aba294;
+  --line: #2a3038;
+  --blue-deep: #9eb7ff;
+  --accent-red: #f26a57;
+  --accent-green: #65b68e;
+  --chip: #222831;
+  --shadow-soft: 0 20px 52px rgba(0, 0, 0, 0.35);
+
+  --color-surface: var(--bg);
+  --color-surface-alt: var(--paper);
+  --color-surface-raised: #1b2027;
+  --color-border: var(--line);
+  --color-border-muted: #1e242d;
+  --color-text-primary: var(--ink);
+  --color-text-secondary: #d1c8bb;
+  --color-text-muted: var(--muted);
+  --color-accent: var(--blue-deep);
+  --color-accent-light: #1f2a40;
+  --color-accent-hover: #b8c9ff;
+}

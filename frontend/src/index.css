@@ -1,140 +1,182 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/typography.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
-  :root {
-    --color-surface: #f8fafc;
-    --color-surface-alt: #ffffff;
-    --color-surface-raised: #ffffff;
-    --color-border: #e2e8f0;
-    --color-border-muted: #f1f5f9;
-    --color-text-primary: #0f172a;
-    --color-text-secondary: #475569;
-    --color-text-muted: #94a3b8;
-    --color-accent: #4f46e5;
-    --color-accent-light: #eef2ff;
-    --color-accent-hover: #4338ca;
-  }
-
-  .dark {
-    --color-surface: #0f172a;
-    --color-surface-alt: #1e293b;
-    --color-surface-raised: #1e293b;
-    --color-border: #334155;
-    --color-border-muted: #1e293b;
-    --color-text-primary: #f1f5f9;
-    --color-text-secondary: #94a3b8;
-    --color-text-muted: #64748b;
-    --color-accent: #818cf8;
-    --color-accent-light: rgba(99,102,241,0.15);
-    --color-accent-hover: #a5b4fc;
+  * {
+    box-sizing: border-box;
   }
 
   body {
-    @apply min-h-screen bg-(--color-surface) text-(--color-text-primary);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    @apply min-h-screen bg-[var(--bg)] text-[var(--ink)] antialiased;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 }
 
 @layer components {
+  .grid-bg-layer {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.45;
+  }
+
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl
-           bg-(--color-accent) px-6 py-3 text-base font-semibold text-white shadow-md
-           transition-all duration-200
-           hover:bg-(--color-accent-hover) hover:shadow-lg
-           focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:ring-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 uppercase transition-all duration-200;
+    border-color: var(--blue-deep);
+    background: var(--blue-deep);
+    color: #f8f4ec;
+    font-family: var(--font-mono);
+    letter-spacing: 0.14em;
+    font-size: 11px;
+  }
+
+  .btn-primary:hover {
+    background: #0f1934;
+    transform: translateY(-2px);
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl
-           border border-(--color-border) bg-(--color-surface-raised) px-6 py-3
-           text-base font-medium text-(--color-text-secondary) shadow-sm
-           transition-all duration-200
-           hover:bg-(--color-accent-light) hover:border-(--color-accent)/30
-           focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:ring-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 uppercase transition-all duration-200;
+    border-color: var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    letter-spacing: 0.14em;
+    font-size: 11px;
+  }
+
+  .btn-secondary:hover {
+    background: #eee8df;
+    transform: translateY(-2px);
   }
 
   .card {
-    @apply rounded-2xl border border-(--color-border) bg-(--color-surface-raised) p-6 shadow-sm
-           transition-shadow duration-200;
+    @apply rounded-[22px] border p-6;
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--paper) 88%, white);
+    box-shadow: var(--shadow-soft);
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-(--color-border)
-           bg-(--color-surface-raised) px-4 py-3
-           text-base text-(--color-text-primary) placeholder-(--color-text-muted)
-           transition-colors duration-200
-           focus:border-(--color-accent) focus:outline-none focus:ring-2 focus:ring-(--color-accent)/20;
+    @apply w-full rounded-2xl border px-4 pb-3 pt-5 text-[15px] leading-5 transition-all duration-150 outline-none;
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--paper) 88%, white);
+    color: var(--ink);
+  }
+
+  .input-field::placeholder {
+    color: transparent;
+  }
+
+  .input-field:focus {
+    border-color: var(--blue-deep);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue-deep) 20%, transparent);
+  }
+
+  .float-field {
+    @apply relative;
+  }
+
+  .float-label {
+    @apply pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 px-1 text-sm transition-all duration-150;
+    color: var(--muted);
+    background: transparent;
+  }
+
+  .float-field .input-field:not(:placeholder-shown) + .float-label,
+  .float-field .input-field:focus + .float-label {
+    top: 10px;
+    transform: translateY(0);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--blue-deep);
+    background: color-mix(in srgb, var(--paper) 92%, white);
   }
 
   .label {
-    @apply block text-sm font-semibold text-(--color-text-primary) mb-1.5;
+    @apply mb-1.5 block text-xs uppercase tracking-[0.12em];
+    color: var(--muted);
+    font-family: var(--font-mono);
   }
 
   .helper {
-    @apply mt-1.5 text-sm text-(--color-text-muted);
+    @apply mt-1.5 text-sm;
+    color: var(--muted);
   }
 
-  /* Animations */
   .fade-in {
     animation: fadeIn 0.4s ease-out both;
   }
+
   .slide-up {
-    animation: slideUp 0.4s ease-out both;
-  }
-  .skill-card-enter {
-    animation: skillEnter 0.3s ease-out both;
+    animation: slideUp 0.45s ease-out both;
   }
 
   @keyframes fadeIn {
     from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes skillEnter {
-    from { opacity: 0; transform: translateX(-8px) scale(0.97); }
-    to   { opacity: 1; transform: translateX(0) scale(1); }
+    to { opacity: 1; }
   }
 
-  /* Markdown */
-  .markdown-body { @apply text-(--color-text-primary); }
-  .markdown-body h1 { @apply text-2xl font-bold mt-8 mb-4; }
-  .markdown-body h2 { @apply text-xl font-bold mt-6 mb-3; }
-  .markdown-body h3 { @apply text-lg font-semibold mt-5 mb-2; }
-  .markdown-body h4 { @apply text-base font-semibold mt-4 mb-2; }
-  .markdown-body p  { @apply mb-3 leading-relaxed; }
-  .markdown-body ul { @apply mb-4 ml-6 list-disc space-y-1; }
-  .markdown-body ol { @apply mb-4 ml-6 list-decimal space-y-1; }
-  .markdown-body li { @apply leading-relaxed; }
-  .markdown-body strong { @apply font-semibold; }
-  .markdown-body blockquote {
-    @apply border-l-4 border-(--color-accent)/40 bg-(--color-accent-light) px-4 py-3 my-4 rounded-r-lg;
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
+  .markdown-body {
+    color: var(--ink);
+  }
+
+  .markdown-body h1 {
+    @apply mb-4 mt-8 text-2xl;
+    font-family: var(--font-display);
+  }
+
+  .markdown-body h2 {
+    @apply mb-3 mt-6 text-xl;
+    font-family: var(--font-display);
+  }
+
+  .markdown-body h3 {
+    @apply mb-2 mt-5 text-lg font-semibold;
+  }
+
+  .markdown-body p {
+    @apply mb-3 leading-relaxed;
+  }
+
+  .markdown-body ul {
+    @apply mb-4 ml-6 list-disc space-y-1;
+  }
+
+  .markdown-body ol {
+    @apply mb-4 ml-6 list-decimal space-y-1;
+  }
+
   .markdown-body code {
-    @apply bg-(--color-accent-light) text-(--color-accent) px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply rounded px-1.5 py-0.5 text-sm;
+    background: #ece6dc;
+    color: var(--blue-deep);
+    font-family: var(--font-mono);
   }
-  .markdown-body pre {
-    @apply bg-slate-900 text-slate-100 p-4 rounded-xl mb-4 overflow-x-auto;
-  }
-  .markdown-body pre code {
-    @apply bg-transparent text-slate-100 p-0;
-  }
-  .markdown-body hr {
-    @apply my-6 border-(--color-border);
-  }
-  .markdown-body table {
-    @apply w-full border-collapse mb-4;
-  }
-  .markdown-body th {
-    @apply border border-(--color-border) bg-(--color-surface-alt) px-3 py-2 text-left text-sm font-semibold;
-  }
-  .markdown-body td {
-    @apply border border-(--color-border) px-3 py-2 text-sm;
+
+  .markdown-body blockquote {
+    @apply my-4 rounded-r-lg border-l-4 px-4 py-3;
+    border-left-color: var(--accent-red);
+    background: color-mix(in srgb, var(--chip) 80%, white);
   }
 }
