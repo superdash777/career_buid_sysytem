@@ -132,6 +132,42 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class AnalysisCreateRequest(BaseModel):
+    scenario: str
+    current_role: Optional[str] = None
+    target_role: Optional[str] = None
+    skills_json: Dict[str, Any] = {}
+    result_json: Dict[str, Any] = {}
+
+
+class ProgressPatchRequest(BaseModel):
+    skill_name: str
+    status: str
+
+
+def _serialize_analysis_row(row: Any) -> Dict[str, Any]:
+    skills_json = row["skills_json"] or "{}"
+    result_json = row["result_json"] or "{}"
+    try:
+        skills = json.loads(skills_json)
+    except Exception:
+        skills = {}
+    try:
+        result = json.loads(result_json)
+    except Exception:
+        result = {}
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "scenario": row["scenario"],
+        "current_role": row["current_role"],
+        "target_role": row["target_role"],
+        "skills_json": skills,
+        "result_json": result,
+        "created_at": row["created_at"],
+    }
+
+
 @app.post("/api/auth/register")
 def register(req: RegisterRequest):
     email = (req.email or "").strip().lower()
@@ -178,6 +214,108 @@ def login(req: LoginRequest):
 @app.get("/api/auth/me")
 def me(current_user: Dict[str, Any] = Depends(_get_current_user)):
     return {"user": current_user}
+
+
+@app.get("/api/analyses")
+def get_analyses(current_user: Dict[str, Any] = Depends(_get_current_user)):
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE user_id = ? ORDER BY created_at DESC",
+            (current_user["id"],),
+        ).fetchall()
+    return {"items": [_serialize_analysis_row(row) for row in rows]}
+
+
+@app.post("/api/analyses")
+def create_analysis(
+    req: AnalysisCreateRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    analysis_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO analyses (id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                analysis_id,
+                current_user["id"],
+                req.scenario,
+                req.current_role,
+                req.target_role,
+                json.dumps(req.skills_json, ensure_ascii=False),
+                json.dumps(req.result_json, ensure_ascii=False),
+                _utc_now_iso(),
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE id = ?",
+            (analysis_id,),
+        ).fetchone()
+    return {"item": _serialize_analysis_row(row)}
+
+
+@app.get("/api/analyses/{analysis_id}")
+def get_analysis_detail(
+    analysis_id: str,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT id, user_id, scenario, current_role, target_role, skills_json, result_json, created_at "
+            "FROM analyses WHERE id = ? AND user_id = ?",
+            (analysis_id, current_user["id"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Анализ не найден")
+    return {"item": _serialize_analysis_row(row)}
+
+
+@app.patch("/api/progress")
+def patch_progress(
+    req: ProgressPatchRequest,
+    current_user: Dict[str, Any] = Depends(_get_current_user),
+):
+    status = (req.status or "").strip()
+    if status not in {"todo", "in_progress", "done"}:
+        raise HTTPException(status_code=400, detail="Некорректный статус прогресса")
+    skill_name = (req.skill_name or "").strip()
+    if not skill_name:
+        raise HTTPException(status_code=400, detail="Укажите skill_name")
+
+    with get_db_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM progress WHERE user_id = ? AND skill_name = ?",
+            (current_user["id"], skill_name),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE progress SET status = ?, updated_at = ? WHERE id = ?",
+                (status, _utc_now_iso(), existing["id"]),
+            )
+            progress_id = existing["id"]
+        else:
+            progress_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO progress (id, user_id, skill_name, status, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (progress_id, current_user["id"], skill_name, status, _utc_now_iso()),
+            )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, user_id, skill_name, status, updated_at FROM progress WHERE id = ?",
+            (progress_id,),
+        ).fetchone()
+    return {
+        "item": {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "skill_name": row["skill_name"],
+            "status": row["status"],
+            "updated_at": row["updated_at"],
+        }
+    }
 
 
 @app.get("/api/professions")

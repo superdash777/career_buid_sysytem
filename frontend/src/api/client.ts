@@ -1,4 +1,13 @@
-import type { PlanRequest, PlanResponse, Skill, FocusedPlan, AuthResponse, UserProfile } from '../types';
+import type {
+  PlanRequest,
+  PlanResponse,
+  Skill,
+  FocusedPlan,
+  AuthResponse,
+  UserProfile,
+  AnalysisRecord,
+  ProgressRecord,
+} from '../types';
 
 const BASE = '';
 
@@ -137,6 +146,54 @@ export async function authMe(signal?: AbortSignal): Promise<{ user: UserProfile 
 export async function fetchMe(signal?: AbortSignal): Promise<UserProfile> {
   const data = await request<{ user: UserProfile }>('/api/auth/me', undefined, signal);
   return data.user;
+}
+
+export async function fetchAnalyses(signal?: AbortSignal): Promise<AnalysisRecord[]> {
+  const data = await request<{ items: AnalysisRecord[] }>('/api/analyses', undefined, signal);
+  return data.items;
+}
+
+export async function createAnalysis(
+  payload: {
+    scenario: string;
+    current_role?: string;
+    target_role?: string;
+    skills_json?: Record<string, unknown>;
+    result_json?: Record<string, unknown>;
+  },
+  signal?: AbortSignal,
+): Promise<AnalysisRecord> {
+  const data = await request<{ item: AnalysisRecord }>(
+    '/api/analyses',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
+  return data.item;
+}
+
+export async function fetchAnalysisById(analysisId: string, signal?: AbortSignal): Promise<AnalysisRecord> {
+  const data = await request<{ item: AnalysisRecord }>(`/api/analyses/${encodeURIComponent(analysisId)}`, undefined, signal);
+  return data.item;
+}
+
+export async function patchProgress(
+  payload: { skill_name: string; status: 'todo' | 'in_progress' | 'done' },
+  signal?: AbortSignal,
+): Promise<ProgressRecord> {
+  const data = await request<{ item: ProgressRecord }>(
+    '/api/progress',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    signal,
+  );
+  return data.item;
 }
 
 export async function healthCheck(): Promise<boolean> {

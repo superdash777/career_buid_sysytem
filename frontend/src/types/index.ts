@@ -23,6 +23,44 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
+export interface AnalysisRecord {
+  id: string;
+  user_id: string;
+  scenario: string;
+  current_role?: string | null;
+  target_role?: string | null;
+  skills_json: Record<string, unknown>;
+  result_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProgressRecord {
+  id: string;
+  user_id: string;
+  skill_name: string;
+  status: 'todo' | 'in_progress' | 'done';
+  updated_at: string;
+}
+
+export interface AnalysisItem {
+  id: string;
+  user_id: string;
+  scenario: string;
+  current_role?: string | null;
+  target_role?: string | null;
+  skills_json: Record<string, unknown>;
+  result_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProgressItem {
+  id: string;
+  user_id: string;
+  skill_name: string;
+  status: 'todo' | 'in_progress' | 'done';
+  updated_at: string;
+}
+
 export const SKILL_LEVELS = [
   { value: 0,   label: 'Нет навыка',    short: '0',   tooltip: 'Не использую' },
   { value: 0.5, label: 'Начальный',     short: '0.5', tooltip: 'Иногда сталкивался' },

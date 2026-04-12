@@ -37,4 +37,34 @@ def init_db() -> None:
         _ensure_column(conn, "users", "experience_level", "experience_level TEXT")
         _ensure_column(conn, "users", "pain_point", "pain_point TEXT")
         _ensure_column(conn, "users", "development_hours_per_week", "development_hours_per_week INTEGER")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS analyses (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                scenario TEXT,
+                current_role TEXT,
+                target_role TEXT,
+                skills_json TEXT,
+                result_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_analyses_user_id_created_at ON analyses(user_id, created_at DESC)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS progress (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                skill_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                UNIQUE(user_id, skill_name)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_progress_user_id ON progress(user_id)")
         conn.commit()
