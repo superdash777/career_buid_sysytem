@@ -11,63 +11,53 @@
 
   body {
     @apply min-h-screen bg-[var(--bg)] text-[var(--ink)] antialiased;
-    background-image:
-      linear-gradient(to right, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px);
-    background-size: 28px 28px;
   }
 }
 
 @layer components {
   .grid-bg-layer {
     background-image:
-      linear-gradient(to right, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px);
-    background-size: 32px 32px;
-    opacity: 0.45;
+      radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line) 40%, transparent) 1px, transparent 0);
+    background-size: 24px 24px;
+    opacity: 0.5;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 uppercase transition-all duration-200;
-    border-color: var(--blue-deep);
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent px-5 py-2.5 font-semibold text-sm transition-all duration-200;
     background: var(--blue-deep);
-    color: #f8f4ec;
-    font-family: var(--font-mono);
-    letter-spacing: 0.14em;
-    font-size: 11px;
+    color: #ffffff;
   }
 
   .btn-primary:hover {
-    background: #0f1934;
-    transform: translateY(-2px);
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.25);
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 uppercase transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-2.5 font-semibold text-sm transition-all duration-200;
     border-color: var(--line);
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--font-mono);
-    letter-spacing: 0.14em;
-    font-size: 11px;
   }
 
   .btn-secondary:hover {
-    background: #eee8df;
-    transform: translateY(-2px);
+    border-color: var(--blue-deep);
+    color: var(--blue-deep);
+    transform: translateY(-1px);
   }
 
   .card {
-    @apply rounded-[22px] border p-6;
+    @apply rounded-2xl border p-6;
     border-color: var(--line);
-    background: color-mix(in srgb, var(--paper) 88%, white);
+    background: var(--paper);
     box-shadow: var(--shadow-soft);
   }
 
   .input-field {
-    @apply w-full rounded-2xl border px-4 pb-3 pt-5 text-[15px] leading-5 transition-all duration-150 outline-none;
+    @apply w-full rounded-xl border px-4 pb-3 pt-5 text-[15px] leading-5 transition-all duration-150 outline-none;
     border-color: var(--line);
-    background: color-mix(in srgb, var(--paper) 88%, white);
+    background: var(--paper);
     color: var(--ink);
   }
 
@@ -77,7 +67,7 @@
 
   .input-field:focus {
     border-color: var(--blue-deep);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue-deep) 20%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue-deep) 12%, transparent);
   }
 
   .float-field {
@@ -95,17 +85,16 @@
     top: 10px;
     transform: translateY(0);
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.11em;
+    font-size: 11px;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--blue-deep);
-    background: color-mix(in srgb, var(--paper) 92%, white);
+    background: var(--paper);
   }
 
   .label {
-    @apply mb-1.5 block text-xs uppercase tracking-[0.12em];
-    color: var(--muted);
-    font-family: var(--font-mono);
+    @apply mb-1.5 block text-sm font-medium;
+    color: var(--color-text-secondary);
   }
 
   .helper {
@@ -168,15 +157,15 @@
   }
 
   .markdown-body code {
-    @apply rounded px-1.5 py-0.5 text-sm;
-    background: #ece6dc;
+    @apply rounded-lg px-1.5 py-0.5 text-sm;
+    background: var(--chip);
     color: var(--blue-deep);
     font-family: var(--font-mono);
   }
 
   .markdown-body blockquote {
     @apply my-4 rounded-r-lg border-l-4 px-4 py-3;
-    border-left-color: var(--accent-red);
-    background: color-mix(in srgb, var(--chip) 80%, white);
+    border-left-color: var(--blue-deep);
+    background: var(--chip);
   }
 }

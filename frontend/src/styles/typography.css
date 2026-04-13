@@ -1,5 +1,5 @@
 :root {
-  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-display: "Instrument Sans", "Inter", Arial, sans-serif;
   --font-sans: "Instrument Sans", "Inter", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
@@ -7,15 +7,17 @@
 @layer base {
   body {
     font-family: var(--font-sans);
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
     text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
   }
 
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.025em;
+    font-weight: 700;
   }
 }
 
@@ -23,19 +25,21 @@
   .editorial-eyebrow {
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 11px;
-    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--blue-deep);
   }
 
   .editorial-mark {
-    border-bottom: 3px solid var(--accent-red);
-    padding-bottom: 1px;
+    background: linear-gradient(to right, rgba(79, 70, 229, 0.15), rgba(124, 58, 237, 0.15));
+    padding: 2px 6px;
+    border-radius: 6px;
   }
 
   .editorial-em {
     color: var(--blue-deep);
-    font-style: italic;
+    font-style: normal;
     font-weight: 600;
   }
 
@@ -44,13 +48,14 @@
     align-items: center;
     gap: 6px;
     border: 1px solid var(--line);
-    background: color-mix(in srgb, var(--chip) 82%, white);
-    border-radius: 999px;
+    background: var(--chip);
+    border-radius: 8px;
     padding: 4px 10px;
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 10px;
-    color: var(--muted);
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--blue-deep);
   }
 }

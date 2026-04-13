@@ -15,17 +15,17 @@ export default function Stepper({ current }: Props) {
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={`
-                  flex h-7 w-7 items-center justify-center rounded-full text-[10px]
+                  flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-medium
                   transition-all duration-300
-                  ${done ? 'border border-[var(--blue-deep)] bg-[var(--blue-deep)] text-[#f4f1ea]' : ''}
-                  ${active ? 'border border-[var(--blue-deep)] bg-[var(--blue-deep)] text-[#f4f1ea] ring-4 ring-[color-mix(in_srgb,var(--blue-deep)_20%,transparent)]' : ''}
+                  ${done ? 'border border-[var(--blue-deep)] bg-[var(--blue-deep)] text-white' : ''}
+                  ${active ? 'border border-[var(--blue-deep)] bg-[var(--blue-deep)] text-white ring-4 ring-[color-mix(in_srgb,var(--blue-deep)_15%,transparent)]' : ''}
                   ${!done && !active ? 'border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]' : ''}
                 `}
               >
                 {done ? '✓' : i + 1}
               </div>
               <span
-                className={`hidden font-[var(--font-mono)] text-[9px] uppercase tracking-[0.1em] sm:block ${
+                className={`hidden text-[10px] font-medium sm:block ${
                   active ? 'text-[var(--blue-deep)]' : done ? 'text-[var(--blue-deep)]' : 'text-[var(--muted)]'
                 }`}
               >
