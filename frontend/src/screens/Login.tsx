@@ -1,17 +1,23 @@
 import { useState } from 'react';
+import { LogIn, Shield, TrendingUp, BarChart3 } from 'lucide-react';
 import Alert from '../components/Alert';
 import NavBar from '../components/NavBar';
 import { useAuth } from '../auth/AuthContext';
 import GridBg from '../components/layout/GridBg';
 import Button from '../components/ui/Button';
 import Eyebrow from '../components/ui/Eyebrow';
-import Mark from '../components/ui/Mark';
 
 interface Props {
   onSuccess: () => void;
   onGoRegister: () => void;
   onBackToPublic?: () => void;
 }
+
+const BENEFITS = [
+  { icon: Shield, text: 'Прогресс сохраняется между сессиями' },
+  { icon: TrendingUp, text: 'Персональные рекомендации Career GPS' },
+  { icon: BarChart3, text: 'История анализов в личном кабинете' },
+];
 
 export default function Login({ onSuccess, onGoRegister, onBackToPublic }: Props) {
   const { login } = useAuth();
@@ -39,35 +45,54 @@ export default function Login({ onSuccess, onGoRegister, onBackToPublic }: Props
       <header className="mx-auto w-full max-w-6xl px-5 md:px-8">
         <NavBar />
       </header>
-      <main className="mx-auto flex w-full max-w-6xl flex-1 items-stretch px-5 pb-12 md:px-8">
-        <section className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <article className="rounded-[28px] border border-[var(--line)] bg-[var(--blue-deep)] p-8 text-[#f3ecdf] shadow-[var(--shadow-soft)] md:p-10">
-            <Eyebrow className="mb-5 text-[#cdd7f3]">Auth flow // login</Eyebrow>
-            <h1 className="text-4xl leading-[1.04] md:text-[56px]">
-              Сначала <Mark className="border-[#f26a57]">вход</Mark>, затем карьерный маршрут.
-            </h1>
-            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-[#d9cdb9]">
-              После авторизации ты попадёшь в персональный контур: onboarding, выбор сценария,
-              навыки, подтверждение и результат с планом развития.
-            </p>
-          </article>
 
-          <article className="rounded-[26px] border border-[var(--line)] bg-[color-mix(in_srgb,var(--paper)_90%,white)] p-6 shadow-[var(--shadow-soft)] md:p-8">
-            <Eyebrow className="mb-4">Вход в аккаунт</Eyebrow>
-            <h2 className="text-3xl leading-tight text-[var(--ink)]">Рады снова видеть</h2>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-              Введи email и пароль, чтобы продолжить с сохранённым прогрессом.
-            </p>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-5 py-12 md:px-8">
+        <div className="grid w-full max-w-4xl gap-8 lg:grid-cols-2 lg:items-center">
+          {/* Left: info panel */}
+          <div className="space-y-6">
+            <div>
+              <Eyebrow className="mb-3">Вход в аккаунт</Eyebrow>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] md:text-4xl">
+                С возвращением
+              </h1>
+              <p className="mt-3 text-[var(--muted)]">
+                Войдите, чтобы продолжить работу с персональным планом развития и отслеживать прогресс.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {BENEFITS.map((b, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--chip)]">
+                    <b.icon className="h-4 w-4 text-[var(--blue-deep)]" />
+                  </div>
+                  <span className="text-sm text-[var(--color-text-secondary)]">{b.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: form card */}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] md:p-8">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--chip)]">
+                <LogIn className="h-5 w-5 text-[var(--blue-deep)]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--ink)]">Вход</h2>
+                <p className="text-xs text-[var(--muted)]">Email и пароль</p>
+              </div>
+            </div>
 
             {error && (
-              <div className="mt-4">
+              <div className="mb-4">
                 <Alert variant="error" onClose={() => setError('')}>
                   {error}
                 </Alert>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="float-field">
                 <input
                   id="login-email"
@@ -100,28 +125,29 @@ export default function Login({ onSuccess, onGoRegister, onBackToPublic }: Props
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Входим...' : 'Войти →'}
+                {loading ? 'Входим...' : 'Войти'}
               </Button>
             </form>
 
-            <div className="mt-4">
+            <div className="mt-5 border-t border-[var(--line)] pt-4">
               <Button variant="secondary" onClick={onGoRegister} className="w-full">
-                У меня ещё нет аккаунта →
+                Создать новый аккаунт
               </Button>
             </div>
+
             {onBackToPublic && (
               <div className="mt-3 text-center">
                 <button
                   type="button"
                   onClick={onBackToPublic}
-                  className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)] underline underline-offset-4"
+                  className="text-sm font-medium text-[var(--muted)] underline-offset-4 transition-colors hover:text-[var(--ink)] hover:underline"
                 >
-                  Назад к быстрому старту
+                  ← На главную
                 </button>
               </div>
             )}
-          </article>
-        </section>
+          </div>
+        </div>
       </main>
     </GridBg>
   );
