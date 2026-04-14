@@ -13,16 +13,29 @@ from resume_parser import ResumeParser
 def test_parse_skills_v2_flow_with_stubbed_llm_calls(monkeypatch):
     parser = ResumeParser()
 
-    # Стабим все этапы LLM pipeline
     parser._extract_raw_skills = lambda _text, **_kwargs: ["питон", "sql"]  # type: ignore[attr-defined]
-    parser._llm_rerank_candidate = lambda raw, cands, **_kwargs: {  # type: ignore[attr-defined]
-        "match": "Python" if raw == "питон" else "SQL, YQL",
-        "confidence": 0.88,
-    }
-    parser._assess_level = lambda skill, _text, _levels, **_kwargs: {  # type: ignore[attr-defined]
-        "level": 2 if skill == "Python" else 1,
-        "evidence": f"Упоминание навыка {skill}",
-    }
+
+    def fake_batch_rerank(skills_with_candidates, **_kwargs):
+        results = []
+        for item in skills_with_candidates:
+            raw = item["raw_skill"]
+            if raw == "питон":
+                results.append({"match": "Python", "confidence": 0.88})
+            else:
+                results.append({"match": "SQL, YQL", "confidence": 0.88})
+        return results
+    parser._batch_rerank_candidates = fake_batch_rerank  # type: ignore[attr-defined]
+
+    def fake_batch_levels(skills_data, _resume, _allowed, **_kwargs):
+        results = []
+        for item in skills_data:
+            name = item["name"]
+            results.append({
+                "level": 2 if name == "Python" else 1,
+                "evidence": f"Упоминание навыка {name}",
+            })
+        return results
+    parser._batch_assess_levels = fake_batch_levels  # type: ignore[attr-defined]
 
     monkeypatch.setattr(
         "resume_parser.get_skills_v2_candidates",
@@ -47,7 +60,7 @@ def test_parse_skills_v2_flow_with_stubbed_llm_calls(monkeypatch):
 def test_parse_skills_falls_back_to_legacy_on_v2_error():
     parser = ResumeParser()
     parser.client = object()
-    parser.parse_skills_v2 = lambda _text, _allowed: (_ for _ in ()).throw(RuntimeError("boom"))  # type: ignore[attr-defined]
+    parser.parse_skills_v2 = lambda _text, _allowed, **_kw: (_ for _ in ()).throw(RuntimeError("boom"))  # type: ignore[attr-defined]
     parser._legacy_parse_skills = lambda _text, _allowed: {  # type: ignore[attr-defined]
         "skills": [{"name": "Python", "level": 2}]
     }
