@@ -13,8 +13,16 @@ try:
 except ImportError:
     OpenAI = None
 
-MAX_TOKENS_RESPONSE = 4096
-FOCUSED_PLAN_MAX_TOKENS = 2200
+MAX_TOKENS_RESPONSE = 6144
+FOCUSED_PLAN_MAX_TOKENS = 3000
+
+REQUIRED_PLAN_SECTIONS = [
+    "Приоритизация",
+    "Развитие через реальные задачи",
+    "Взаимодействие",
+    "Книги",
+    "Метрики",
+]
 
 
 class _FocusedTaskItem(BaseModel):
@@ -245,6 +253,12 @@ class PlanGenerator:
                     max_tokens=MAX_TOKENS_RESPONSE,
                 )
                 content = response.choices[0].message.content.strip()
+                missing_sections = [
+                    s for s in REQUIRED_PLAN_SECTIONS
+                    if s.lower() not in content.lower()
+                ]
+                if missing_sections and attempt < 2:
+                    continue
                 if Config.LLM_OBSERVABILITY_ENABLED:
                     log_llm_call(
                         LLMCallMetrics(

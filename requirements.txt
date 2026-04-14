@@ -12,6 +12,7 @@ scikit-learn>=1.0
 fastapi>=0.100
 uvicorn>=0.22
 rapidfuzz
+tiktoken>=0.5.0
 matplotlib
 rouge-score
 bcrypt

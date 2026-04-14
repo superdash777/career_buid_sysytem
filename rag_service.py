@@ -126,13 +126,24 @@ def _tokenize_for_lexical(text: str) -> List[str]:
 
 
 def _lexical_jaccard(query: str, candidate: str) -> float:
-    q = set(_tokenize_for_lexical(query))
-    c = set(_tokenize_for_lexical(candidate))
-    if not q or not c:
+    """Hybrid lexical: rapidfuzz token_sort_ratio + Jaccard on tokens."""
+    from rapidfuzz import fuzz as _rfuzz
+
+    nq = normalize_user_input(query or "")
+    nc = normalize_user_input(candidate or "")
+    if not nq or not nc:
         return 0.0
-    inter = len(q & c)
-    union = len(q | c)
-    return inter / union if union else 0.0
+
+    token_sort = _rfuzz.token_sort_ratio(nq, nc) / 100.0
+
+    q_tok = set(_tokenize_for_lexical(query))
+    c_tok = set(_tokenize_for_lexical(candidate))
+    if q_tok and c_tok:
+        jaccard = len(q_tok & c_tok) / len(q_tok | c_tok)
+    else:
+        jaccard = 0.0
+
+    return 0.6 * token_sort + 0.4 * jaccard
 
 
 def _rrf_rank_fusion(dense_rank: int, lexical_rank: int, rrf_k: float) -> float:
@@ -272,20 +283,6 @@ def _dense_skill_candidates(
             }
         )
     return out
-
-
-def _get_cross_encoder():
-    model_name = (getattr(Config, "SKILLS_CROSS_ENCODER_MODEL", "") or "").strip()
-    if not model_name:
-        return None
-    if model_name in _cross_encoder_models:
-        return _cross_encoder_models[model_name]
-    try:
-        from sentence_transformers import CrossEncoder
-        _cross_encoder_models[model_name] = CrossEncoder(model_name)
-        return _cross_encoder_models[model_name]
-    except Exception:
-        return None
 
 
 def _get_embedder(model_name: Optional[str] = None):
@@ -731,7 +728,7 @@ def get_skills_v2_candidates(
             reranked = _cross_encoder_rerank(
                 query=user_input,
                 candidates=fused_rows[:rerank_n],
-                model_name=cross_encoder_model,
+                top_n=rerank_n,
             )
             tail = fused_rows[rerank_n:]
             fused_rows = reranked + tail
@@ -981,19 +978,40 @@ _skill_embeddings_cache: Optional[Dict[str, Any]] = None
 
 
 def _get_skill_embeddings(skill_names: List[str]) -> Dict[str, Any]:
-    """Кеширует эмбеддинги для списка навыков."""
+    """Кеширует эмбеддинги для списка навыков (E5-large для точности)."""
     global _skill_embeddings_cache
     if _skill_embeddings_cache is not None:
         return _skill_embeddings_cache
     try:
-        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
         names = list(skill_names)
-        vecs = embedder.encode(names, normalize_embeddings=True, show_progress_bar=False)
+        texts = [_e5_passage_text(n) for n in names]
+        vecs = _encode_texts(texts, model_name=Config.EMBED_MODEL_NAME_V2, normalize=True)
         _skill_embeddings_cache = {name: vec for name, vec in zip(names, vecs)}
         return _skill_embeddings_cache
     except Exception:
-        return {}
+        try:
+            embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
+            import numpy as np
+            names = list(skill_names)
+            vecs = embedder.encode(names, normalize_embeddings=True, show_progress_bar=False)
+            _skill_embeddings_cache = {name: vec for name, vec in zip(names, vecs)}
+            return _skill_embeddings_cache
+        except Exception:
+            return {}
+
+
+def _encode_for_matching(texts: List[str], is_query: bool = False) -> Any:
+    """Encode texts for semantic matching using E5-large with fallback to MiniLM."""
+    try:
+        if is_query:
+            wrapped = [_e5_query_text(t) for t in texts]
+        else:
+            wrapped = [_e5_passage_text(t) for t in texts]
+        return _encode_texts(wrapped, model_name=Config.EMBED_MODEL_NAME_V2, normalize=True)
+    except Exception:
+        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
+        return embedder.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
 def semantic_match_skills(
@@ -1003,18 +1021,18 @@ def semantic_match_skills(
 ) -> Dict[str, str]:
     """Для каждого user-навыка находит ближайший required-навык по embedding similarity.
     Возвращает {user_name: matched_required_name} для пар с score >= threshold.
-    Пары выбираются жадно: один required-навык может быть сопоставлен только одному user-навыку."""
+    Пары выбираются жадно: один required-навык может быть сопоставлен только одному user-навыку.
+    Uses E5-large (query/passage) for higher accuracy, with MiniLM fallback."""
     threshold = threshold or Config.SKILL_MATCH_THRESHOLD
     if not user_skill_names or not required_skill_names:
         return {}
     try:
-        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
     except Exception:
         return {}
     try:
-        user_vecs = embedder.encode(user_skill_names, normalize_embeddings=True, show_progress_bar=False)
-        req_vecs = embedder.encode(required_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        user_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        req_vecs = _encode_for_matching(required_skill_names, is_query=False)
         sim_matrix = np.dot(user_vecs, req_vecs.T)
 
         result = {}
@@ -1040,14 +1058,14 @@ def semantic_match_skills(
 
 
 def compute_profile_similarity(user_skill_names: List[str], role_skill_names: List[str]) -> float:
-    """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли."""
+    """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли.
+    Uses E5-large for higher accuracy."""
     if not user_skill_names or not role_skill_names:
         return 0.0
     try:
-        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
         import numpy as np
-        u_vecs = embedder.encode(user_skill_names, normalize_embeddings=True, show_progress_bar=False)
-        r_vecs = embedder.encode(role_skill_names, normalize_embeddings=True, show_progress_bar=False)
+        u_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        r_vecs = _encode_for_matching(role_skill_names, is_query=False)
         u_mean = np.mean(u_vecs, axis=0)
         r_mean = np.mean(r_vecs, axis=0)
         u_mean = u_mean / (np.linalg.norm(u_mean) + 1e-9)

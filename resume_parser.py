@@ -1,6 +1,4 @@
 
-
-
 from openai import OpenAI
 from pypdf import PdfReader
 import json
@@ -30,6 +28,31 @@ class _LevelResponse(BaseModel):
     level: int = 1
     evidence: str = ""
 
+
+class _BatchRerankItem(BaseModel):
+    raw_skill: str = ""
+    match: str = ""
+    confidence: Optional[float] = None
+
+
+class _BatchRerankResponse(BaseModel):
+    results: List[_BatchRerankItem] = Field(default_factory=list)
+
+
+class _BatchLevelItem(BaseModel):
+    skill: str = ""
+    level: int = 1
+    evidence: str = ""
+
+
+class _BatchLevelResponse(BaseModel):
+    results: List[_BatchLevelItem] = Field(default_factory=list)
+
+
+_BATCH_RERANK_LIMIT = 12
+_BATCH_LEVEL_LIMIT = 10
+
+
 class ResumeParser:
     def __init__(self):
         self._api_key = Config.OPENAI_API_KEY
@@ -38,7 +61,6 @@ class ResumeParser:
     def extract_text(self, pdf_path):
         if pdf_path is None:
             return ""
-        # Gradio может передать путь (str) или объект с атрибутом name
         path = getattr(pdf_path, "name", pdf_path)
         if isinstance(path, bytes):
             path = path.decode("utf-8")
@@ -66,8 +88,9 @@ class ResumeParser:
         operation: str = "generic_json_chat",
         schema_cls: Optional[Any] = None,
         request_id: Optional[str] = None,
+        use_light_model: bool = False,
     ) -> Dict:
-        model = getattr(Config, "RESUME_PARSER_MODEL", "gpt-4o")
+        model = getattr(Config, "RESUME_PARSER_LIGHT_MODEL", "gpt-4o-mini") if use_light_model else getattr(Config, "RESUME_PARSER_MODEL", "gpt-4o")
         prompt_chars = sum(len(m.get("content", "")) for m in messages)
         start_ms = None
         if Config.LLM_OBSERVABILITY_ENABLED:
@@ -172,34 +195,45 @@ class ResumeParser:
         return {"skills": []}
 
     def _extract_raw_skills(self, resume_text: str, request_id: Optional[str] = None) -> List[str]:
-        """Вызов 1: чистое извлечение навыков без уровней и без нормализации."""
+        """Вызов 1: чистое извлечение навыков без уровней и без нормализации.
+        Uses multiple few-shot examples for diverse role coverage."""
         system_prompt = (
             "Ты — HR-аналитик. Извлеки только навыки из резюме.\n"
             "Отвечай только валидным JSON: {\"skills\": [\"навык 1\", \"навык 2\"]}\n"
             "ПРАВИЛА:\n"
-            "- НЕ извлекай должности\n"
-            "- НЕ извлекай компании\n"
-            "- НЕ извлекай города\n"
-            "- НЕ извлекай университеты\n"
+            "- НЕ извлекай должности (Product Manager, Team Lead, etc.)\n"
+            "- НЕ извлекай компании (Яндекс, Google, Сбер)\n"
+            "- НЕ извлекай города (Москва, Санкт-Петербург)\n"
+            "- НЕ извлекай университеты (МГУ, МФТИ, HSE)\n"
             "- НЕ извлекай названия сертификатов и курсов\n"
             "- НЕ извлекай названия продуктов/команд/проектов как навыки\n"
+            "- НЕ извлекай языки общения (русский, английский) — только языки программирования\n"
             "- Удали дубликаты\n"
-            "- Короткие формулировки навыков"
+            "- Короткие формулировки навыков (1–3 слова)\n"
+            "- Извлекай как hard skills, так и soft skills"
         )
-        few_shot_user = (
-            "Резюме: Работал в Яндексе как Senior Product Manager в Москве. "
-            "Окончил МГУ. Использовал SQL, проводил A/B тесты, строил дашборды в DataLens."
-        )
-        few_shot_assistant = "{\"skills\": [\"SQL\", \"A/B тесты\", \"DataLens\"]}"
         result = self._run_json_chat(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": few_shot_user},
-                {"role": "assistant", "content": few_shot_assistant},
+                {"role": "user", "content": (
+                    "Резюме: Работал в Яндексе как Senior Product Manager в Москве. "
+                    "Окончил МГУ. Использовал SQL, проводил A/B тесты, строил дашборды в DataLens."
+                )},
+                {"role": "assistant", "content": "{\"skills\": [\"SQL\", \"A/B тесты\", \"DataLens\"]}"},
+                {"role": "user", "content": (
+                    "Резюме: Backend-разработчик в Сбере, 4 года. Python, FastAPI, PostgreSQL, Redis. "
+                    "Настраивал CI/CD в GitLab, писал юнит-тесты с pytest, деплоил в Kubernetes."
+                )},
+                {"role": "assistant", "content": "{\"skills\": [\"Python\", \"FastAPI\", \"PostgreSQL\", \"Redis\", \"CI/CD\", \"GitLab\", \"pytest\", \"Kubernetes\"]}"},
+                {"role": "user", "content": (
+                    "Резюме: UX/UI дизайнер, 3 года. Figma, проведение CustDev интервью, "
+                    "создание дизайн-систем, прототипирование, работа с метриками (Amplitude)."
+                )},
+                {"role": "assistant", "content": "{\"skills\": [\"Figma\", \"CustDev\", \"Дизайн-системы\", \"Прототипирование\", \"Amplitude\"]}"},
                 {"role": "user", "content": resume_text},
             ],
             temperature=0.0,
-            max_tokens=1200,
+            max_tokens=1500,
             operation="extract_raw_skills",
             schema_cls=_ExtractSkillsResponse,
             request_id=request_id,
@@ -220,13 +254,76 @@ class ResumeParser:
             clean.append(name)
         return clean
 
+    def _batch_rerank_candidates(
+        self,
+        skills_with_candidates: List[Dict[str, Any]],
+        request_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Batch reranking: send multiple skills+candidates in one LLM call.
+        Uses gpt-4o-mini for cost efficiency."""
+        if not skills_with_candidates:
+            return []
+
+        items_json = []
+        for item in skills_with_candidates[:_BATCH_RERANK_LIMIT]:
+            raw = item["raw_skill"]
+            cands = [
+                {"name": c.get("name"), "score": round(c.get("score", 0), 3)}
+                for c in item["candidates"][:5]
+                if c.get("name")
+            ]
+            items_json.append({"raw_skill": raw, "candidates": cands})
+
+        prompt = (
+            "Для каждого навыка пользователя выбери лучший вариант из кандидатов или ответь none.\n\n"
+            f"Навыки и кандидаты:\n{json.dumps(items_json, ensure_ascii=False)}\n\n"
+            "Верни JSON:\n"
+            "{\"results\": [{\"raw_skill\": \"...\", \"match\": \"название или none\", \"confidence\": 0.0-1.0}]}"
+        )
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": "Отвечай только валидным JSON. Никакого markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=2000,
+            operation="batch_rerank_candidates",
+            request_id=request_id,
+            use_light_model=True,
+        )
+        raw_results = result.get("results", [])
+        if not isinstance(raw_results, list):
+            return [{"match": None, "confidence": None} for _ in skills_with_candidates]
+
+        by_raw = {}
+        for r in raw_results:
+            if not isinstance(r, dict):
+                continue
+            raw_skill = str(r.get("raw_skill", "")).strip()
+            match = str(r.get("match", "")).strip()
+            if match.lower() == "none":
+                match = ""
+            conf = r.get("confidence")
+            try:
+                conf = float(conf) if conf is not None else None
+            except Exception:
+                conf = None
+            by_raw[raw_skill.lower()] = {"match": match or None, "confidence": conf}
+
+        output = []
+        for item in skills_with_candidates:
+            raw = item["raw_skill"]
+            found = by_raw.get(raw.lower(), {"match": None, "confidence": None})
+            output.append(found)
+        return output
+
     def _llm_rerank_candidate(
         self,
         raw_skill: str,
         candidates: List[Dict[str, float]],
         request_id: Optional[str] = None,
     ) -> Dict[str, Optional[float]]:
-        """Вызов 2: LLM re-ranking по top-5 кандидатам из E5."""
+        """Вызов 2: LLM re-ranking по top-5 кандидатам из E5. Single-skill fallback."""
         candidate_names = [c.get("name", "") for c in candidates if c.get("name")]
         if not candidate_names:
             return {"match": None, "confidence": None}
@@ -258,6 +355,7 @@ class ResumeParser:
             operation="llm_rerank_candidate",
             schema_cls=_RerankResponse,
             request_id=request_id,
+            use_light_model=True,
         )
         match = str(result.get("match", "")).strip()
         if match.lower() == "none":
@@ -309,6 +407,7 @@ class ResumeParser:
             operation="classify_unknown_skill",
             schema_cls=_UnknownSkillResponse,
             request_id=request_id,
+            use_light_model=True,
         )
         is_skill = bool(result.get("is_skill"))
         confidence = result.get("confidence")
@@ -318,6 +417,75 @@ class ResumeParser:
             confidence = None
         return {"is_skill": is_skill, "confidence": confidence}
 
+    def _batch_assess_levels(
+        self,
+        skills_data: List[Dict[str, Any]],
+        resume_text: str,
+        allowed_skills: List[Dict],
+        request_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Batch level assessment: evaluate multiple skills in one LLM call.
+        Uses evidence snippets instead of full resume text for each skill."""
+        if not skills_data:
+            return []
+
+        skill_blocks = []
+        for item in skills_data[:_BATCH_LEVEL_LIMIT]:
+            canonical = item["name"]
+            raw = item.get("raw_name", canonical)
+            levels = self._skill_level_texts(allowed_skills, canonical)
+            evidence_snippet = self._extract_resume_evidence(raw, resume_text, max_len=300)
+            block = {
+                "skill": canonical,
+                "basic": levels.get("basic", ""),
+                "proficiency": levels.get("proficiency", ""),
+                "advanced": levels.get("advanced", ""),
+                "resume_context": evidence_snippet,
+            }
+            skill_blocks.append(block)
+
+        prompt = (
+            "Оцени уровень каждого навыка по шкале 0-3 на основе фрагмента резюме.\n"
+            "0 = не упоминается, 1 = Basic, 2 = Proficiency, 3 = Advanced.\n\n"
+            f"Навыки для оценки:\n{json.dumps(skill_blocks, ensure_ascii=False)}\n\n"
+            "Верни JSON:\n"
+            "{\"results\": [{\"skill\": \"название\", \"level\": число 0-3, \"evidence\": \"короткая цитата из резюме\"}]}"
+        )
+        result = self._run_json_chat(
+            messages=[
+                {"role": "system", "content": "Отвечай только валидным JSON. Уровень строго 0..3."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=2500,
+            operation="batch_assess_levels",
+            request_id=request_id,
+            use_light_model=True,
+        )
+        raw_results = result.get("results", [])
+        if not isinstance(raw_results, list):
+            return [{"level": 1, "evidence": ""} for _ in skills_data]
+
+        by_skill = {}
+        for r in raw_results:
+            if not isinstance(r, dict):
+                continue
+            skill = str(r.get("skill", "")).strip()
+            level = r.get("level", 1)
+            try:
+                level = max(0, min(3, int(level)))
+            except Exception:
+                level = 1
+            evidence = str(r.get("evidence", "")).strip()
+            by_skill[skill.lower()] = {"level": level, "evidence": evidence}
+
+        output = []
+        for item in skills_data:
+            canonical = item["name"]
+            found = by_skill.get(canonical.lower(), {"level": 1, "evidence": ""})
+            output.append(found)
+        return output
+
     def _assess_level(
         self,
         canonical_skill: str,
@@ -325,7 +493,9 @@ class ResumeParser:
         skill_levels: Dict[str, str],
         request_id: Optional[str] = None,
     ) -> Dict[str, Optional[str]]:
-        """Вызов 3: оценка уровня (0..3) с цитатой-доказательством."""
+        """Вызов 3: оценка уровня (0..3) с цитатой-доказательством. Single-skill fallback.
+        Uses evidence snippet instead of full resume."""
+        evidence_snippet = self._extract_resume_evidence(canonical_skill, resume_text, max_len=500)
         prompt = (
             f"Навык: {canonical_skill}\n\n"
             "Определи уровень по шкале:\n"
@@ -333,7 +503,7 @@ class ResumeParser:
             f"- Proficiency: {skill_levels.get('proficiency', '')}\n"
             f"- Advanced: {skill_levels.get('advanced', '')}\n\n"
             "Фрагмент резюме:\n"
-            f"{resume_text[:4000]}\n\n"
+            f"{evidence_snippet}\n\n"
             "Верни JSON: {\"level\": число 0..3, \"evidence\": \"короткая цитата из резюме\"}."
         )
         result = self._run_json_chat(
@@ -346,6 +516,7 @@ class ResumeParser:
             operation="assess_level",
             schema_cls=_LevelResponse,
             request_id=request_id,
+            use_light_model=True,
         )
         level = result.get("level")
         try:
@@ -388,55 +559,91 @@ class ResumeParser:
         request_id: Optional[str] = None,
         retrieval_mode: Optional[str] = None,
     ) -> Dict:
-        """Новый pipeline: extraction -> normalization/rerank -> level assessment."""
+        """Pipeline v2: extraction -> batch rerank -> classify unknown -> batch level assessment.
+        Reduces LLM calls from O(N) per skill to O(1) batched calls."""
         raw_skills = self._extract_raw_skills(resume_text, request_id=request_id)
         if not raw_skills:
             return {"skills": [], "used_fallback": False}
 
-        result_skills = []
+        skills_with_candidates = []
         for raw_skill in raw_skills:
             candidates = get_skills_v2_candidates(raw_skill, top_k=5, retrieval_mode=retrieval_mode)
-            rerank = self._llm_rerank_candidate(raw_skill, candidates, request_id=request_id)
+            skills_with_candidates.append({
+                "raw_skill": raw_skill,
+                "candidates": candidates,
+            })
+
+        has_candidates = [s for s in skills_with_candidates if s["candidates"]]
+        no_candidates = [s for s in skills_with_candidates if not s["candidates"]]
+
+        rerank_results = self._batch_rerank_candidates(has_candidates, request_id=request_id) if has_candidates else []
+
+        matched_skills = []
+        unmatched_skills = []
+
+        for item, rerank in zip(has_candidates, rerank_results):
+            raw_skill = item["raw_skill"]
+            candidates = item["candidates"]
             matched_name = rerank.get("match")
             llm_conf = rerank.get("confidence")
 
             if not matched_name and candidates:
-                matched_name = candidates[0].get("name")
-            if not matched_name:
-                unknown = self._classify_unknown_skill(raw_skill, resume_text, request_id=request_id)
-                if not unknown.get("is_skill"):
-                    continue
-                evidence_quote = self._extract_resume_evidence(raw_skill, resume_text)
-                result_skills.append(
-                    {
-                        "raw_name": raw_skill,
-                        "name": raw_skill,
-                        "level": 1,
-                        "evidence": evidence_quote,
-                        "resume_evidence_span": evidence_quote,
-                        "llm_rerank_confidence": unknown.get("confidence"),
-                        "candidates": [],
-                        "is_unknown": True,
-                        "source_skill_id": None,
-                        "retrieval_mode": "llm_unknown",
-                        "retrieval_trace": {"candidates": []},
-                    }
-                )
-                continue
+                top = candidates[0]
+                if float(top.get("score", 0)) >= 0.75:
+                    matched_name = top.get("name")
 
-            levels = self._skill_level_texts(allowed_skills, matched_name)
-            level_info = self._assess_level(matched_name, resume_text, levels, request_id=request_id)
-            evidence_quote = (level_info.get("evidence") or "").strip() or self._extract_resume_evidence(raw_skill, resume_text)
-            result_skills.append(
-                {
+            if matched_name:
+                matched_skills.append({
                     "raw_name": raw_skill,
                     "name": matched_name,
+                    "llm_conf": llm_conf,
+                    "candidates": candidates[:5],
+                })
+            else:
+                unmatched_skills.append(raw_skill)
+
+        for item in no_candidates:
+            unmatched_skills.append(item["raw_skill"])
+
+        result_skills = []
+
+        for raw_skill in unmatched_skills:
+            unknown = self._classify_unknown_skill(raw_skill, resume_text, request_id=request_id)
+            if not unknown.get("is_skill"):
+                continue
+            evidence_quote = self._extract_resume_evidence(raw_skill, resume_text)
+            result_skills.append({
+                "raw_name": raw_skill,
+                "name": raw_skill,
+                "level": 1,
+                "evidence": evidence_quote,
+                "resume_evidence_span": evidence_quote,
+                "llm_rerank_confidence": unknown.get("confidence"),
+                "candidates": [],
+                "is_unknown": True,
+                "source_skill_id": None,
+                "retrieval_mode": "llm_unknown",
+                "retrieval_trace": {"candidates": []},
+            })
+
+        if matched_skills:
+            level_results = self._batch_assess_levels(
+                matched_skills, resume_text, allowed_skills, request_id=request_id
+            )
+            for item, level_info in zip(matched_skills, level_results):
+                evidence_quote = (
+                    (level_info.get("evidence") or "").strip()
+                    or self._extract_resume_evidence(item["raw_name"], resume_text)
+                )
+                result_skills.append({
+                    "raw_name": item["raw_name"],
+                    "name": item["name"],
                     "level": level_info.get("level", 1),
                     "evidence": evidence_quote,
                     "resume_evidence_span": evidence_quote,
-                    "llm_rerank_confidence": llm_conf,
-                    "candidates": candidates[:5],
-                    "source_skill_id": matched_name,
+                    "llm_rerank_confidence": item["llm_conf"],
+                    "candidates": item["candidates"],
+                    "source_skill_id": item["name"],
                     "retrieval_mode": "hybrid_dense_lexical",
                     "retrieval_trace": {
                         "candidates": [
@@ -446,13 +653,11 @@ class ResumeParser:
                                 "dense_score": c.get("dense_score"),
                                 "lexical_score": c.get("lexical_score"),
                             }
-                            for c in candidates[:5]
+                            for c in item["candidates"][:5]
                         ]
                     },
-                }
-            )
+                })
 
-        # Deduplicate by canonical skill, keeping the highest level
         dedup = {}
         for s in result_skills:
             key = s["name"]

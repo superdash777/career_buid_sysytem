@@ -44,8 +44,9 @@ class Config:
     AUTH_REGISTER_RATE_LIMIT = int(os.getenv("AUTH_REGISTER_RATE_LIMIT", str(AUTH_RATE_LIMIT_MAX_ATTEMPTS)))
     LLM_OBSERVABILITY_ENABLED = _env_bool("LLM_OBSERVABILITY_ENABLED", False)
     RESUME_PARSER_MODEL = os.getenv("RESUME_PARSER_MODEL", "gpt-4o")
+    RESUME_PARSER_LIGHT_MODEL = os.getenv("RESUME_PARSER_LIGHT_MODEL", "gpt-4o-mini")
     PLAN_GENERATOR_MODEL = os.getenv("PLAN_GENERATOR_MODEL", "gpt-4o")
-    PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "4000"))
+    PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "12000"))
     RESUME_TEXT_MAX_CHARS = int(os.getenv("RESUME_TEXT_MAX_CHARS", "14000"))
     DATA_DIR = _PROJECT_DIR / "data"
     DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "data" / "app.db")))
