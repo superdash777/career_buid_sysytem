@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, ArrowLeft, Briefcase, AlertCircle, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, HelpCircle, Briefcase, Clock, CheckCircle2, Sparkles } from 'lucide-react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import { useAuth } from '../auth/AuthContext';
@@ -18,24 +18,35 @@ interface Props {
   onComplete: (result: { recommendedScenario: Scenario; painPoint: OnboardingPainPoint; developmentHoursPerWeek: number }) => void;
 }
 
+const PAIN_OPTIONS: Array<{ value: OnboardingPainPoint; label: string; sub: string }> = [
+  { value: 'неопределённость', label: 'Не понимаю, куда двигаться', sub: 'Нужны варианты и ориентиры' },
+  { value: 'рост', label: 'Не хватает навыков для следующего уровня', sub: 'Интересует следующий грейд' },
+  { value: 'смена', label: 'Хочу сменить сферу, но не знаю как', sub: 'Нужен план перехода' },
+  { value: 'стагнация', label: 'Нет системы в развитии', sub: 'Хочу увидеть новые направления' },
+];
+
 const EXPERIENCE_OPTIONS = [
-  { value: 'До 1 года', emoji: '🌱' },
-  { value: '1–3 года', emoji: '🚀' },
-  { value: '3–6 лет', emoji: '⚡' },
-  { value: 'Более 6 лет', emoji: '🏆' },
+  'До 1 года',
+  '1–3 года',
+  '3–6 лет',
+  'Более 6 лет',
 ];
 
-const PAIN_OPTIONS: Array<{ value: OnboardingPainPoint; title: string; subtitle: string; icon: typeof Briefcase }> = [
-  { value: 'рост', title: 'Хочу расти в текущей роли', subtitle: 'Следующий грейд и требования рынка', icon: Briefcase },
-  { value: 'смена', title: 'Хочу сменить профессию', subtitle: 'План перехода в новую роль', icon: ArrowRight },
-  { value: 'стагнация', title: 'Чувствую стагнацию', subtitle: 'Новые направления развития', icon: AlertCircle },
-  { value: 'неопределённость', title: 'Не понимаю, куда двигаться', subtitle: 'Нужны варианты и ориентиры', icon: Sparkles },
+const HOURS_OPTIONS = [
+  { value: 2, label: '1–2 ч' },
+  { value: 4, label: '3–5 ч' },
+  { value: 8, label: '5–10 ч' },
+  { value: 12, label: '10+ ч' },
 ];
 
-const HOURS_OPTIONS = [2, 4, 6, 8, 10, 12];
+type Step = 'pain' | 'experience' | 'hours';
+const STEPS: Step[] = ['pain', 'experience', 'hours'];
 
-type Step = 'experience' | 'pain' | 'hours';
-const STEPS: Step[] = ['experience', 'pain', 'hours'];
+const STEP_LABELS: Record<Step, string> = {
+  pain: 'Мотивация',
+  experience: 'Опыт',
+  hours: 'Время',
+};
 
 export default function OnboardingQuiz({
   initialExperience,
@@ -45,8 +56,7 @@ export default function OnboardingQuiz({
   onComplete,
 }: Props) {
   const { user, refreshMe } = useAuth();
-  const [currentStep, setCurrentStep] = useState<Step>('experience');
-  const [experience, setExperience] = useState(initialExperience || user?.experience_level || '');
+  const [currentStep, setCurrentStep] = useState<Step>('pain');
   const [painPoint, setPainPoint] = useState<OnboardingPainPoint | ''>(
     initialPainPoint && ['рост', 'смена', 'стагнация', 'неопределённость'].includes(initialPainPoint)
       ? (initialPainPoint as OnboardingPainPoint)
@@ -54,6 +64,7 @@ export default function OnboardingQuiz({
         ? (user.pain_point as OnboardingPainPoint)
       : '',
   );
+  const [experience, setExperience] = useState(initialExperience || user?.experience_level || '');
   const [hours, setHours] = useState<number>(initialHours || user?.development_hours_per_week || 4);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -63,12 +74,12 @@ export default function OnboardingQuiz({
 
   const canProceed = useMemo(() => {
     switch (currentStep) {
-      case 'experience': return Boolean(experience.trim());
       case 'pain': return Boolean(painPoint);
+      case 'experience': return Boolean(experience.trim());
       case 'hours': return hours > 0;
       default: return false;
     }
-  }, [currentStep, experience, painPoint, hours]);
+  }, [currentStep, painPoint, experience, hours]);
 
   const canSubmit = useMemo(
     () => Boolean(experience.trim() && painPoint && hours > 0),
@@ -129,7 +140,7 @@ export default function OnboardingQuiz({
             Настроим ваш профиль
           </h1>
           <p className="mt-2 text-[var(--muted)]">
-            Ответы влияют на рекомендации сценария и прогноз Career GPS
+            Ответы влияют на рекомендации и прогноз Career GPS
           </p>
         </div>
 
@@ -153,51 +164,14 @@ export default function OnboardingQuiz({
 
         {/* Step content */}
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] md:p-8">
-          {currentStep === 'experience' && (
-            <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--chip)]">
-                  <Briefcase className="h-5 w-5 text-[var(--blue-deep)]" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-[var(--ink)]">Опыт в профессии</h2>
-                  <p className="text-sm text-[var(--muted)]">Выберите наиболее подходящий вариант</p>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {EXPERIENCE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setExperience(option.value)}
-                    className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200 ${
-                      experience === option.value
-                        ? 'border-[var(--blue-deep)] bg-[var(--chip)] shadow-[0_0_0_1px_var(--blue-deep)]'
-                        : 'border-[var(--line)] hover:border-[var(--blue-deep)]/40'
-                    }`}
-                  >
-                    <span className="text-xl">{option.emoji}</span>
-                    <span className={`text-sm font-medium ${
-                      experience === option.value ? 'text-[var(--blue-deep)]' : 'text-[var(--ink)]'
-                    }`}>
-                      {option.value}
-                    </span>
-                    {experience === option.value && (
-                      <CheckCircle2 className="ml-auto h-4 w-4 text-[var(--blue-deep)]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {currentStep === 'pain' && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--chip)]">
-                  <AlertCircle className="h-5 w-5 text-[var(--blue-deep)]" />
+                  <HelpCircle className="h-5 w-5 text-[var(--blue-deep)]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-[var(--ink)]">Что мешает развитию?</h2>
+                  <h2 className="text-lg font-semibold text-[var(--ink)]">Что сейчас мешает вашему росту?</h2>
                   <p className="text-sm text-[var(--muted)]">Это определит направление рекомендаций</p>
                 </div>
               </div>
@@ -215,18 +189,54 @@ export default function OnboardingQuiz({
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                       painPoint === option.value ? 'bg-[var(--blue-deep)] text-white' : 'bg-[var(--chip)]'
                     }`}>
-                      <option.icon className={`h-4 w-4 ${painPoint === option.value ? 'text-white' : 'text-[var(--blue-deep)]'}`} />
+                      <HelpCircle className={`h-4 w-4 ${painPoint === option.value ? 'text-white' : 'text-[var(--blue-deep)]'}`} />
                     </div>
                     <div className="flex-1">
                       <p className={`text-sm font-medium ${
                         painPoint === option.value ? 'text-[var(--blue-deep)]' : 'text-[var(--ink)]'
                       }`}>
-                        {option.title}
+                        {option.label}
                       </p>
-                      <p className="mt-0.5 text-xs text-[var(--muted)]">{option.subtitle}</p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">{option.sub}</p>
                     </div>
                     {painPoint === option.value && (
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--blue-deep)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'experience' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--chip)]">
+                  <Briefcase className="h-5 w-5 text-[var(--blue-deep)]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--ink)]">Сколько лет опыта работы?</h2>
+                  <p className="text-sm text-[var(--muted)]">Выберите наиболее подходящий вариант</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {EXPERIENCE_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setExperience(option)}
+                    className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200 ${
+                      experience === option
+                        ? 'border-[var(--blue-deep)] bg-[var(--chip)] shadow-[0_0_0_1px_var(--blue-deep)]'
+                        : 'border-[var(--line)] hover:border-[var(--blue-deep)]/40'
+                    }`}
+                  >
+                    <span className={`text-sm font-medium ${
+                      experience === option ? 'text-[var(--blue-deep)]' : 'text-[var(--ink)]'
+                    }`}>
+                      {option}
+                    </span>
+                    {experience === option && (
+                      <CheckCircle2 className="ml-auto h-4 w-4 text-[var(--blue-deep)]" />
                     )}
                   </button>
                 ))}
@@ -241,32 +251,32 @@ export default function OnboardingQuiz({
                   <Clock className="h-5 w-5 text-[var(--blue-deep)]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-[var(--ink)]">Время на развитие</h2>
-                  <p className="text-sm text-[var(--muted)]">Сколько часов в неделю готовы выделять?</p>
+                  <h2 className="text-lg font-semibold text-[var(--ink)]">Сколько часов в неделю готовы уделять развитию?</h2>
+                  <p className="text-sm text-[var(--muted)]">Это повлияет на темп вашего плана</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {HOURS_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setHours(option)}
-                      className={`flex h-14 w-14 items-center justify-center rounded-xl border text-sm font-semibold transition-all duration-200 ${
-                        hours === option
-                          ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)]'
-                          : 'border-[var(--line)] text-[var(--ink)] hover:border-[var(--blue-deep)]/40'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-sm text-[var(--muted)]">
-                  <span className="font-semibold text-[var(--ink)]">{hours} ч/неделю</span>
-                  {' — '}
-                  {hours <= 4 ? 'спокойный темп, стабильный рост' : hours <= 8 ? 'активное развитие, быстрый прогресс' : 'интенсивный режим, максимальный рост'}
-                </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {HOURS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setHours(option.value)}
+                    className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200 ${
+                      hours === option.value
+                        ? 'border-[var(--blue-deep)] bg-[var(--chip)] shadow-[0_0_0_1px_var(--blue-deep)]'
+                        : 'border-[var(--line)] hover:border-[var(--blue-deep)]/40'
+                    }`}
+                  >
+                    <span className={`text-sm font-medium ${
+                      hours === option.value ? 'text-[var(--blue-deep)]' : 'text-[var(--ink)]'
+                    }`}>
+                      {option.label}
+                    </span>
+                    {hours === option.value && (
+                      <CheckCircle2 className="ml-auto h-4 w-4 text-[var(--blue-deep)]" />
+                    )}
+                  </button>
+                ))}
               </div>
 
               <div className="rounded-xl bg-[var(--chip)] p-4">
@@ -308,6 +318,24 @@ export default function OnboardingQuiz({
               <ArrowRight className="h-4 w-4" />
             </Button>
           )}
+        </div>
+
+        {/* Upcoming steps hint */}
+        <div className="mt-6 flex items-center justify-center gap-2">
+          {STEPS.map((step, i) => (
+            <span
+              key={step}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                i === stepIndex
+                  ? 'bg-[var(--blue-deep)] text-white'
+                  : i < stepIndex
+                    ? 'bg-[var(--chip)] text-[var(--blue-deep)]'
+                    : 'bg-[var(--chip)] text-[var(--muted)]'
+              }`}
+            >
+              {STEP_LABELS[step]}
+            </span>
+          ))}
         </div>
       </div>
     </Layout>

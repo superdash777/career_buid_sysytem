@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import Welcome from './screens/Welcome';
+import GoalSelection from './screens/GoalSelection';
 import Dashboard from './screens/Dashboard';
 import OnboardingQuiz from './screens/OnboardingQuiz';
 import GoalSetup from './screens/GoalSetup';
 import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
-import Login from './screens/Login';
-import Register from './screens/Register';
+import Auth from './screens/Auth';
 import PublicLanding from './screens/PublicLanding';
+import HRLanding from './screens/HRLanding';
 import Alert from './components/Alert';
 import NavBar from './components/NavBar';
 import ToastContainer from './components/Toast';
@@ -33,7 +33,8 @@ type Screen =
   | 'goal'
   | 'skills'
   | 'confirm'
-  | 'result';
+  | 'result'
+  | 'hr-landing';
 
 const SCREEN_ORDER: Screen[] = [
   'public',
@@ -50,6 +51,7 @@ const SCREEN_ORDER: Screen[] = [
   'skills',
   'confirm',
   'result',
+  'hr-landing',
 ];
 
 const STORAGE_KEY = 'career_copilot_state';
@@ -221,7 +223,8 @@ export default function App() {
       && screen !== 'register'
       && screen !== 'confirm'
       && screen !== 'result'
-      && screen !== 'soft-gate') {
+      && screen !== 'soft-gate'
+      && screen !== 'hr-landing') {
       setScreen('public', true);
     }
   }, [isAuthenticated, screen, setScreen, pendingAuthScreen]);
@@ -448,6 +451,7 @@ export default function App() {
       && screen !== 'register'
       && screen !== 'confirm'
       && screen !== 'result'
+      && screen !== 'hr-landing'
     ) {
       return (
         <PublicLanding
@@ -455,6 +459,7 @@ export default function App() {
           onWatchDemo={() => setScreen('demo')}
           onLogin={() => setScreen('login')}
           onRegister={() => setScreen('register')}
+          onTeams={() => setScreen('hr-landing')}
         />
       );
     }
@@ -467,6 +472,7 @@ export default function App() {
             onWatchDemo={() => setScreen('demo')}
             onLogin={() => setScreen('login')}
             onRegister={() => setScreen('register')}
+            onTeams={() => setScreen('hr-landing')}
           />
         );
       case 'demo':
@@ -543,31 +549,36 @@ export default function App() {
         );
       case 'login':
         return (
-          <Login
+          <Auth
+            initialMode="login"
             onSuccess={() => {
               setScreen(pendingAuthScreen || 'welcome', true);
               setPendingAuthScreen(null);
             }}
-            onGoRegister={() => setScreen('register')}
+            onSkip={() => setScreen('quickstart')}
             onBackToPublic={() => setScreen('public')}
           />
         );
       case 'register':
         return (
-          <Register
+          <Auth
+            initialMode="register"
             onSuccess={() => {
               setScreen(pendingAuthScreen || 'onboarding', true);
               setPendingAuthScreen(null);
             }}
-            onGoLogin={() => setScreen('login')}
-            onSkipToQuickStart={() => setScreen('quickstart')}
+            onSkip={() => setScreen('quickstart')}
+            onBackToPublic={() => setScreen('public')}
           />
         );
       case 'welcome':
         return (
           <ProtectedRoute>
-            <Welcome
-              onStart={() => setScreen('goal')}
+            <GoalSelection
+              onSelect={(scenario) => {
+                update({ scenario: scenario as Scenario });
+                setScreen('goal');
+              }}
               onOpenDashboard={() => setScreen('dashboard')}
               onOpenOnboarding={() => setScreen('onboarding')}
             />
@@ -714,6 +725,10 @@ export default function App() {
               onOpenShare={openShare}
             />
           </ProtectedRoute>
+        );
+      case 'hr-landing':
+        return (
+          <HRLanding onBack={() => setScreen('public')} />
         );
       default:
         return null;
