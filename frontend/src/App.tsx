@@ -581,6 +581,7 @@ export default function App() {
               }}
               onOpenDashboard={() => setScreen('dashboard')}
               onOpenOnboarding={() => setScreen('onboarding')}
+              recommendedPainPoint={state.onboardingPainPoint || null}
             />
           </ProtectedRoute>
         );
