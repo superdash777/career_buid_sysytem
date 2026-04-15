@@ -437,7 +437,10 @@ export default function App() {
     ) {
       return (
         <PublicLanding
-          onTryInstant={() => setScreen('quickstart')}
+          onTryInstant={(scenario) => {
+            if (scenario) update({ scenario: scenario as Scenario });
+            setScreen('quickstart');
+          }}
           onWatchDemo={() => setScreen('demo')}
           onLogin={() => setScreen('login')}
           onRegister={() => setScreen('register')}
@@ -450,7 +453,10 @@ export default function App() {
       case 'public':
         return (
           <PublicLanding
-            onTryInstant={() => setScreen('quickstart')}
+            onTryInstant={(scenario) => {
+              if (scenario) update({ scenario: scenario as Scenario });
+              setScreen('quickstart');
+            }}
             onWatchDemo={() => setScreen('demo')}
             onLogin={() => setScreen('login')}
             onRegister={() => setScreen('register')}

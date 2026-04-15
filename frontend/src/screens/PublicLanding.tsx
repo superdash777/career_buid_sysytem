@@ -6,24 +6,26 @@ import GridBg from '../components/layout/GridBg';
 import Mark from '../components/ui/Mark';
 
 interface Props {
-  onTryInstant: () => void;
+  onTryInstant: (scenario?: string) => void;
   onWatchDemo: () => void;
   onLogin: () => void;
   onRegister: () => void;
   onTeams?: () => void;
 }
 
-const EXAMPLES = [
-  { label: 'Вырасти до Senior', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
-  { label: 'Перейти в UX-дизайн', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
-  { label: 'Уйти в менеджмент', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
-  { label: 'Стать тимлидом', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
-  { label: 'Освоить продукт', color: 'bg-[#f59e0b]/10 text-[#f59e0b] border-[#f59e0b]/20' },
-  { label: 'Перейти в аналитику', color: 'bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/20' },
-  { label: 'Вырасти до архитектора', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
-  { label: 'Стать фрилансером', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
-  { label: 'Уйти в DevOps', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
-  { label: 'Сменить индустрию', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
+type Scenario = 'Следующий грейд' | 'Смена профессии' | 'Исследование возможностей';
+
+const EXAMPLES: Array<{ label: string; scenario: Scenario; color: string }> = [
+  { label: 'Вырасти до Senior', scenario: 'Следующий грейд', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
+  { label: 'Перейти в UX-дизайн', scenario: 'Смена профессии', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
+  { label: 'Уйти в менеджмент', scenario: 'Смена профессии', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
+  { label: 'Стать тимлидом', scenario: 'Следующий грейд', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
+  { label: 'Освоить продукт', scenario: 'Смена профессии', color: 'bg-[#f59e0b]/10 text-[#f59e0b] border-[#f59e0b]/20' },
+  { label: 'Перейти в аналитику', scenario: 'Смена профессии', color: 'bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/20' },
+  { label: 'Вырасти до архитектора', scenario: 'Следующий грейд', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
+  { label: 'Стать фрилансером', scenario: 'Исследование возможностей', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
+  { label: 'Уйти в DevOps', scenario: 'Смена профессии', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
+  { label: 'Сменить индустрию', scenario: 'Исследование возможностей', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
 ];
 
 const FEATURES = [
@@ -75,7 +77,7 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
               {EXAMPLES.map((ex) => (
                 <button
                   key={ex.label}
-                  onClick={onTryInstant}
+                  onClick={() => onTryInstant(ex.scenario)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition-all hover:scale-105 ${ex.color}`}
                 >
                   {ex.label}
@@ -85,7 +87,7 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
 
             {/* CTA */}
             <div className="mt-8">
-              <Button size="lg" onClick={onTryInstant}>
+              <Button size="lg" onClick={() => onTryInstant()}>
                 Построить план
                 <ArrowRight className="h-5 w-5" />
               </Button>
