@@ -64,7 +64,7 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
 
             <h1 className="text-4xl leading-[1.1] tracking-tight text-[var(--ink)] md:text-6xl">
               Ваш точный маршрут к{' '}
-              <Mark>следующей должности</Mark>
+              <Mark>карьере мечты</Mark>
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
