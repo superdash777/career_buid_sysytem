@@ -693,6 +693,10 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('soft-gate')}
               onOpenShare={openShare}
+              onSelectRole={(role: string) => {
+                update({ targetProfession: role, scenario: 'Смена профессии' });
+                setScreen('goal');
+              }}
             />
           );
         }
@@ -706,6 +710,10 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('dashboard')}
               onOpenShare={openShare}
+              onSelectRole={(role: string) => {
+                update({ targetProfession: role, scenario: 'Смена профессии' });
+                setScreen('goal');
+              }}
             />
           </ProtectedRoute>
         );
