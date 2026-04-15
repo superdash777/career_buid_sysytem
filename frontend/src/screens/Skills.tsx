@@ -13,7 +13,6 @@ import { analyzeResume, suggestSkills, fetchSkillsForRole, fetchSkillsByCategory
 import { ApiError } from '../api/client';
 import type { AppState, Skill } from '../types';
 import Button from '../components/ui/Button';
-import Eyebrow from '../components/ui/Eyebrow';
 
 interface Props {
   state: AppState;
@@ -38,8 +37,8 @@ function SkillQualityBar({ count }: { count: number }) {
     : 'bg-emerald-400';
   const label =
     count === 0 ? 'Добавьте навыки для точного плана'
-    : count < 3 ? 'Маловато — добавьте ещё для точности'
-    : count < 5 ? 'Хорошо, можно добавить ещё'
+    : count < 3 ? 'Маловато — добавьте еще для точности'
+    : count < 5 ? 'Хорошо, можно добавить еще'
     : count < 7 ? 'Отлично!'
     : 'Превосходно!';
   return (
@@ -140,7 +139,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
       const removed = skills[index];
       const next = skills.filter((_, j) => j !== index);
       setSkills(next);
-      showToast(`Навык «${removed.name}» удалён`, {
+      showToast(`Навык «${removed.name}» удален`, {
         label: 'Отменить',
         onClick: () => setSkills([...next.slice(0, index), removed, ...next.slice(index)]),
       });
@@ -261,10 +260,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               text: 'Добавьте навыки вручную.',
             });
           } else {
-            setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте ещё раз.' });
+            setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте еще раз.' });
           }
         } else {
-          setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте ещё раз.' });
+          setUploadError({ title: 'Ошибка', text: 'Проверьте соединение и попробуйте еще раз.' });
         }
       } finally {
         setUploading(false);
@@ -299,13 +298,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
     <Layout step={2}>
       <div className="space-y-8 slide-up">
         <div>
-          <Eyebrow className="mb-2">Skills input // профиль навыков</Eyebrow>
           <MiniProgress current={2} total={3} label="Навыки" />
           <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
-            Опишите ваши навыки
+            Ваши навыки
           </h1>
           <p className="text-(--color-text-secondary)">
-            Добавьте сильные стороны и зоны развития — это основа точного плана.
+            Добавьте навыки — загрузите резюме или введите вручную. Можно добавить свои навыки, которых нет в подсказках.
           </p>
         </div>
 
@@ -357,7 +355,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           <div className="card space-y-4 fade-in">
             <div>
               <h2 className="mb-1 text-xl text-(--color-text-primary)">Загрузите резюме</h2>
-              <p className="text-sm text-(--color-text-muted)">PDF — мы извлечём навыки автоматически.</p>
+              <p className="text-sm text-(--color-text-muted)">PDF — мы извлечем навыки автоматически.</p>
             </div>
 
             {uploading ? (
@@ -406,8 +404,8 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             <h2 className="mb-1 text-xl text-(--color-text-primary)">
               {inputMode === 'manual' ? 'Выбор навыков вручную' : 'Или добавьте вручную'}
             </h2>
-            <p className="text-sm text-(--color-text-muted)">
-              Введите название навыка или выберите из подсказок.
+              <p className="text-sm text-(--color-text-muted)">
+              Введите название навыка или выберите из подсказок. Можно добавить свои навыки.
             </p>
           </div>
 
@@ -525,6 +523,32 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               )}
             </div>
           )}
+        </div>
+
+        {/* Skill scale description */}
+        <div className="card border-(--color-border) bg-[var(--chip)]">
+          <p className="mb-3 text-sm font-semibold text-(--color-text-primary)">Шкала оценки навыков</p>
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+            <div className="rounded-lg bg-[var(--paper)] p-2.5 border border-(--color-border)">
+              <span className="font-semibold text-(--color-text-primary)">0 — Нет навыка</span>
+            </div>
+            <div className="rounded-lg bg-[var(--paper)] p-2.5 border border-(--color-border)">
+              <span className="font-semibold text-(--color-text-primary)">1 — Начальный</span>
+              <p className="mt-0.5 text-(--color-text-muted)">знаю, но не умею</p>
+            </div>
+            <div className="rounded-lg bg-[var(--paper)] p-2.5 border border-(--color-border)">
+              <span className="font-semibold text-(--color-text-primary)">2 — Базовый</span>
+              <p className="mt-0.5 text-(--color-text-muted)">применяю в стандартных ситуациях</p>
+            </div>
+            <div className="rounded-lg bg-[var(--paper)] p-2.5 border border-(--color-border)">
+              <span className="font-semibold text-(--color-text-primary)">3 — Продвинутый</span>
+              <p className="mt-0.5 text-(--color-text-muted)">применяю в нестандартных ситуациях</p>
+            </div>
+            <div className="rounded-lg bg-[var(--paper)] p-2.5 border border-(--color-border)">
+              <span className="font-semibold text-(--color-text-primary)">4 — Эксперт</span>
+              <p className="mt-0.5 text-(--color-text-muted)">любая сложность, адаптируюсь под контекст</p>
+            </div>
+          </div>
         </div>
 
         {/* Selected skills */}

@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip as RechartsTooltip,
+} from 'recharts';
+import { Check, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
 import CareerGpsTab from '../components/CareerGpsTab';
@@ -109,8 +114,8 @@ export default function Result({
       <div className="space-y-6 slide-up">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Eyebrow className="mb-2">Result // аналитика и план</Eyebrow>
-            <h1 className="text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">Результаты анализа</h1>
+            <Eyebrow className="mb-2">Результаты анализа</Eyebrow>
+            <h1 className="text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">Ваш план развития</h1>
             <p className="mt-1 text-(--color-text-muted)">Выберите навыки для развития и сформируйте план.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -179,7 +184,7 @@ export default function Result({
                       : 'bg-(--color-surface-alt) text-(--color-text-secondary) border-(--color-border) hover:border-[var(--blue-deep)]/40'
                   }`}
                 >
-                  {selectedGaps.has(name) && '✓ '}
+                  {selectedGaps.has(name) && <Check className="inline h-3.5 w-3.5 mr-1" />}
                   {name}
                 </button>
               ))}
@@ -311,6 +316,16 @@ function FocusedPlanView({ plan }: { plan: FocusedPlan }) {
 // ======================== GROWTH ========================
 
 function GrowthView({ data }: { data: GrowthAnalysis }) {
+  const radarChartData = data.radar_data.map((d) => ({
+    subject: d.param,
+    current: d.current,
+    required: d.target,
+    fullMark: Math.max(d.target, 5),
+  }));
+
+  const strengths = data.skill_strong.slice(0, 5).map((s) => s.name);
+  const growthAreas = data.skill_gaps.slice(0, 3).map((g) => g.name);
+
   return (
     <div className="space-y-6">
       <div className="card">
@@ -328,24 +343,73 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
         </div>
       </div>
 
-      {data.radar_data.length > 0 && (
+      {/* Radar chart */}
+      {radarChartData.length > 0 && (
         <div className="card">
-          <MonoLabel>Параметры атласа</MonoLabel>
-          <div className="mt-3 space-y-2">
-            {data.radar_data.map((d, i) => {
-              const progress = d.target > 0 ? Math.min(100, (d.current / d.target) * 100) : 0;
-              return (
-                <div key={i} className="rounded-xl border border-(--color-border) p-3">
-                  <div className="mb-1 flex justify-between text-sm font-medium">
-                    <span className="text-(--color-text-primary)">{d.param}</span>
-                    <span className="text-(--color-text-muted)">{d.current_label} → {d.target_label}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-(--color-border)">
-                    <div className="h-full rounded-full bg-[var(--blue-deep)]" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+          <MonoLabel>Параметры роли</MonoLabel>
+          <div className="mt-3 h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarChartData}>
+                <PolarGrid stroke="var(--line)" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--muted)', fontSize: 12, fontWeight: 500 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                <RechartsTooltip
+                  contentStyle={{ borderRadius: '12px', border: '1px solid var(--line)', background: 'var(--paper)', boxShadow: 'none' }}
+                />
+                <Radar name="Ваш уровень" dataKey="current" stroke="var(--blue-deep)" fill="var(--blue-deep)" fillOpacity={0.35} />
+                <Radar name="Цель" dataKey="required" stroke="var(--accent-green)" fill="var(--accent-green)" fillOpacity={0.1} strokeDasharray="4 4" />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-[var(--blue-deep)] opacity-60" />
+              Ваш уровень
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full border-2 border-dashed border-[var(--accent-green)]" />
+              Цель
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Summary */}
+      {(strengths.length > 0 || growthAreas.length > 0) && (
+        <div className="card border-[var(--blue-deep)]/20 bg-[var(--chip)]">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-[var(--blue-deep)]" />
+            <h3 className="font-semibold text-[var(--blue-deep)]">AI-анализ профиля</h3>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {strengths.length > 0 && (
+              <div>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--accent-green)]">
+                  <CheckCircle2 className="h-4 w-4" /> Сильные стороны
+                </h4>
+                <ul className="space-y-1.5">
+                  {strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
+                      <span className="mt-0.5 text-[var(--accent-green)]">•</span> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {growthAreas.length > 0 && (
+              <div>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-600">
+                  <AlertTriangle className="h-4 w-4" /> Зоны роста
+                </h4>
+                <ul className="space-y-1.5">
+                  {growthAreas.map((g, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
+                      <span className="mt-0.5 text-amber-500">•</span> {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -355,7 +419,7 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
       {data.skill_strong.length > 0 && (
         <div className="card">
           <h3 className="font-semibold text-(--color-text-primary) mb-3 flex items-center gap-2">
-            ✓ Сильные стороны
+            <Check className="h-4 w-4 text-[var(--accent-green)]" /> Сильные стороны
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.skill_strong.map(s => (
@@ -397,7 +461,7 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card">
           <h3 className="mb-3 flex items-center gap-2 font-semibold text-(--color-text-primary)">
-            ✓ Переносимые навыки
+            <Check className="h-4 w-4 text-[var(--accent-green)]" /> Переносимые навыки
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.transferable.map(s => (
