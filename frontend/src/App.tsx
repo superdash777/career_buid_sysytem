@@ -4,7 +4,10 @@ import Dashboard from './screens/Dashboard';
 import OnboardingQuiz from './screens/OnboardingQuiz';
 import GoalSetup from './screens/GoalSetup';
 import Skills from './screens/Skills';
+import SkillReview from './screens/SkillReview';
 import Confirmation from './screens/Confirmation';
+import GapScreen from './screens/GapScreen';
+import PlanScreen from './screens/PlanScreen';
 import Result from './screens/Result';
 import Auth from './screens/Auth';
 import PublicLanding from './screens/PublicLanding';
@@ -16,6 +19,7 @@ import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
+import { parseStepsFromMarkdown } from './utils/parseSteps';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { Loader2, Home } from 'lucide-react';
@@ -33,7 +37,10 @@ type Screen =
   | 'dashboard'
   | 'goal'
   | 'skills'
+  | 'skill-review'
   | 'confirm'
+  | 'gap'
+  | 'plan'
   | 'result'
   | 'hr-landing';
 
@@ -50,7 +57,10 @@ const SCREEN_ORDER: Screen[] = [
   'dashboard',
   'goal',
   'skills',
+  'skill-review',
   'confirm',
+  'gap',
+  'plan',
   'result',
   'hr-landing',
 ];
@@ -220,9 +230,12 @@ export default function App() {
       && screen !== 'quickstart'
       && screen !== 'goal'
       && screen !== 'skills'
+      && screen !== 'skill-review'
       && screen !== 'login'
       && screen !== 'register'
       && screen !== 'confirm'
+      && screen !== 'gap'
+      && screen !== 'plan'
       && screen !== 'result'
       && screen !== 'soft-gate'
       && screen !== 'hr-landing') {
@@ -430,10 +443,13 @@ export default function App() {
       && screen !== 'quickstart'
       && screen !== 'goal'
       && screen !== 'skills'
+      && screen !== 'skill-review'
       && screen !== 'soft-gate'
       && screen !== 'login'
       && screen !== 'register'
       && screen !== 'confirm'
+      && screen !== 'gap'
+      && screen !== 'plan'
       && screen !== 'result'
       && screen !== 'hr-landing'
     ) {
@@ -623,13 +639,19 @@ export default function App() {
             />
           </ProtectedRoute>
         );
-      case 'skills':
+      case 'skills': {
+        const skillsOnNext = () => {
+          const hasLowConfidence = state.skills.some(
+            (s) => s.confidence_band && s.confidence_band !== 'exact' && s.confidence_band !== 'fuzzy'
+          );
+          setScreen(hasLowConfidence ? 'skill-review' : 'confirm');
+        };
         if (!isAuthenticated) {
           return (
             <Skills
               state={state}
               onChange={update}
-              onNext={() => setScreen('confirm')}
+              onNext={skillsOnNext}
               onBack={() => setScreen('goal')}
             />
           );
@@ -639,10 +661,22 @@ export default function App() {
             <Skills
               state={state}
               onChange={update}
-              onNext={() => setScreen('confirm')}
+              onNext={skillsOnNext}
               onBack={() => setScreen('goal')}
             />
           </ProtectedRoute>
+        );
+      }
+      case 'skill-review':
+        return (
+          <SkillReview
+            extractedSkills={state.skills}
+            onConfirm={(skills) => {
+              update({ skills });
+              setScreen('confirm');
+            }}
+            onBack={() => setScreen('skills')}
+          />
         );
       case 'confirm':
         if (!isAuthenticated) {
@@ -654,7 +688,12 @@ export default function App() {
               onBack={() => setScreen('skills')}
               onResult={(p) => {
                 setPlan(p);
-                setScreen('result');
+                if (p.analysis) {
+                  update({ analysis: p.analysis, planSteps: parseStepsFromMarkdown(p.markdown) });
+                  setScreen('gap');
+                } else {
+                  setScreen('result');
+                }
               }}
             />
           );
@@ -666,10 +705,50 @@ export default function App() {
               onBack={() => setScreen('skills')}
               onResult={(p) => {
                 setPlan(p);
-                setScreen('result');
+                if (p.analysis) {
+                  update({ analysis: p.analysis, planSteps: parseStepsFromMarkdown(p.markdown) });
+                  setScreen('gap');
+                } else {
+                  setScreen('result');
+                }
               }}
             />
           </ProtectedRoute>
+        );
+      case 'gap':
+        if (plan?.analysis && (plan.analysis.scenario === 'growth' || plan.analysis.scenario === 'switch')) {
+          return (
+            <GapScreen
+              analysis={plan.analysis}
+              scenario={state.scenario || ''}
+              profession={state.profession}
+              targetProfession={state.targetProfession}
+              onBuildPlan={() => setScreen('plan')}
+              onBack={() => setScreen('confirm')}
+            />
+          );
+        }
+        setScreen('result', true);
+        return null;
+      case 'plan':
+        return (
+          <PlanScreen
+            steps={state.planSteps || []}
+            markdown={plan?.markdown}
+            analysis={plan?.analysis}
+            scenario={state.scenario || ''}
+            profession={state.profession}
+            targetProfession={state.targetProfession}
+            analysisId={plan?.analysis_id}
+            onStepStatusChange={(id, status) => {
+              const updated = (state.planSteps || []).map((s) =>
+                s.id === id ? { ...s, status } : s
+              );
+              update({ planSteps: updated });
+            }}
+            onRestart={reset}
+            onOpenDashboard={isAuthenticated ? () => setScreen('dashboard') : undefined}
+          />
         );
       case 'result':
         if (!plan) {

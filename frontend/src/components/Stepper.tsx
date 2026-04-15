@@ -1,4 +1,4 @@
-const STEPS = ['Старт', 'Цель', 'Навыки', 'Проверка', 'План'];
+const STEPS = ['Цель', 'Навыки', 'Анализ', 'План'];
 
 interface Props {
   current: number;
