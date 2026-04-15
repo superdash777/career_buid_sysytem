@@ -19,10 +19,10 @@ interface Props {
 }
 
 const PAIN_OPTIONS: Array<{ value: OnboardingPainPoint; label: string; sub: string }> = [
-  { value: 'неопределённость', label: 'Не понимаю, куда двигаться', sub: 'Нужны варианты и ориентиры' },
-  { value: 'рост', label: 'Не хватает навыков для следующего уровня', sub: 'Интересует следующий грейд' },
-  { value: 'смена', label: 'Хочу сменить сферу, но не знаю как', sub: 'Нужен план перехода' },
-  { value: 'стагнация', label: 'Нет системы в развитии', sub: 'Хочу увидеть новые направления' },
+  { value: 'рост', label: 'Вырасти в должности', sub: 'Понять, какие навыки нужно подтянуть для перехода на следующий грейд.' },
+  { value: 'неопределённость', label: 'Найти направление для роста', sub: 'Я пока не знаю, куда двигаться дальше, и хочу изучить возможные варианты.' },
+  { value: 'смена', label: 'Сменить профессию', sub: 'Перейти в совершенно новую сферу по четкому пошаговому плану.' },
+  { value: 'стагнация', label: 'Сделать развитие системным', sub: 'Цель есть, но нужен структурированный план обучения без хаоса.' },
 ];
 
 const EXPERIENCE_OPTIONS = [
@@ -43,7 +43,7 @@ type Step = 'pain' | 'experience' | 'hours';
 const STEPS: Step[] = ['pain', 'experience', 'hours'];
 
 const STEP_LABELS: Record<Step, string> = {
-  pain: 'Мотивация',
+  pain: 'Цель',
   experience: 'Опыт',
   hours: 'Время',
 };
@@ -110,7 +110,7 @@ export default function OnboardingQuiz({
         development_hours_per_week: hours,
       });
       await refreshMe();
-      showToast('Профиль сохранён. Рекомендации обновлены.');
+      showToast('Профиль сохранен. Рекомендации обновлены.');
       const recommendedScenario = deriveScenarioRecommendation(painPoint);
       onComplete({
         recommendedScenario: result.recommended_scenario || recommendedScenario,
@@ -139,9 +139,6 @@ export default function OnboardingQuiz({
           <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] md:text-4xl">
             Настроим ваш профиль
           </h1>
-          <p className="mt-2 text-[var(--muted)]">
-            Ответы влияют на рекомендации и прогноз Career GPS
-          </p>
         </div>
 
         {/* Progress bar */}
@@ -171,8 +168,8 @@ export default function OnboardingQuiz({
                   <HelpCircle className="h-5 w-5 text-[var(--blue-deep)]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-[var(--ink)]">Что сейчас мешает вашему росту?</h2>
-                  <p className="text-sm text-[var(--muted)]">Это определит направление рекомендаций</p>
+                  <h2 className="text-lg font-semibold text-[var(--ink)]">Какая у вас сейчас главная карьерная цель?</h2>
+                  <p className="text-sm text-[var(--muted)]">От этого будет зависеть ваш персональный роадмап.</p>
                 </div>
               </div>
               <div className="grid gap-3">

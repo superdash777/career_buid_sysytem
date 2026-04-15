@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, BarChart3, Users, TrendingUp, Send, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Route, LineChart, Send, CheckCircle2 } from 'lucide-react';
 import GridBg from '../components/layout/GridBg';
 import NavBar from '../components/NavBar';
 import Button from '../components/ui/Button';
@@ -12,18 +12,18 @@ interface Props {
 const VALUE_PROPS = [
   {
     icon: BarChart3,
-    title: 'Видимость skill gap',
-    desc: 'Прозрачная картина навыков команды: кто на каком уровне, где пробелы.',
+    title: 'Карта навыков команды',
+    desc: 'Выявляйте пробелы в знаниях (skill gaps). Система покажет реальный уровень сотрудников и подскажет, кого пора повысить.',
   },
   {
-    icon: Users,
-    title: 'Индивидуальные планы',
-    desc: 'Каждый сотрудник получает персональный план развития, привязанный к целям компании.',
+    icon: Route,
+    title: 'Планы развития, которые работают',
+    desc: 'Вместо формальных таблиц — интерактивные роадмапы, адаптированные под темп сотрудника и стратегию компании.',
   },
   {
-    icon: TrendingUp,
-    title: 'Трекинг прогресса',
-    desc: 'Отслеживайте рост команды, получайте отчёты и видьте результаты в реальном времени.',
+    icon: LineChart,
+    title: 'Оцифрованные результаты',
+    desc: 'Наблюдайте за прогрессом в реальном времени. Вся аналитика по пройденным этапам и освоенным навыкам собирается в единый отчет.',
   },
 ];
 
@@ -48,17 +48,16 @@ export default function HRLanding({ onBack }: Props) {
         <section className="pb-14 pt-8 md:pb-20 md:pt-16">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow className="mb-4 inline-flex items-center gap-2 rounded-full bg-[var(--chip)] px-4 py-1.5">
-              <Users className="h-3.5 w-3.5" />
               Для HR и тимлидов
             </Eyebrow>
 
             <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] md:text-5xl">
-              Дайте команде систему для роста
+              Превратите карьерный рост сотрудников в систему
             </h1>
 
-            <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-[var(--muted)]">
-              Career CoPilot помогает HR-командам и руководителям системно развивать сотрудников.
-              Видимость навыков, персональные планы, прозрачный прогресс.
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
+              Career CoPilot — это AI-платформа, которая помогает растить кадры внутри компании,
+              снижать текучесть и прозрачно управлять компетенциями команды.
             </p>
           </div>
         </section>
@@ -96,8 +95,12 @@ export default function HRLanding({ onBack }: Props) {
               </div>
             ) : (
               <>
-                <h3 className="mb-1 text-lg font-semibold text-[var(--ink)]">Запросить доступ для команды</h3>
-                <p className="mb-6 text-sm text-[var(--muted)]">Цены по запросу</p>
+                <h3 className="mb-1 text-lg font-semibold text-[var(--ink)]">
+                  Узнайте, как Career CoPilot поможет вашей команде
+                </h3>
+                <p className="mb-6 text-sm text-[var(--muted)]">
+                  Оставьте заявку, и мы покажем платформу в действии, а также рассчитаем стоимость для вашей компании.
+                </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="float-field">
@@ -107,7 +110,7 @@ export default function HRLanding({ onBack }: Props) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="input-field"
-                      placeholder="Email"
+                      placeholder="name@company.com"
                     />
                     <label className="float-label">Рабочий email</label>
                   </div>
@@ -118,14 +121,17 @@ export default function HRLanding({ onBack }: Props) {
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
                       className="input-field"
-                      placeholder="Компания"
+                      placeholder="Название вашей компании"
                     />
-                    <label className="float-label">Название компании</label>
+                    <label className="float-label">Компания</label>
                   </div>
                   <Button type="submit" className="w-full">
                     <Send className="h-4 w-4" />
-                    Отправить заявку
+                    Запросить демо
                   </Button>
+                  <p className="text-center text-xs text-[var(--muted)]">
+                    Нажимая на кнопку, вы соглашаетесь с политикой конфиденциальности.
+                  </p>
                 </form>
               </>
             )}
