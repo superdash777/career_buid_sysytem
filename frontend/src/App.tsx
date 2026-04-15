@@ -428,6 +428,8 @@ export default function App() {
       && screen !== 'public'
       && screen !== 'demo'
       && screen !== 'quickstart'
+      && screen !== 'goal'
+      && screen !== 'skills'
       && screen !== 'soft-gate'
       && screen !== 'login'
       && screen !== 'register'
