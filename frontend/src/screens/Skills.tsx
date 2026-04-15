@@ -22,7 +22,7 @@ interface Props {
 }
 
 const RECOMMENDED_VISIBLE = 6;
-type InputMode = 'resume' | 'manual';
+// Removed InputMode — single unified flow
 interface SkillCategoryGroup {
   name: string;
   skills: string[];
@@ -58,7 +58,7 @@ function SkillQualityBar({ count }: { count: number }) {
 }
 
 export default function Skills({ state, onChange, onNext, onBack }: Props) {
-  const [inputMode, setInputMode] = useState<InputMode>('resume');
+  // Input mode removed — single unified flow
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [uploadError, setUploadError] = useState<{ title: string; text: string } | null>(null);
@@ -317,46 +317,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           </Alert>
         )}
 
+        {/* Resume upload — always visible */}
         <div className="card space-y-4">
           <div>
-            <h2 className="mb-1 text-xl text-(--color-text-primary)">Как добавить навыки</h2>
-            <p className="text-sm text-(--color-text-muted)">
-              Выберите удобный вариант: загрузка PDF или ручной выбор по категориям.
-            </p>
+            <h2 className="mb-1 text-xl text-(--color-text-primary)">Загрузите резюме</h2>
+            <p className="text-sm text-(--color-text-muted)">PDF — мы извлечем навыки автоматически. Или добавьте вручную ниже.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              onClick={() => setInputMode('resume')}
-              className={`rounded-2xl border p-3 text-left transition-colors ${
-                inputMode === 'resume'
-                  ? 'border-[var(--blue-deep)] bg-[var(--chip)]'
-                  : 'border-(--color-border) hover:border-[var(--blue-deep)]/40'
-              }`}
-            >
-              <p className="font-medium text-(--color-text-primary)">Загрузить резюме (PDF)</p>
-              <p className="text-xs text-(--color-text-muted) mt-1">Извлечём навыки автоматически</p>
-            </button>
-            <button
-              onClick={() => setInputMode('manual')}
-              className={`rounded-2xl border p-3 text-left transition-colors ${
-                inputMode === 'manual'
-                  ? 'border-[var(--blue-deep)] bg-[var(--chip)]'
-                  : 'border-(--color-border) hover:border-[var(--blue-deep)]/40'
-              }`}
-            >
-              <p className="font-medium text-(--color-text-primary)">Выбрать навыки вручную</p>
-              <p className="text-xs text-(--color-text-muted) mt-1">Чипы навыков по категориям</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Resume upload */}
-        {inputMode === 'resume' && (
-          <div className="card space-y-4 fade-in">
-            <div>
-              <h2 className="mb-1 text-xl text-(--color-text-primary)">Загрузите резюме</h2>
-              <p className="text-sm text-(--color-text-muted)">PDF — мы извлечем навыки автоматически.</p>
-            </div>
 
             {uploading ? (
               <ProgressLoader text="Извлекаем навыки из резюме…" subtext="Обычно это занимает до минуты" durationMs={40000} />
@@ -396,15 +362,12 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
               </Alert>
             )}
           </div>
-        )}
 
-        {/* Manual input */}
+        {/* Manual input — always visible */}
         <div className="card space-y-4">
           <div>
-            <h2 className="mb-1 text-xl text-(--color-text-primary)">
-              {inputMode === 'manual' ? 'Выбор навыков вручную' : 'Или добавьте вручную'}
-            </h2>
-              <p className="text-sm text-(--color-text-muted)">
+            <h2 className="mb-1 text-xl text-(--color-text-primary)">Добавьте вручную</h2>
+            <p className="text-sm text-(--color-text-muted)">
               Введите название навыка или выберите из подсказок. Можно добавить свои навыки.
             </p>
           </div>
@@ -465,7 +428,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
             )}
           </div>
 
-          {inputMode === 'manual' && skillCategories.length > 0 && (
+          {skillCategories.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-medium text-(--color-text-muted)">
                 Выбор по категориям для «{state.profession}»:

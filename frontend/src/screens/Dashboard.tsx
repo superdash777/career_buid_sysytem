@@ -131,6 +131,15 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
   const [error, setError] = useState('');
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]);
   const [progress, setProgress] = useState<ProgressRecord[]>([]);
+  const [showNewPlanConfirm, setShowNewPlanConfirm] = useState(false);
+
+  const handleNewPlan = () => {
+    if (analyses.length > 0) {
+      setShowNewPlanConfirm(true);
+    } else {
+      onStartNew();
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -201,7 +210,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={onBack}>← Назад</Button>
-            <Button onClick={onStartNew}>Создать новый план →</Button>
+            <Button onClick={handleNewPlan}>Создать новый план →</Button>
           </div>
         </div>
 
@@ -209,6 +218,25 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
           <Alert variant="error" onClose={() => setError('')}>
             {error}
           </Alert>
+        )}
+
+        {showNewPlanConfirm && (
+          <div className="card border-[var(--blue-deep)]/20 bg-[var(--chip)]">
+            <p className="text-sm font-semibold text-(--color-text-primary)">
+              У вас есть активный план. Создать новый?
+            </p>
+            <p className="mt-1 text-xs text-(--color-text-muted)">
+              Предыдущий план останется в истории.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button onClick={() => { setShowNewPlanConfirm(false); onStartNew(); }}>
+                Создать новый
+              </Button>
+              <Button variant="secondary" onClick={() => setShowNewPlanConfirm(false)}>
+                Отмена
+              </Button>
+            </div>
+          </div>
         )}
 
         {loading ? (
