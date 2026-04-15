@@ -11,13 +11,14 @@ import PublicLanding from './screens/PublicLanding';
 import HRLanding from './screens/HRLanding';
 import Alert from './components/Alert';
 import NavBar from './components/NavBar';
+import ShareCard from './components/ShareCard';
 import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse } from './types';
 import { GRADES, INITIAL_STATE } from './types';
-import { Loader2, ExternalLink, Home } from 'lucide-react';
+import { Loader2, Home } from 'lucide-react';
 
 type Screen =
   | 'public'
@@ -378,23 +379,6 @@ export default function App() {
           </header>
           <main className="flex-1">
             <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-              <div className="card">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h1 className="text-2xl font-bold text-(--color-text-primary)">Публичный результат</h1>
-                    <p className="text-sm text-(--color-text-muted) mt-1">
-                      Режим только для просмотра
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setScreen(isAuthenticated ? 'welcome' : 'public', true)}
-                    className="btn-secondary text-sm"
-                  >
-                    <Home className="h-4 w-4" /> На главную
-                  </button>
-                </div>
-              </div>
-
               {sharedLoading && (
                 <div className="card flex items-center gap-3 text-(--color-text-secondary)">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -409,32 +393,30 @@ export default function App() {
               )}
 
               {!sharedLoading && !sharedError && sharedPlan && (
-                <>
-                  {sharedPlan.analysis && (
-                    <div className="card">
-                      <div className="flex flex-wrap gap-2 text-xs text-(--color-text-secondary)">
-                        <span className="rounded-md bg-(--color-accent-light) px-2 py-1 text-(--color-accent)">
-                          Сценарий: {sharedPlan.analysis.scenario}
-                        </span>
-                        <span className="rounded-md bg-(--color-surface-alt) px-2 py-1">
-                          Совпадение: {getShareMatchPercent(sharedPlan.analysis)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="card">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold text-(--color-text-primary)">План развития</h2>
-                      <a href="#login" className="btn-secondary text-xs">
-                        <ExternalLink className="h-3.5 w-3.5" /> Создать свой
-                      </a>
-                    </div>
-                    <pre className="whitespace-pre-wrap text-sm text-(--color-text-secondary) leading-relaxed">
-                      {sharedPlan.markdown}
-                    </pre>
-                  </div>
-                </>
+                <ShareCard
+                  title="Мой план развития"
+                  scenario={sharedPlan.analysis?.scenario || sharedPlan.scenario || ''}
+                  matchPercent={getShareMatchPercent(sharedPlan.analysis)}
+                  topSkills={(() => {
+                    const a = sharedPlan.analysis;
+                    if (!a) return [];
+                    if (a.scenario === 'growth') return a.skill_gaps?.slice(0, 5).map((g: { name: string }) => g.name) || [];
+                    if (a.scenario === 'switch') return a.gaps?.slice(0, 5).map((g: { name: string }) => g.name) || [];
+                    if (a.scenario === 'explore') return a.roles?.slice(0, 5).map((r: { title: string }) => r.title) || [];
+                    return [];
+                  })()}
+                  analysisId={shareIdFromHash() || undefined}
+                />
               )}
+
+              <div className="text-center">
+                <button
+                  onClick={() => setScreen(isAuthenticated ? 'welcome' : 'public', true)}
+                  className="btn-secondary text-sm"
+                >
+                  <Home className="h-4 w-4" /> На главную
+                </button>
+              </div>
             </div>
           </main>
         </div>

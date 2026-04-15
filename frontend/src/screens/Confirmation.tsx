@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
-import ProgressLoader from '../components/ProgressLoader';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
+import TetrisGame from '../components/TetrisGame';
 import { buildPlan, createAnalysis, ApiError } from '../api/client';
 import { showToast } from '../components/toastStore';
 import type { AppState, PlanResponse, Scenario } from '../types';
 import { skillLevelLabel } from '../types';
 import Button from '../components/ui/Button';
-import Eyebrow from '../components/ui/Eyebrow';
 import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
@@ -88,8 +87,8 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   if (loading) {
     return (
       <Layout step={3}>
-        <div className="py-20">
-          <ProgressLoader text="Создаём ваш персональный план…" subtext="Это может занять немного времени" durationMs={50000} />
+        <div className="py-8">
+          <TetrisGame active={loading} />
         </div>
       </Layout>
     );
@@ -99,7 +98,6 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
     <Layout step={3}>
       <div className="space-y-8 slide-up">
         <div>
-          <Eyebrow className="mb-2">Final check // подтверждение</Eyebrow>
           <MiniProgress current={3} total={3} label="Подтверждение" />
           <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Проверьте данные перед анализом
@@ -183,7 +181,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
               ◎
             </span>
             <div>
-              <p className="mb-1 text-sm font-semibold text-(--color-text-primary)">Что произойдёт дальше</p>
+              <p className="mb-1 text-sm font-semibold text-(--color-text-primary)">Что произойдет дальше</p>
               <p className="text-sm text-(--color-text-secondary) leading-relaxed">
                 Мы сравним ваш уровень с требованиями рынка, определим зоны роста
                 и сформируем конкретные шаги: 70% — практика на работе, 20% — обучение у коллег,

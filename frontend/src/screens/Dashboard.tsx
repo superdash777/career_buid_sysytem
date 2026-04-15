@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
+import KanbanBoard from '../components/KanbanBoard';
+import type { KanbanTask } from '../components/KanbanBoard';
 import { fetchAnalyses, fetchProgress, patchProgress, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { showToast } from '../components/toastStore';
 import type { AnalysisRecord, ProgressRecord } from '../types';
 import Button from '../components/ui/Button';
-import Eyebrow from '../components/ui/Eyebrow';
 import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
@@ -124,13 +125,12 @@ function estimateForecast(matchPercent: number, hoursPerWeek?: number | null): s
   return forecastDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOnboarding }: Props) {
+export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]);
   const [progress, setProgress] = useState<ProgressRecord[]>([]);
-  const [updatingSkill, setUpdatingSkill] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,7 +173,6 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOn
   const forecastText = estimateForecast(matchPercent, user?.development_hours_per_week);
 
   const updateSkillStatus = async (skillName: string, status: 'todo' | 'in_progress' | 'done') => {
-    setUpdatingSkill(skillName);
     try {
       const item = await patchProgress({ skill_name: skillName, status });
       setProgress((prev) => {
@@ -187,8 +186,6 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOn
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Не удалось обновить статус';
       showToast(message);
-    } finally {
-      setUpdatingSkill(null);
     }
   };
 
@@ -197,20 +194,14 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOn
       <div className="space-y-6 slide-up">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Eyebrow className="mb-2">Dashboard // личный кабинет</Eyebrow>
             <h1 className="text-3xl sm:text-4xl text-(--color-text-primary)">Личный кабинет</h1>
             <p className="text-(--color-text-muted) mt-1">
-              Ваш прогресс, задачи на неделю и история анализов в одном месте.
+              Ваш прогресс, задачи и карьерные планы в одном месте.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {onOpenOnboarding && (
-              <Button variant="secondary" onClick={onOpenOnboarding}>
-                Обновить onboarding →
-              </Button>
-            )}
             <Button variant="secondary" onClick={onBack}>← Назад</Button>
-            <Button onClick={onStartNew}>Новый анализ →</Button>
+            <Button onClick={onStartNew}>Создать новый план →</Button>
           </div>
         </div>
 
@@ -227,23 +218,6 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOn
           </div>
         ) : (
           <>
-            {(!user?.pain_point || !user?.development_hours_per_week) && (
-              <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
-                <MonoLabel>Onboarding booster</MonoLabel>
-                <h2 className="mt-3 text-lg font-semibold text-(--color-text-primary)">
-                  Улучши точность рекомендаций за 30 секунд
-                </h2>
-                <p className="mt-1 text-sm text-(--color-text-secondary)">
-                  Заполни 3 коротких вопроса про опыт и доступное время — это улучшит приоритезацию задач и прогноз Career GPS.
-                </p>
-                <div className="mt-4">
-                  <Button variant="secondary" onClick={onBack}>
-                    Пройти onboarding →
-                  </Button>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <MetricCard
                 title="Текущее совпадение"
@@ -284,54 +258,28 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis, onOpenOn
             </div>
 
             <div className="card space-y-4">
-              <MonoLabel>Weekly tasks</MonoLabel>
-              <h2 className="text-lg font-semibold text-(--color-text-primary)">Задачи на неделю</h2>
+              <MonoLabel>Задачи</MonoLabel>
+              <h2 className="text-lg font-semibold text-(--color-text-primary)">Задачи на развитие</h2>
               {trackedSkills.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
-                  Сначала завершите хотя бы один анализ, чтобы получить персональные задачи.
+                  Сначала завершите хотя бы один план, чтобы получить персональные задачи.
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {trackedSkills.map((skill) => {
-                    const status = progressMap.get(skill)?.status ?? 'todo';
-                    return (
-                      <div key={skill} className="rounded-lg border border-(--color-border) p-3 flex flex-wrap items-center justify-between gap-3">
-                        <label className="inline-flex items-center gap-2 text-sm text-(--color-text-primary)">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-(--color-border)"
-                            checked={status === 'done'}
-                            disabled={updatingSkill === skill}
-                            onChange={(e) => updateSkillStatus(skill, e.target.checked ? 'done' : 'todo')}
-                          />
-                          {skill}
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => updateSkillStatus(skill, status === 'in_progress' ? 'todo' : 'in_progress')}
-                            disabled={updatingSkill === skill}
-                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                              status === 'in_progress'
-                                ? 'bg-blue-500/10 text-blue-700 border border-blue-500/20'
-                                : 'bg-(--color-surface-alt) text-(--color-text-secondary) border border-(--color-border)'
-                            }`}
-                          >
-                            {status === 'in_progress' ? 'В процессе' : 'В работу'}
-                          </button>
-                          <span className="text-xs text-(--color-text-muted)">
-                            {status === 'done' ? 'Выполнено' : status === 'in_progress' ? 'В работе' : 'Запланировано'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <KanbanBoard
+                  tasks={trackedSkills.map((skill): KanbanTask => ({
+                    id: skill,
+                    title: skill,
+                    tag: 'Навык',
+                    status: (progressMap.get(skill)?.status as 'todo' | 'in_progress' | 'done') ?? 'todo',
+                  }))}
+                  onStatusChange={(taskId, newStatus) => updateSkillStatus(taskId, newStatus)}
+                />
               )}
             </div>
 
             <div className="card space-y-4">
-              <MonoLabel>History</MonoLabel>
-              <h2 className="text-lg font-semibold text-(--color-text-primary)">История анализов</h2>
+              <MonoLabel>Планы</MonoLabel>
+              <h2 className="text-lg font-semibold text-(--color-text-primary)">Мои карьерные планы</h2>
               {analyses.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
                   История пока пуста. Сформируйте первый план, и он появится здесь.
