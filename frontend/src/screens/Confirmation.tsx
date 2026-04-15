@@ -182,8 +182,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
               <p className="mb-1 text-sm font-semibold text-(--color-text-primary)">Что произойдет дальше</p>
               <p className="text-sm text-(--color-text-secondary) leading-relaxed">
                 Мы сравним ваш уровень с требованиями рынка, определим зоны роста
-                и сформируем конкретные шаги: 70% — практика на работе, 20% — обучение у коллег,
-                10% — книги.
+                и сформируем детальный план развития.
               </p>
             </div>
           </div>
@@ -192,7 +191,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
         {!isAuthenticated && (
           <div className="card border-(--color-border) bg-[color-mix(in_srgb,var(--paper)_92%,white)]">
             <p className="text-sm text-(--color-text-secondary) leading-relaxed">
-              После построения результата вы увидите бесплатный снэпшот. Чтобы сохранить историю,
+              Вы получите черновик плана развития. Чтобы сохранить историю,
               открыть полный план и трекинг прогресса — создайте аккаунт.
             </p>
             {onRequireAuth && (

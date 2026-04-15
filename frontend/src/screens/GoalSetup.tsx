@@ -89,7 +89,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
     <Layout step={1}>
       <div className="space-y-8 slide-up">
         <div>
-          <Eyebrow className="mb-2">Goal setup // карьерная цель</Eyebrow>
+          <Eyebrow className="mb-2">Карьерная цель</Eyebrow>
           <MiniProgress current={1} total={3} label="Цель" />
           <h1 className="mb-2 mt-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Определим вашу цель

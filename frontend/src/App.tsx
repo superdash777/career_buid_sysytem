@@ -507,8 +507,8 @@ export default function App() {
                   Сохраните результат и продолжайте
                 </h1>
                 <p className="text-sm text-(--color-text-secondary)">
-                  Мы уже показали бесплатный snapshot. Создайте аккаунт, чтобы сохранить историю,
-                  открыть полный план и трекинг прогресса.
+                  Вы получили черновик плана развития. Создайте аккаунт, чтобы сохранить историю
+                  и открыть трекинг прогресса.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   <button
@@ -529,7 +529,7 @@ export default function App() {
                   >
                     Войти
                   </button>
-                  <button className="btn-secondary" onClick={() => setScreen('quickstart')}>
+                  <button className="btn-secondary" onClick={() => setScreen(plan ? 'result' : 'quickstart')}>
                     Продолжить без сохранения
                   </button>
                 </div>
@@ -545,7 +545,7 @@ export default function App() {
               setScreen(pendingAuthScreen || 'welcome', true);
               setPendingAuthScreen(null);
             }}
-            onSkip={() => setScreen('quickstart')}
+            onSkip={() => setScreen(plan ? 'result' : 'quickstart')}
             onBackToPublic={() => setScreen('public')}
           />
         );
@@ -557,7 +557,7 @@ export default function App() {
               setScreen(pendingAuthScreen || 'onboarding', true);
               setPendingAuthScreen(null);
             }}
-            onSkip={() => setScreen('quickstart')}
+            onSkip={() => setScreen(plan ? 'result' : 'quickstart')}
             onBackToPublic={() => setScreen('public')}
           />
         );
