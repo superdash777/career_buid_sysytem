@@ -162,6 +162,7 @@ export interface SkillGap {
   current: number;
   required: number;
   delta: number;
+  priority?: 1 | 2 | 3;
   level_key: string;
   description: string;
   tasks: string;
@@ -230,6 +231,22 @@ export interface PlanResponse {
   analysis_id?: string;
 }
 
+export type Verdict = {
+  color: 'green' | 'amber' | 'red';
+  title: string;
+  body: string;
+};
+
+export interface PlanStep {
+  id: string;
+  number: number;
+  title: string;
+  description: string;
+  week_range: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'todo' | 'in_progress' | 'done';
+}
+
 export interface FocusedPlanTask {
   skill: string;
   items: string[];
@@ -249,6 +266,8 @@ export interface AppState {
   skills: Skill[];
   developmentHoursPerWeek?: number;
   onboardingPainPoint?: QuizPainPoint;
+  analysis?: Analysis;
+  planSteps?: PlanStep[];
 }
 
 export const INITIAL_STATE: AppState = {
@@ -259,4 +278,24 @@ export const INITIAL_STATE: AppState = {
   skills: [],
   developmentHoursPerWeek: undefined,
   onboardingPainPoint: undefined,
+  analysis: undefined,
+  planSteps: undefined,
 };
+
+export interface PlanStep {
+  id: string;
+  title: string;
+  description: string;
+  week_range: string;
+  priority: 'critical' | 'moderate' | 'ok';
+  status: 'todo' | 'in_progress' | 'done';
+  rag_source?: string;
+  dependencies?: string[];
+}
+
+export interface Verdict {
+  color: 'green' | 'amber' | 'red';
+  title: string;
+  text: string;
+  sources?: string[];
+}
