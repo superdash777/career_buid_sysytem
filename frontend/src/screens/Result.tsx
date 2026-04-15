@@ -339,9 +339,6 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
     return total > 0 ? Math.round((matched / total) * 100) : 0;
   }, [editedRadar, data]);
 
-  const strengths = data.skill_strong.slice(0, 5).map((s) => s.name);
-  const growthAreas = data.skill_gaps.slice(0, 3).map((g) => g.name);
-
   const handleResetRadar = () => { setEditedRadar({}); setEditingParam(null); };
 
   return (
@@ -423,45 +420,6 @@ function GrowthView({ data }: { data: GrowthAnalysis }) {
         </div>
       )}
 
-      {/* AI Summary */}
-      {(strengths.length > 0 || growthAreas.length > 0) && (
-        <div className="card border-[var(--blue-deep)]/20 bg-[var(--chip)]">
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[var(--blue-deep)]" />
-            <h3 className="font-semibold text-[var(--blue-deep)]">AI-анализ профиля</h3>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {strengths.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--accent-green)]">
-                  <CheckCircle2 className="h-4 w-4" /> Сильные стороны
-                </h4>
-                <ul className="space-y-1.5">
-                  {strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
-                      <span className="mt-0.5 text-[var(--accent-green)]">•</span> {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {growthAreas.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-600">
-                  <AlertTriangle className="h-4 w-4" /> Зоны роста
-                </h4>
-                <ul className="space-y-1.5">
-                  {growthAreas.map((g, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-(--color-text-secondary)">
-                      <span className="mt-0.5 text-amber-500">•</span> {g}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {data.skill_gaps.length > 0 && <SkillGapsSection gaps={data.skill_gaps} />}
 
