@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { ArrowRight, Map, Brain, TrendingUp, Sparkles } from 'lucide-react';
 import NavBar from '../components/NavBar';
 import Button from '../components/ui/Button';
 import Eyebrow from '../components/ui/Eyebrow';
 import GridBg from '../components/layout/GridBg';
 import Mark from '../components/ui/Mark';
-import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
   onTryInstant: () => void;
@@ -16,32 +14,37 @@ interface Props {
 }
 
 const EXAMPLES = [
-  'Вырасти до Senior',
-  'Перейти в UX',
-  'Исследовать варианты',
+  { label: 'Вырасти до Senior', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
+  { label: 'Перейти в UX-дизайн', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
+  { label: 'Уйти в менеджмент', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
+  { label: 'Стать тимлидом', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
+  { label: 'Освоить продукт', color: 'bg-[#f59e0b]/10 text-[#f59e0b] border-[#f59e0b]/20' },
+  { label: 'Перейти в аналитику', color: 'bg-[#ec4899]/10 text-[#ec4899] border-[#ec4899]/20' },
+  { label: 'Вырасти до архитектора', color: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)] border-[var(--blue-deep)]/20' },
+  { label: 'Стать фрилансером', color: 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' },
+  { label: 'Уйти в DevOps', color: 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20' },
+  { label: 'Сменить индустрию', color: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20' },
 ];
 
 const FEATURES = [
   {
     icon: Map,
-    title: 'Персональный роадмап',
-    desc: 'Пошаговый план с недельными итерациями, привязанный к вашему темпу и доступному времени.',
+    title: 'Индивидуальный роадмап',
+    desc: 'Разбиваем большую цель на понятные шаги по неделям. План подстраивается под ваш темп и свободное время.',
   },
   {
     icon: Brain,
-    title: 'Анализ навыков',
-    desc: 'AI извлекает навыки из резюме и сопоставляет с требованиями целевой роли с прозрачной оценкой.',
+    title: 'Оценка навыков',
+    desc: 'AI сравнит ваш текущий опыт с требованиями к новой роли и покажет, какие именно компетенции нужно подтянуть.',
   },
   {
     icon: TrendingUp,
-    title: 'Прогресс и мотивация',
-    desc: 'Отслеживайте рост, получайте рекомендации и видьте, как приближаетесь к цели.',
+    title: 'Трекинг прогресса',
+    desc: 'Отмечайте выполненные задачи, получайте советы от AI и экспертов и наглядно видите, как приближаетесь к цели.',
   },
 ];
 
 export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTeams }: Props) {
-  const [prompt, setPrompt] = useState('');
-
   return (
     <GridBg className="min-h-screen bg-[var(--bg)]">
       <header className="mx-auto w-full max-w-6xl px-5 md:px-8">
@@ -58,52 +61,39 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
             </Eyebrow>
 
             <h1 className="text-4xl leading-[1.1] tracking-tight text-[var(--ink)] md:text-6xl">
-              Твой карьерный рост —{' '}
-              <Mark>не хаос, а система</Mark>
+              Ваш точный маршрут к{' '}
+              <Mark>следующей должности</Mark>
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
-              Career CoPilot извлекает навыки из резюме, сопоставляет с целевой ролью
-              и строит понятный roadmap в формате недельных итераций. Каждый шаг подкреплён
-              данными и прозрачной оценкой.
+              Career CoPilot проанализирует ваше резюме и требования рынка, чтобы построить
+              понятный пошаговый план развития. Без воды, с задачами на каждую неделю.
             </p>
 
-            {/* Prompt bar */}
-            <div className="mx-auto mt-10 max-w-xl">
-              <div className="flex gap-2 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-2 shadow-[var(--shadow-soft)]">
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Опишите, где вы сейчас и куда хотите прийти..."
-                  className="flex-1 bg-transparent px-4 py-3 text-[15px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onTryInstant();
-                  }}
-                />
-                <Button size="lg" onClick={onTryInstant}>
-                  Построить план
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </div>
-
-              {/* Example chips */}
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    onClick={() => { setPrompt(ex); onTryInstant(); }}
-                    className="cursor-pointer"
-                  >
-                    <MonoLabel>{ex}</MonoLabel>
-                  </button>
-                ))}
-              </div>
-
-              <p className="mt-4 text-sm text-[var(--muted)]">
-                Без регистрации — первый план бесплатно
-              </p>
+            {/* Chips */}
+            <div className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex.label}
+                  onClick={onTryInstant}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all hover:scale-105 ${ex.color}`}
+                >
+                  {ex.label}
+                </button>
+              ))}
             </div>
+
+            {/* CTA */}
+            <div className="mt-8">
+              <Button size="lg" onClick={onTryInstant}>
+                Построить план
+                <ArrowRight className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Первый план — бесплатно и без регистрации.
+            </p>
           </div>
         </section>
 

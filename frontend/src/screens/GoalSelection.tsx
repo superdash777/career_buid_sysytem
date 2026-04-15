@@ -1,43 +1,56 @@
 import { useState } from 'react';
-import { Rocket, RefreshCw, Telescope, CheckCircle2, LayoutDashboard, ArrowRight } from 'lucide-react';
+import { CheckCircle2, LayoutDashboard, ArrowRight, Sparkles } from 'lucide-react';
 import NavBar from '../components/NavBar';
 import GridBg from '../components/layout/GridBg';
 import Button from '../components/ui/Button';
 import Eyebrow from '../components/ui/Eyebrow';
+import type { OnboardingPainPoint } from '../types';
 
 interface Props {
   onSelect: (scenario: string) => void;
   onOpenDashboard?: () => void;
   onOpenOnboarding?: () => void;
   showOnboardingNudge?: boolean;
+  recommendedPainPoint?: OnboardingPainPoint | null;
 }
 
 const GOALS = [
   {
     id: 'Следующий грейд',
-    icon: Rocket,
     emoji: '🚀',
     title: 'Карьерный рост',
-    desc: 'Повышение или senior-роль в своей области. Мы покажем gap-анализ и план достижения следующего грейда.',
+    desc: 'Повышение или senior-роль в своей области. Покажем gap-анализ и план достижения следующего грейда.',
   },
   {
     id: 'Смена профессии',
-    icon: RefreshCw,
     emoji: '🔄',
     title: 'Смена профессии',
     desc: 'Переход в новую сферу. Определим, какие навыки можно перенести, а какие нужно освоить.',
   },
   {
     id: 'Исследование возможностей',
-    icon: Telescope,
     emoji: '🔭',
     title: 'Исследование',
-    desc: 'Понять варианты, когда нет чёткого направления. Покажем подходящие роли и направления.',
+    desc: 'Понять варианты, когда нет четкого направления. Покажем подходящие роли и направления.',
   },
 ];
 
-export default function GoalSelection({ onSelect, onOpenDashboard, onOpenOnboarding, showOnboardingNudge = false }: Props) {
-  const [selected, setSelected] = useState<string | null>(null);
+const PAIN_TO_GOAL: Record<string, string> = {
+  'рост': 'Следующий грейд',
+  'стагнация': 'Следующий грейд',
+  'смена': 'Смена профессии',
+  'неопределённость': 'Исследование возможностей',
+};
+
+export default function GoalSelection({
+  onSelect,
+  onOpenDashboard,
+  onOpenOnboarding,
+  showOnboardingNudge = false,
+  recommendedPainPoint,
+}: Props) {
+  const recommended = recommendedPainPoint ? PAIN_TO_GOAL[recommendedPainPoint] || null : null;
+  const [selected, setSelected] = useState<string | null>(recommended);
 
   return (
     <GridBg className="min-h-screen bg-[var(--bg)]">
@@ -88,6 +101,7 @@ export default function GoalSelection({ onSelect, onOpenDashboard, onOpenOnboard
           <div className="grid gap-4 md:grid-cols-3">
             {GOALS.map((goal) => {
               const isSelected = selected === goal.id;
+              const isRecommended = recommended === goal.id;
               return (
                 <button
                   key={goal.id}
@@ -100,6 +114,12 @@ export default function GoalSelection({ onSelect, onOpenDashboard, onOpenOnboard
                 >
                   {isSelected && (
                     <CheckCircle2 className="absolute right-4 top-4 h-5 w-5 text-[var(--blue-deep)]" />
+                  )}
+                  {isRecommended && !isSelected && (
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[var(--chip)] px-2.5 py-1 text-[10px] font-medium text-[var(--blue-deep)]">
+                      <Sparkles className="h-3 w-3" />
+                      Рекомендуем
+                    </span>
                   )}
                   <span className="mb-3 block text-2xl">{goal.emoji}</span>
                   <h3 className={`mb-2 text-base font-semibold ${
