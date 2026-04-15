@@ -3,7 +3,7 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip as RechartsTooltip,
 } from 'recharts';
-import { Check, Sparkles, CheckCircle2, AlertTriangle, TrendingUp, Briefcase, Target, ArrowRight } from 'lucide-react';
+import { Check, Sparkles, CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
 import { buildFocusedPlan, ApiError } from '../api/client';
@@ -48,11 +48,6 @@ function MatchRing({ percent }: { percent: number }) {
   );
 }
 
-const SCENARIO_TAB_MAP: Record<string, { label: string; icon: typeof TrendingUp }> = {
-  growth: { label: 'Грейд', icon: TrendingUp },
-  switch: { label: 'Профессия', icon: Briefcase },
-  explore: { label: 'Векторы', icon: Target },
-};
 
 export default function Result({
   plan, appState, isAuthenticated = true, onSoftGate, onReset,
@@ -64,8 +59,6 @@ export default function Result({
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState('');
   const [sharing, setSharing] = useState(false);
-
-  const scenario = plan.analysis?.scenario || 'growth';
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(plan.markdown);
@@ -141,34 +134,20 @@ export default function Result({
           </div>
         </div>
 
-        {/* Scenario tabs */}
-        <div className="inline-flex rounded-xl border border-(--color-border) bg-(--color-surface-raised) p-1">
-          {Object.entries(SCENARIO_TAB_MAP).map(([key, { label, icon: Icon }]) => (
-            <div
-              key={key}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                scenario === key
-                  ? 'bg-[var(--blue-deep)] text-white'
-                  : 'text-(--color-text-muted) cursor-default'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </div>
-          ))}
-        </div>
+        {/* Main content */}
+        {/* Explore: full width, no sidebar */}
+        {plan.analysis?.scenario === 'explore' && (
+          <ExploreView data={plan.analysis} appState={appState} onSelectRole={onSelectRole} onBackToSkills={onBackToSkills} />
+        )}
 
-        {/* 2-column layout */}
+        {/* Growth / Switch: 2-column layout with sidebar */}
+        {plan.analysis && plan.analysis.scenario !== 'explore' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column: analysis */}
           <div className="lg:col-span-2 space-y-6">
-            {plan.analysis && (
-              <div className="fade-in">
-                {plan.analysis.scenario === 'growth' && <GrowthView data={plan.analysis} />}
-                {plan.analysis.scenario === 'switch' && <SwitchView data={plan.analysis} />}
-                {plan.analysis.scenario === 'explore' && <ExploreView data={plan.analysis} onSelectRole={onSelectRole} />}
-              </div>
-            )}
+            <div className="fade-in">
+              {plan.analysis.scenario === 'growth' && <GrowthView data={plan.analysis} />}
+              {plan.analysis.scenario === 'switch' && <SwitchView data={plan.analysis} />}
+            </div>
 
             {planLoading && (
               <ProgressLoader text="Формируем персональный план..." subtext="Несколько секунд" durationMs={20000} />
@@ -236,6 +215,7 @@ export default function Result({
             </div>
           </div>
         </div>
+        )}
 
         {/* Footer */}
         {!isAuthenticated && onSoftGate && (
@@ -513,73 +493,155 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
 
 // ======================== EXPLORE ========================
 
-function ExploreView({ data, onSelectRole }: { data: ExploreAnalysis; onSelectRole?: (role: string) => void }) {
-  const categoryColor: Record<string, string> = {
-    closest: 'bg-[var(--chip)] text-[var(--blue-deep)] border-(--color-border)',
-    adjacent: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
-    far: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
-  };
-  const categoryLabel: Record<string, string> = {
-    closest: 'Ближайшие', adjacent: 'Смежные', far: 'Дальние',
-  };
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {data.roles.map((role, idx) => (
-        <ExploreRoleCard key={idx} role={role} categoryColor={categoryColor} categoryLabel={categoryLabel} onSelectRole={onSelectRole} />
-      ))}
-    </div>
-  );
+function estimateTime(match: number): string {
+  if (match >= 80) return '3–5 мес';
+  if (match >= 70) return '5–7 мес';
+  if (match >= 60) return '8–12 мес';
+  if (match >= 50) return '8–10 мес';
+  if (match >= 40) return '12–18 мес';
+  return '14–18 мес';
 }
 
-function ExploreRoleCard({ role, categoryColor, categoryLabel, onSelectRole }: {
-  role: ExploreAnalysis['roles'][0];
-  categoryColor: Record<string, string>;
-  categoryLabel: Record<string, string>;
+function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
+  data: ExploreAnalysis;
+  appState: AppState;
   onSelectRole?: (role: string) => void;
+  onBackToSkills: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const closest = data.roles.filter(r => r.category === 'closest');
+  const adjacent = data.roles.filter(r => r.category === 'adjacent');
+  const far = data.roles.filter(r => r.category === 'far');
+
   return (
-    <div className="card transition-all">
-      <div className="cursor-pointer" onClick={() => setOpen(!open)}>
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="font-bold text-(--color-text-primary) text-lg">{role.title}</h3>
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${categoryColor[role.category] || ''}`}>
-            {role.match}%
-          </span>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Eyebrow className="mb-2">Исследование возможностей</Eyebrow>
+          <h2 className="text-2xl font-bold text-[var(--ink)] sm:text-3xl">Куда вы можете перейти</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            На основе вашего профиля — {data.roles.length} ролей
+          </p>
         </div>
-        <span className="text-xs font-medium text-(--color-text-muted)">{categoryLabel[role.category]}</span>
-        {role.missing.length > 0 && (
-          <div className="mt-3">
-            <span className="text-xs font-semibold text-(--color-text-muted)">Не хватает:</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {role.missing.map(m => (
-                <span key={m} className="text-xs px-2 py-1 bg-(--color-surface-alt) text-(--color-text-secondary) rounded border border-(--color-border)">{m}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        <Button variant="secondary" onClick={onBackToSkills}>
+          <RefreshCw className="h-4 w-4" />
+          Обновить профиль
+        </Button>
       </div>
 
-      {open && role.reasons.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-(--color-border) fade-in">
-          <ul className="space-y-1 mb-3">
-            {role.reasons.map((r, i) => (
-              <li key={i} className="text-sm text-(--color-text-secondary) flex items-start gap-2">
-                <span className="mt-0.5 shrink-0 text-(--color-text-muted)">—</span> {r}
-              </li>
+      {/* Skills profile */}
+      {appState.skills.length > 0 && (
+        <div className="card">
+          <p className="mb-3 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ваш профиль навыков</p>
+          <div className="flex flex-wrap gap-2">
+            {appState.skills.map(s => (
+              <span key={s.name} className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-sm text-[var(--ink)]">
+                {s.name}
+              </span>
             ))}
-          </ul>
+          </div>
+          <p className="mt-3 text-xs text-[var(--muted)]">
+            Текущая роль: {appState.profession || '—'} · {appState.grade || '—'}
+          </p>
         </div>
       )}
 
-      {onSelectRole && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onSelectRole(role.title); }}
-          className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--blue-deep)] transition-colors hover:underline"
-        >
-          Построить план для этой роли <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+      {/* Closest roles */}
+      {closest.length > 0 && (
+        <div>
+          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+            Ближайшие роли — ≥60% совпадения
+          </p>
+          <div className="space-y-3">
+            {closest.map((role, idx) => (
+              <div key={idx} className="card space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <h3 className="text-lg font-bold text-[var(--ink)]">{role.title}</h3>
+                  <span className="shrink-0 text-lg font-bold text-[var(--accent-green)]">{role.match}%</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--blue-deep)] transition-all duration-700"
+                    style={{ width: `${role.match}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-[var(--chip)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+                    {estimateTime(role.match)}
+                  </span>
+                  {onSelectRole && (
+                    <button
+                      onClick={() => onSelectRole(role.title)}
+                      className="flex items-center gap-1.5 text-sm font-semibold text-[var(--blue-deep)] transition-colors hover:underline"
+                    >
+                      Построить план <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Adjacent roles */}
+      {adjacent.length > 0 && (
+        <div>
+          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+            Смежные роли — 30–60% совпадения
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {adjacent.map((role, idx) => (
+              <div key={idx} className="card">
+                <h3 className="text-base font-bold text-[var(--ink)]">{role.title}</h3>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all duration-700"
+                    style={{ width: `${role.match}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs text-[var(--muted)]">
+                    {role.match}% · {estimateTime(role.match)}
+                  </span>
+                  {onSelectRole && (
+                    <button
+                      onClick={() => onSelectRole(role.title)}
+                      className="text-xs font-semibold text-[var(--blue-deep)] hover:underline"
+                    >
+                      Построить план →
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Far roles */}
+      {far.length > 0 && (
+        <div>
+          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+            Дальние роли — требуют значительной переподготовки
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {far.map((role, idx) => (
+              <div key={idx} className="card opacity-80">
+                <h3 className="text-base font-bold text-[var(--ink)]">{role.title}</h3>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
+                  <div
+                    className="h-full rounded-full bg-slate-400 transition-all duration-700"
+                    style={{ width: `${role.match}%` }}
+                  />
+                </div>
+                <span className="mt-2 block text-xs text-[var(--muted)]">
+                  {role.match}% · {estimateTime(role.match)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
