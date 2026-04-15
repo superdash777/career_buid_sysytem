@@ -35,6 +35,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   const [apiError, setApiError] = useState('');
   const [validationError, setValidationError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
     abortRef.current = new AbortController();
@@ -76,17 +77,33 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
 
   if (loading) {
     return (
-      <Layout step={1}>
+      <Layout step={0}>
         <SkeletonForm />
       </Layout>
     );
   }
 
-  const showGrade = !!state.profession;
-  const showScenario = !!state.profession && !!state.grade;
+  const StepDots = () => (
+    <div className="flex items-center justify-center gap-2 pb-4">
+      {([1, 2, 3] as const).map((s) => (
+        <div
+          key={s}
+          className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
+            s === step
+              ? 'scale-110 bg-[var(--blue-deep)]'
+              : s < step
+                ? 'bg-[var(--blue-deep)] opacity-40'
+                : 'bg-[var(--line)]'
+          }`}
+        />
+      ))}
+    </div>
+  );
+
+  const scenarioLabel = SCENARIOS.find((s) => s.value === state.scenario)?.label ?? state.scenario;
 
   return (
-    <Layout step={1}>
+    <Layout step={0}>
       <div className="space-y-8 slide-up">
         <div>
           <Eyebrow className="mb-2">Goal setup // карьерная цель</Eyebrow>
@@ -112,89 +129,133 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
         )}
 
         <div className="card space-y-6">
-          <MonoLabel>Шаг 1 — профиль</MonoLabel>
-          {/* Profession */}
-          <div>
-            <label className="label">Ваша текущая профессия</label>
-            <SearchableSelect
-              options={professions}
-              value={state.profession}
-              onChange={(v) => onChange({ profession: v })}
-              placeholder="Начните вводить или выберите из списка"
-            />
-            <p className="helper">Мы подтянем релевантные навыки и требования для этой роли.</p>
-          </div>
+          <StepDots />
 
-          {/* Grade — right after profession */}
-          {showGrade && (
-            <div className="fade-in">
-              <label className="label">Текущий грейд</label>
-              <div className="relative">
-                <select
-                  value={state.grade}
-                  onChange={(e) => onChange({ grade: e.target.value as Grade })}
-                  className="input-field appearance-none pr-10"
-                >
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>{g}</option>
+          {step === 1 && (
+            <div className="fade-in space-y-6">
+              <MonoLabel>Шаг 1 из 3 — Выбор цели</MonoLabel>
+              <div>
+                <label className="label">Направление</label>
+                <div className="space-y-3">
+                  {SCENARIOS.map((s) => (
+                    <ScenarioCard
+                      key={s.value}
+                      value={s.value}
+                      label={s.label}
+                      description={s.description}
+                      selected={state.scenario === s.value}
+                      onSelect={() => onChange({ scenario: s.value as Scenario })}
+                    />
                   ))}
-                </select>
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted)"
-                >
-                  ▾
-                </span>
+                </div>
               </div>
-              <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
-            </div>
-          )}
 
-          {/* Scenario cards */}
-          {showScenario && (
-            <div className="fade-in">
-              <label className="label">Направление</label>
-              <div className="space-y-3">
-                {SCENARIOS.map((s) => (
-                  <ScenarioCard
-                    key={s.value}
-                    value={s.value}
-                    label={s.label}
-                    description={s.description}
-                    selected={state.scenario === s.value}
-                    onSelect={() => onChange({ scenario: s.value as Scenario })}
+              {state.scenario && (
+                <SoftOnboardingHint id="goal_scenario">
+                  Отлично! Теперь настроим детали.
+                </SoftOnboardingHint>
+              )}
+
+              {state.scenario === 'Смена профессии' && (
+                <div className="fade-in relative z-10">
+                  <label className="label">Целевая профессия</label>
+                  <SearchableSelect
+                    options={professions}
+                    value={state.targetProfession}
+                    onChange={(v) => onChange({ targetProfession: v })}
+                    placeholder="Начните вводить или выберите роль"
                   />
-                ))}
+                  <p className="helper">Выберите роль, в которую хотите перейти.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="fade-in space-y-6">
+              <MonoLabel>Шаг 2 из 3 — Текущая профессия и грейд</MonoLabel>
+              <div>
+                <label className="label">Ваша текущая профессия</label>
+                <SearchableSelect
+                  options={professions}
+                  value={state.profession}
+                  onChange={(v) => onChange({ profession: v })}
+                  placeholder="Начните вводить или выберите из списка"
+                />
+                <p className="helper">Мы подтянем релевантные навыки и требования для этой роли.</p>
+              </div>
+
+              <div>
+                <label className="label">Текущий грейд</label>
+                <div className="relative">
+                  <select
+                    value={state.grade}
+                    onChange={(e) => onChange({ grade: e.target.value as Grade })}
+                    className="input-field appearance-none pr-10"
+                  >
+                    {GRADES.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted)"
+                  >
+                    ▾
+                  </span>
+                </div>
+                <p className="helper">{GRADE_DESCRIPTIONS[state.grade]}</p>
               </div>
             </div>
           )}
 
-          {showScenario && state.scenario && (
-            <SoftOnboardingHint id="goal_scenario">
-              Отлично! Теперь настроим детали.
-            </SoftOnboardingHint>
-          )}
-
-          {/* Target profession (conditional) */}
-          {state.scenario === 'Смена профессии' && (
-            <div className="fade-in relative z-10">
-              <label className="label">Целевая профессия</label>
-              <SearchableSelect
-                options={professions}
-                value={state.targetProfession}
-                onChange={(v) => onChange({ targetProfession: v })}
-                placeholder="Начните вводить или выберите роль"
-              />
-              <p className="helper">Выберите роль, в которую хотите перейти.</p>
+          {step === 3 && (
+            <div className="fade-in space-y-6">
+              <MonoLabel>Шаг 3 из 3 — Подтверждение выбора</MonoLabel>
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-5 space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-(--color-text-secondary)">Сценарий</span>
+                  <span className="font-medium text-(--color-text-primary)">{scenarioLabel}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-(--color-text-secondary)">Профессия</span>
+                  <span className="font-medium text-(--color-text-primary)">{state.profession || '—'}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-(--color-text-secondary)">Грейд</span>
+                  <span className="font-medium text-(--color-text-primary)">{state.grade}</span>
+                </div>
+                {state.scenario === 'Смена профессии' && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-(--color-text-secondary)">Целевая профессия</span>
+                    <span className="font-medium text-(--color-text-primary)">{state.targetProfession || '—'}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <Button variant="secondary" onClick={onBack}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (step === 1) onBack();
+              else setStep((step - 1) as 1 | 2);
+            }}
+          >
             ← Назад
           </Button>
-          <Button onClick={handleNext}>Продолжить →</Button>
+          {step < 3 ? (
+            <Button
+              disabled={step === 1 && !state.scenario}
+              onClick={() => setStep((step + 1) as 2 | 3)}
+            >
+              Далее →
+            </Button>
+          ) : (
+            <Button onClick={handleNext}>Продолжить →</Button>
+          )}
         </div>
       </div>
     </Layout>
