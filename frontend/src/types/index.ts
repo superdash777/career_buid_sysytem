@@ -231,22 +231,6 @@ export interface PlanResponse {
   analysis_id?: string;
 }
 
-export type Verdict = {
-  color: 'green' | 'amber' | 'red';
-  title: string;
-  body: string;
-};
-
-export interface PlanStep {
-  id: string;
-  number: number;
-  title: string;
-  description: string;
-  week_range: string;
-  priority: 'high' | 'medium' | 'low';
-  status: 'todo' | 'in_progress' | 'done';
-}
-
 export interface FocusedPlanTask {
   skill: string;
   items: string[];

@@ -23,9 +23,9 @@ interface Props {
 const INITIAL_VISIBLE = 5;
 
 const PRIORITY_STYLES: Record<PlanStep['priority'], { label: string; cls: string }> = {
-  high: { label: 'Высокий', cls: 'bg-[var(--accent-red)]/15 text-[var(--accent-red)]' },
-  medium: { label: 'Средний', cls: 'bg-amber-100 text-amber-700' },
-  low: { label: 'Низкий', cls: 'bg-(--chip) text-(--color-text-muted)' },
+  critical: { label: 'Критичный', cls: 'bg-[var(--accent-red)]/15 text-[var(--accent-red)]' },
+  moderate: { label: 'Средний', cls: 'bg-amber-100 text-amber-700' },
+  ok: { label: 'Низкий', cls: 'bg-(--chip) text-(--color-text-muted)' },
 };
 
 const STATUS_CYCLE: PlanStep['status'][] = ['todo', 'in_progress', 'done'];
@@ -37,9 +37,11 @@ function nextStatus(current: PlanStep['status']): PlanStep['status'] {
 
 function StepCard({
   step,
+  index,
   onToggle,
 }: {
   step: PlanStep;
+  index: number;
   onToggle: (id: string, status: PlanStep['status']) => void;
 }) {
   const priority = PRIORITY_STYLES[step.priority];
@@ -72,7 +74,7 @@ function StepCard({
         ].join(' ')}
         title="Нажмите, чтобы сменить статус"
       >
-        {step.status === 'done' ? <Check size={16} /> : step.number}
+        {step.status === 'done' ? <Check size={16} /> : index + 1}
       </button>
 
       <div className="min-w-0 flex-1 space-y-1">
@@ -199,8 +201,8 @@ export default function PlanScreen({
         {/* Step list */}
         {hasSteps && (
           <div className="space-y-3">
-            {visibleSteps.map((step) => (
-              <StepCard key={step.id} step={step} onToggle={onStepStatusChange} />
+            {visibleSteps.map((step, idx) => (
+              <StepCard key={step.id} step={step} index={idx} onToggle={onStepStatusChange} />
             ))}
             {steps.length > INITIAL_VISIBLE && (
               <button

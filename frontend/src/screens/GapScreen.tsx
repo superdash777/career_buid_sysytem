@@ -22,7 +22,7 @@ function deriveVerdict(match: number, gaps: { name: string }[], strengths: { nam
     return {
       color: 'green',
       title: 'Переход реален',
-      body: top
+      text: top
         ? `Сильные стороны: ${top}. Вы уже обладаете большей частью необходимых навыков.`
         : 'Вы уже обладаете большей частью необходимых навыков.',
     };
@@ -32,7 +32,7 @@ function deriveVerdict(match: number, gaps: { name: string }[], strengths: { nam
     return {
       color: 'amber',
       title: 'Переход реален, но есть нюанс',
-      body: top
+      text: top
         ? `Ключевые пробелы: ${top}. Потребуется целенаправленная подготовка.`
         : 'Потребуется целенаправленная подготовка.',
     };
@@ -41,7 +41,7 @@ function deriveVerdict(match: number, gaps: { name: string }[], strengths: { nam
   return {
     color: 'red',
     title: 'Путь тяжёлый — честный разбор',
-    body: top
+    text: top
       ? `Самые большие пробелы: ${top}. Рекомендуем сосредоточиться на фундаменте.`
       : 'Рекомендуем сосредоточиться на фундаменте.',
   };
@@ -121,7 +121,7 @@ function VerdictCardInline({ verdict }: { verdict: Verdict }) {
         <span className="text-xl">{s.icon}</span>
         <h3 className="text-lg font-bold text-(--color-text-primary)">{verdict.title}</h3>
       </div>
-      <p className="text-sm text-(--color-text-secondary) leading-relaxed">{verdict.body}</p>
+      <p className="text-sm text-(--color-text-secondary) leading-relaxed">{verdict.text}</p>
     </div>
   );
 }
