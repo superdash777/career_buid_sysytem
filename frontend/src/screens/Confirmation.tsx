@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import MiniProgress from '../components/MiniProgress';
 import SoftOnboardingHint from '../components/SoftOnboardingHint';
-import TetrisGame from '../components/TetrisGame';
+import LoadingCarousel from '../components/LoadingCarousel';
 import { buildPlan, createAnalysis, ApiError } from '../api/client';
 import { showToast } from '../components/toastStore';
 import type { AppState, PlanResponse, Scenario } from '../types';
@@ -87,9 +87,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   if (loading) {
     return (
       <Layout step={3}>
-        <div className="py-8">
-          <TetrisGame active={loading} />
-        </div>
+        <LoadingCarousel />
       </Layout>
     );
   }
