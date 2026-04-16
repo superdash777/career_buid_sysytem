@@ -192,7 +192,7 @@ export default function App() {
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedError, setSharedError] = useState('');
   const [pendingAuthScreen, setPendingAuthScreen] = useState<Screen | null>(null);
-  const [selectedExploreRole, setSelectedExploreRole] = useState<ExploreRole | null>(null);
+  const [selectedExploreRole] = useState<ExploreRole | null>(null);
 
   const setScreen = useCallback((s: Screen, replace = false) => {
     if (s === 'share') return;
