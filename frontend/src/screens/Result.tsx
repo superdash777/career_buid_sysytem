@@ -26,7 +26,7 @@ interface Props {
   onBackToSkills: () => void;
   onOpenDashboard: () => void;
   onOpenShare: (analysisId: string) => void;
-  onSelectRole?: (roleName: string) => void;
+  onSelectRole?: (role: ExploreAnalysis['roles'][0]) => void;
 }
 
 function MatchRing({ percent }: { percent: number }) {
@@ -493,35 +493,61 @@ function SwitchView({ data }: { data: SwitchAnalysis }) {
 
 // ======================== EXPLORE ========================
 
-function estimateTime(match: number): string {
-  if (match >= 80) return '3–5 мес';
-  if (match >= 70) return '5–7 мес';
-  if (match >= 60) return '8–12 мес';
-  if (match >= 50) return '8–10 мес';
-  if (match >= 40) return '12–18 мес';
-  return '14–18 мес';
-}
+const ROLE_STYLES = {
+  closest: {
+    card: 'bg-[var(--chip)] border-[var(--blue-deep)]/30',
+    category: 'text-[var(--blue-deep)]',
+    bar: 'bg-[var(--blue-deep)]',
+    chip: 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]',
+    dot: 'bg-[var(--blue-deep)]',
+  },
+  adjacent: {
+    card: 'bg-[#E1F5EE] border-[#1D9E75]/30',
+    category: 'text-[#1D9E75]',
+    bar: 'bg-[#1D9E75]',
+    chip: 'bg-[#1D9E75]/10 text-[#1D9E75]',
+    dot: 'bg-[#1D9E75]',
+  },
+  far: {
+    card: 'bg-[var(--bg)] border-[var(--line)]',
+    category: 'text-[var(--muted)]',
+    bar: 'bg-slate-400',
+    chip: 'bg-slate-100 text-slate-500',
+    dot: 'bg-slate-400',
+  },
+};
+
+type ExploreFilter = 'all' | 'closest' | 'adjacent' | 'far';
 
 function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
   data: ExploreAnalysis;
   appState: AppState;
-  onSelectRole?: (role: string) => void;
+  onSelectRole?: (role: ExploreAnalysis['roles'][0]) => void;
   onBackToSkills: () => void;
 }) {
-  const closest = data.roles.filter(r => r.category === 'closest');
-  const adjacent = data.roles.filter(r => r.category === 'adjacent');
-  const far = data.roles.filter(r => r.category === 'far');
+  const [filter, setFilter] = useState<ExploreFilter>('all');
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  const filtered = filter === 'all' ? data.roles : data.roles.filter(r => r.category === filter);
+  const selectedRole = selectedIdx !== null ? data.roles[selectedIdx] : null;
+
+  const FILTERS: Array<{ key: ExploreFilter; label: string }> = [
+    { key: 'all', label: 'Все' },
+    { key: 'closest', label: 'Ближайшие' },
+    { key: 'adjacent', label: 'Смежные' },
+  ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Eyebrow className="mb-2">Исследование возможностей</Eyebrow>
-          <h2 className="text-2xl font-bold text-[var(--ink)] sm:text-3xl">Куда вы можете перейти</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            На основе вашего профиля — {data.roles.length} ролей
-          </p>
+          <Eyebrow className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--chip)] px-3 py-1">
+            ✦ Исследование возможностей
+          </Eyebrow>
+          <h2 className="mt-2 text-2xl font-bold text-[var(--ink)] sm:text-3xl">
+            Направления развития
+          </h2>
         </div>
         <Button variant="secondary" onClick={onBackToSkills}>
           <RefreshCw className="h-4 w-4" />
@@ -529,120 +555,167 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
         </Button>
       </div>
 
-      {/* Skills profile */}
+      {/* Profile chip */}
       {appState.skills.length > 0 && (
-        <div className="card">
-          <p className="mb-3 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Ваш профиль навыков</p>
-          <div className="flex flex-wrap gap-2">
-            {appState.skills.map(s => (
-              <span key={s.name} className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-sm text-[var(--ink)]">
-                {s.name}
-              </span>
-            ))}
+        <div className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-deep)] text-xs font-semibold text-white">
+            {(appState.profession || 'U')[0]}
           </div>
-          <p className="mt-3 text-xs text-[var(--muted)]">
-            Текущая роль: {appState.profession || '—'} · {appState.grade || '—'}
-          </p>
-        </div>
-      )}
-
-      {/* Closest roles */}
-      {closest.length > 0 && (
-        <div>
-          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
-            Ближайшие роли — ≥60% совпадения
-          </p>
-          <div className="space-y-3">
-            {closest.map((role, idx) => (
-              <div key={idx} className="card space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <h3 className="text-lg font-bold text-[var(--ink)]">{role.title}</h3>
-                  <span className="shrink-0 text-lg font-bold text-[var(--accent-green)]">{role.match}%</span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--blue-deep)] transition-all duration-700"
-                    style={{ width: `${role.match}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="rounded-full bg-[var(--chip)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-                    {estimateTime(role.match)}
-                  </span>
-                  {onSelectRole && (
-                    <button
-                      onClick={() => onSelectRole(role.title)}
-                      className="flex items-center gap-1.5 text-sm font-semibold text-[var(--blue-deep)] transition-colors hover:underline"
-                    >
-                      Построить план <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-[var(--ink)] truncate">{appState.profession || 'Не указано'}</p>
+            <p className="text-xs text-[var(--muted)] truncate">{appState.grade}</p>
+          </div>
+          <div className="hidden flex-wrap gap-1 sm:flex">
+            {appState.skills.slice(0, 4).map(s => (
+              <span key={s.name} className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-2.5 py-0.5 text-xs text-[var(--muted)]">{s.name}</span>
             ))}
+            {appState.skills.length > 4 && (
+              <span className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-2.5 py-0.5 text-xs text-[var(--muted)]">+{appState.skills.length - 4}</span>
+            )}
           </div>
         </div>
       )}
 
-      {/* Adjacent roles */}
-      {adjacent.length > 0 && (
-        <div>
-          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
-            Смежные роли — 30–60% совпадения
-          </p>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {adjacent.map((role, idx) => (
-              <div key={idx} className="card">
-                <h3 className="text-base font-bold text-[var(--ink)]">{role.title}</h3>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
-                  <div
-                    className="h-full rounded-full bg-amber-400 transition-all duration-700"
-                    style={{ width: `${role.match}%` }}
-                  />
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-[var(--muted)]">
-                    {role.match}% · {estimateTime(role.match)}
-                  </span>
-                  {onSelectRole && (
-                    <button
-                      onClick={() => onSelectRole(role.title)}
-                      className="text-xs font-semibold text-[var(--blue-deep)] hover:underline"
-                    >
-                      Построить план →
-                    </button>
-                  )}
-                </div>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-[var(--muted)]">Показать:</span>
+        {FILTERS.map(f => (
+          <button
+            key={f.key}
+            onClick={() => { setFilter(f.key); setSelectedIdx(null); }}
+            className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-all ${
+              filter === f.key
+                ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+                : 'border-[var(--line)] text-[var(--muted)] hover:bg-[var(--chip)]'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-[var(--muted)]">{filtered.length} ролей</span>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-5">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-[var(--blue-deep)]" />
+          <span className="text-xs text-[var(--muted)]">Ближайшие — переход до 6 мес.</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-[#1D9E75]" />
+          <span className="text-xs text-[var(--muted)]">Смежные — 6–12 мес.</span>
+        </div>
+      </div>
+
+      {/* Detail panel */}
+      {selectedRole && (
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--bg)] p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="text-xl font-bold text-[var(--ink)]">{selectedRole.title}</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">{selectedRole.match_label}</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+              selectedRole.category === 'closest' ? 'bg-[var(--chip)] text-[var(--blue-deep)]' : 'bg-[#E1F5EE] text-[#1D9E75]'
+            }`}>
+              {selectedRole.category === 'closest' ? 'Ближайшая' : 'Смежная'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 mb-4">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center">
+              <span className="block text-xl font-bold text-[var(--blue-deep)]">{selectedRole.match}%</span>
+              <span className="text-xs text-[var(--muted)]">Совместимость</span>
+            </div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center">
+              <span className="block text-xl font-bold text-[var(--ink)]">{selectedRole.missing.length}</span>
+              <span className="text-xs text-[var(--muted)]">Навыков развить</span>
+            </div>
+          </div>
+
+          {selectedRole.key_skills.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Имеющиеся навыки</p>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedRole.key_skills.map(sk => (
+                  <span key={sk} className="rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1 text-xs text-[var(--ink)]">{sk}</span>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+
+          {selectedRole.missing.length > 0 && (
+            <div className="mb-5">
+              <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Нужно освоить</p>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedRole.missing.map(sk => (
+                  <span key={sk} className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    selectedRole.category === 'closest' ? 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]' : 'bg-[#1D9E75]/10 text-[#1D9E75]'
+                  }`}>{sk}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            {onSelectRole && (
+              <Button onClick={() => onSelectRole(selectedRole)} className="flex-1">
+                Составить план развития <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setSelectedIdx(null)}>
+              Закрыть
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Far roles */}
-      {far.length > 0 && (
-        <div>
-          <p className="mb-4 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
-            Дальние роли — требуют значительной переподготовки
-          </p>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {far.map((role, idx) => (
-              <div key={idx} className="card opacity-80">
-                <h3 className="text-base font-bold text-[var(--ink)]">{role.title}</h3>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
-                  <div
-                    className="h-full rounded-full bg-slate-400 transition-all duration-700"
-                    style={{ width: `${role.match}%` }}
-                  />
-                </div>
-                <span className="mt-2 block text-xs text-[var(--muted)]">
-                  {role.match}% · {estimateTime(role.match)}
-                </span>
+      {/* Role grid */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((role, idx) => {
+          const globalIdx = data.roles.indexOf(role);
+          const s = ROLE_STYLES[role.category] || ROLE_STYLES.far;
+          const isSelected = selectedIdx === globalIdx;
+
+          return (
+            <div
+              key={idx}
+              onClick={() => setSelectedIdx(isSelected ? null : globalIdx)}
+              className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${s.card} ${
+                isSelected ? 'ring-2 ring-[var(--blue-deep)]/20' : ''
+              }`}
+            >
+              <p className={`text-[10px] font-medium uppercase tracking-widest mb-2 ${s.category}`}>
+                {role.category === 'closest' ? 'Ближайшая' : role.category === 'adjacent' ? 'Смежная' : 'Дальняя'}
+              </p>
+              <h3 className="text-[15px] font-semibold leading-snug text-[var(--ink)] mb-1.5">{role.title}</h3>
+
+              <div className="flex flex-wrap gap-1 mb-3">
+                {role.missing.slice(0, 3).map(sk => (
+                  <span key={sk} className={`rounded-full px-2 py-0.5 text-[10px] ${s.chip}`}>{sk}</span>
+                ))}
+                {role.missing.length > 3 && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${s.chip}`}>+{role.missing.length - 3}</span>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <p className="text-[10px] text-[var(--muted)] mb-1">Совместимость</p>
+                  <div className="h-1 overflow-hidden rounded-full bg-black/10">
+                    <div className={`h-full rounded-full transition-all duration-700 ${s.bar}`} style={{ width: `${role.match}%` }} />
+                  </div>
+                </div>
+                <span className={`text-sm font-semibold ${s.category}`}>{role.match}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-center text-xs text-[var(--muted)]">
+        Нажмите на роль, чтобы увидеть детали перехода
+      </p>
     </div>
   );
 }
