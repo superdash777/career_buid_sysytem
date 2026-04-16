@@ -750,9 +750,13 @@ def _build_role_matches(opps, user_skills):
         internal = opp.get("internal_role")
         reqs = data.get_role_requirements(internal, "Middle") if internal else {}
         skill_keys = [k for k in reqs.keys() if k not in data.atlas_map]
-        matched = [{"name": s} for s in user_skills if s in reqs][:5]
-        # Для explore UI нужны все недостающие навыки роли (для выбора 4 навыков в план).
-        missing = [{"name": s} for s in skill_keys if s not in user_skills]
+        matched = [
+            {"name": s}
+            for s in skill_keys
+            if user_skills.get(s, 0) >= reqs.get(s, 0)
+        ][:5]
+        # Для explore UI нужны все навыки, где уровень ниже требуемого.
+        missing = [{"name": s} for s in skill_keys if user_skills.get(s, 0) < reqs.get(s, 0)]
         why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
         score = (opp.get("match", 0) or 0) / 100.0
         matches.append(RoleMatch(
