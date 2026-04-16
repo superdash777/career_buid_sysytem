@@ -117,12 +117,8 @@ export default function Result({
   return (
     <Layout step={4} wide>
       <div className="space-y-6 slide-up">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <Eyebrow className="mb-2">Результаты анализа</Eyebrow>
-            <h1 className="text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">Ваш план развития</h1>
-          </div>
+        {/* Header actions */}
+        <div className="flex flex-wrap justify-end gap-2">
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={onReset}>Заново</Button>
             <Button variant="secondary" onClick={handleShare} disabled={!plan.analysis_id || sharing}>
@@ -625,7 +621,7 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
           <div className="grid grid-cols-2 gap-2.5 mb-4">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center">
               <span className="block text-xl font-bold text-[var(--blue-deep)]">{selectedRole.match}%</span>
-              <span className="text-xs text-[var(--muted)]">Совместимость</span>
+              <span className="text-xs text-[var(--muted)]">Готовность к переходу</span>
             </div>
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center">
               <span className="block text-xl font-bold text-[var(--ink)]">{selectedRole.missing.length}</span>
@@ -681,7 +677,7 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
             <div
               key={idx}
               onClick={() => setSelectedIdx(isSelected ? null : globalIdx)}
-              className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${s.card} ${
+              className={`h-full cursor-pointer rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${s.card} flex flex-col ${
                 isSelected ? 'ring-2 ring-[var(--blue-deep)]/20' : ''
               }`}
             >
@@ -699,9 +695,9 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-auto flex items-center gap-2">
                 <div className="flex-1">
-                  <p className="text-[10px] text-[var(--muted)] mb-1">Совместимость</p>
+                  <p className="text-[10px] text-[var(--muted)] mb-1">Готовность к переходу</p>
                   <div className="h-1 overflow-hidden rounded-full bg-black/10">
                     <div className={`h-full rounded-full transition-all duration-700 ${s.bar}`} style={{ width: `${role.match}%` }} />
                   </div>
