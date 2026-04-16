@@ -53,6 +53,7 @@ class RoleCard:
     percent_text: str = ""     # "25%" или "<10%"
     reasons: List[str] = field(default_factory=list)   # 3–5
     add_skills: List[str] = field(default_factory=list)  # 3
+    missing_skills: List[str] = field(default_factory=list)  # все несовпавшие навыки
     key_skills: List[str] = field(default_factory=list)  # до 8
     track_labels: List[str] = field(default_factory=list)  # метки кластеров по key_skills/add_skills
 
@@ -152,7 +153,8 @@ def build_explore_recommendations(matches: List[RoleMatch]) -> ExploreViewModel:
             key=lambda x: ({"high": 0, "medium": 1, "low": 2}.get((x or {}).get("importance", ""), 2),
                           (x or {}).get("name", "")),
         )
-        add_skills = [ (x.get("name") or str(x)) for x in missing_sorted[: Config.EXPLORE_ADD_SKILLS_TOP_N] ]
+        all_missing_names = [(x.get("name") or str(x)) for x in missing_sorted if (x.get("name") or str(x))]
+        add_skills = all_missing_names[: Config.EXPLORE_ADD_SKILLS_TOP_N]
 
         all_key = []
         for m in group:
@@ -173,6 +175,7 @@ def build_explore_recommendations(matches: List[RoleMatch]) -> ExploreViewModel:
             percent_text=_percent_text(score),
             reasons=reasons[:5],
             add_skills=add_skills[:3],
+            missing_skills=all_missing_names,
             key_skills=key_skills[:8],
         )
         cards.append(card)
