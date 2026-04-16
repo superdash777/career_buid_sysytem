@@ -26,7 +26,6 @@ interface Props {
   onBackToSkills: () => void;
   onOpenDashboard: () => void;
   onOpenShare: (analysisId: string) => void;
-  onSelectRole?: (role: ExploreAnalysis['roles'][0]) => void;
 }
 
 function MatchRing({ percent }: { percent: number }) {
@@ -48,10 +47,12 @@ function MatchRing({ percent }: { percent: number }) {
   );
 }
 
+const EXPLORE_REQUIRED_SKILLS_COUNT = 4;
+
 
 export default function Result({
   plan, appState, isAuthenticated = true, onSoftGate, onReset,
-  onBackToSkills, onOpenDashboard, onOpenShare, onSelectRole,
+  onBackToSkills, onOpenDashboard, onOpenShare,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [selectedGaps, setSelectedGaps] = useState<Set<string>>(new Set());
@@ -133,7 +134,7 @@ export default function Result({
         {/* Main content */}
         {/* Explore: full width, no sidebar */}
         {plan.analysis?.scenario === 'explore' && (
-          <ExploreView data={plan.analysis} appState={appState} onSelectRole={onSelectRole} onBackToSkills={onBackToSkills} />
+          <ExploreView data={plan.analysis} appState={appState} onBackToSkills={onBackToSkills} />
         )}
 
         {/* Growth / Switch: 2-column layout with sidebar */}
@@ -515,17 +516,68 @@ const ROLE_STYLES = {
 
 type ExploreFilter = 'all' | 'closest' | 'adjacent' | 'far';
 
-function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
+function ExploreView({ data, appState, onBackToSkills }: {
   data: ExploreAnalysis;
   appState: AppState;
-  onSelectRole?: (role: ExploreAnalysis['roles'][0]) => void;
   onBackToSkills: () => void;
 }) {
   const [filter, setFilter] = useState<ExploreFilter>('all');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [selectedMissingSkills, setSelectedMissingSkills] = useState<Set<string>>(new Set());
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState('');
+  const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
 
   const filtered = filter === 'all' ? data.roles : data.roles.filter(r => r.category === filter);
   const selectedRole = selectedIdx !== null ? data.roles[selectedIdx] : null;
+
+  const selectedSkillsList = Array.from(selectedMissingSkills);
+
+  const toggleMissingSkill = (skill: string) => {
+    setSelectedMissingSkills((prev) => {
+      const next = new Set(prev);
+      if (next.has(skill)) {
+        next.delete(skill);
+        return next;
+      }
+      if (next.size >= EXPLORE_REQUIRED_SKILLS_COUNT) {
+        return prev;
+      }
+      next.add(skill);
+      return next;
+    });
+  };
+
+  const handleSelectRole = (idx: number | null) => {
+    setSelectedIdx(idx);
+    setSelectedMissingSkills(new Set());
+    setPlanError('');
+    setFocusedPlan(null);
+  };
+
+  const handleGenerateRolePlan = async () => {
+    if (!selectedRole) return;
+    if (selectedSkillsList.length !== EXPLORE_REQUIRED_SKILLS_COUNT) {
+      setPlanError(`Выберите ровно ${EXPLORE_REQUIRED_SKILLS_COUNT} навыка для генерации плана`);
+      return;
+    }
+    setPlanLoading(true);
+    setPlanError('');
+    try {
+      const result = await buildFocusedPlan({
+        profession: appState.profession,
+        grade: appState.grade,
+        scenario: 'Исследование возможностей',
+        target_profession: selectedRole.title,
+        selected_skills: selectedSkillsList,
+      });
+      setFocusedPlan(result);
+    } catch (err) {
+      setPlanError(err instanceof ApiError ? err.message : 'Не удалось сформировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
 
   const FILTERS: Array<{ key: ExploreFilter; label: string }> = [
     { key: 'all', label: 'Все' },
@@ -642,27 +694,58 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
 
           {selectedRole.missing.length > 0 && (
             <div className="mb-5">
-              <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Нужно освоить</p>
+              <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+                Нужно освоить (выберите {EXPLORE_REQUIRED_SKILLS_COUNT} навыка)
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {selectedRole.missing.map(sk => (
-                  <span key={sk} className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    selectedRole.category === 'closest' ? 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]' : 'bg-[#1D9E75]/10 text-[#1D9E75]'
-                  }`}>{sk}</span>
-                ))}
+                {selectedRole.missing.map((sk) => {
+                  const isSelected = selectedMissingSkills.has(sk);
+                  return (
+                    <button
+                      key={sk}
+                      type="button"
+                      onClick={() => toggleMissingSkill(sk)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-[var(--blue-deep)] text-white'
+                          : selectedRole.category === 'closest'
+                            ? 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]'
+                            : 'bg-[#1D9E75]/10 text-[#1D9E75]'
+                      }`}
+                    >
+                      {sk}
+                    </button>
+                  );
+                })}
               </div>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Выбрано: {selectedSkillsList.length}/{EXPLORE_REQUIRED_SKILLS_COUNT}
+              </p>
             </div>
           )}
 
           <div className="flex gap-2">
-            {onSelectRole && (
-              <Button onClick={() => onSelectRole(selectedRole)} className="flex-1">
-                Составить план развития <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              onClick={handleGenerateRolePlan}
+              className="flex-1"
+              disabled={planLoading || selectedSkillsList.length !== EXPLORE_REQUIRED_SKILLS_COUNT}
+            >
+              {planLoading ? (
+                <>Генерируем...</>
+              ) : (
+                <>Составить план развития <ArrowRight className="h-4 w-4" /></>
+              )}
+            </Button>
             <Button variant="secondary" onClick={() => setSelectedIdx(null)}>
               Закрыть
             </Button>
           </div>
+          {planError && <p className="mt-2 text-xs text-red-500">{planError}</p>}
+          {focusedPlan && (
+            <div className="mt-5 border-t border-[var(--line)] pt-5">
+              <FocusedPlanView plan={focusedPlan} />
+            </div>
+          )}
         </div>
       )}
 
@@ -676,7 +759,7 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
           return (
             <div
               key={idx}
-              onClick={() => setSelectedIdx(isSelected ? null : globalIdx)}
+              onClick={() => handleSelectRole(isSelected ? null : globalIdx)}
               className={`h-full cursor-pointer rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${s.card} flex flex-col ${
                 isSelected ? 'ring-2 ring-[var(--blue-deep)]/20' : ''
               }`}
@@ -686,14 +769,9 @@ function ExploreView({ data, appState, onSelectRole, onBackToSkills }: {
               </p>
               <h3 className="text-[15px] font-semibold leading-snug text-[var(--ink)] mb-1.5">{role.title}</h3>
 
-              <div className="flex flex-wrap gap-1 mb-3">
-                {role.missing.slice(0, 3).map(sk => (
-                  <span key={sk} className={`rounded-full px-2 py-0.5 text-[10px] ${s.chip}`}>{sk}</span>
-                ))}
-                {role.missing.length > 3 && (
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${s.chip}`}>+{role.missing.length - 3}</span>
-                )}
-              </div>
+              <p className="mb-3 line-clamp-3 text-[11px] leading-relaxed text-[var(--muted)]">
+                {role.summary || role.reasons.slice(0, 3).join(', ')}
+              </p>
 
               <div className="mt-auto flex items-center gap-2">
                 <div className="flex-1">

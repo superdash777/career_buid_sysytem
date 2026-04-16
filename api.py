@@ -751,7 +751,8 @@ def _build_role_matches(opps, user_skills):
         reqs = data.get_role_requirements(internal, "Middle") if internal else {}
         skill_keys = [k for k in reqs.keys() if k not in data.atlas_map]
         matched = [{"name": s} for s in user_skills if s in reqs][:5]
-        missing = [{"name": s} for s in skill_keys if s not in user_skills][:3]
+        # Для explore UI нужны все недостающие навыки роли (для выбора 4 навыков в план).
+        missing = [{"name": s} for s in skill_keys if s not in user_skills]
         why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
         score = (opp.get("match", 0) or 0) / 100.0
         matches.append(RoleMatch(
@@ -822,11 +823,14 @@ def _build_switch_analysis(switch_vm, from_role, to_role):
 
 def _build_explore_analysis(view_model):
     def card_to_dict(c, category):
+        summary = ". ".join(c.reasons[:3]).strip()
+        summary = summary[:220]
         return {
             "title": c.title, "match": round(c.match_score * 100),
             "category": category, "match_label": c.match_label,
-            "missing": c.add_skills[:5], "key_skills": c.key_skills[:8],
+            "missing": c.missing_skills, "key_skills": c.key_skills[:8],
             "reasons": c.reasons[:5],
+            "summary": summary,
         }
     roles = []
     for c in view_model.closest:
@@ -936,6 +940,8 @@ def focused_plan_api(req: FocusedPlanRequest):
     """Генерирует фокусный план по выбранным навыкам. Возвращает {tasks, communication, learning}."""
     if not req.selected_skills:
         raise HTTPException(status_code=400, detail="Выберите хотя бы один навык")
+    if req.scenario == "Исследование возможностей" and len(req.selected_skills) != 4:
+        raise HTTPException(status_code=400, detail="Для плана выберите ровно 4 навыка")
 
     grade_key = GRADE_MAP.get(req.grade, "Middle")
     grade_sequence = ["Junior", "Middle", "Senior", "Lead", "Expert"]
@@ -943,7 +949,8 @@ def focused_plan_api(req: FocusedPlanRequest):
     target_grade = grade_sequence[min(idx + 1, len(grade_sequence) - 1)]
 
     skill_details = []
-    for name in req.selected_skills[:10]:
+    selected_skills = req.selected_skills[:4] if req.scenario == "Исследование возможностей" else req.selected_skills[:10]
+    for name in selected_skills:
         detail = data.get_skill_detail(name, target_grade)
         if detail:
             skill_details.append(detail)
@@ -970,7 +977,7 @@ def focused_plan_api(req: FocusedPlanRequest):
 
     target = req.target_profession or req.profession
     return gen.generate_focused_plan_json(
-        selected_skills=req.selected_skills[:10],
+        selected_skills=selected_skills,
         profession=req.profession,
         grade=req.grade,
         scenario=req.scenario,

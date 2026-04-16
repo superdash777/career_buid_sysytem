@@ -211,6 +211,7 @@ export interface ExploreRole {
   match: number;
   category: 'closest' | 'adjacent' | 'far';
   match_label: string;
+  summary?: string;
   missing: string[];
   key_skills: string[];
   reasons: string[];
