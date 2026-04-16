@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip as RechartsTooltip,
 } from 'recharts';
-import { Check, Sparkles, CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
+import { Check, Sparkles, CheckCircle2, AlertTriangle, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressLoader from '../components/ProgressLoader';
-import { buildFocusedPlan, ApiError } from '../api/client';
+import { buildFocusedPlan, fetchSkillsForRole, ApiError } from '../api/client';
 import { showToast } from '../components/toastStore';
 import type {
   PlanResponse, GrowthAnalysis, SwitchAnalysis, ExploreAnalysis,
@@ -524,12 +524,21 @@ function ExploreView({ data, appState, onBackToSkills }: {
   const [filter, setFilter] = useState<ExploreFilter>('all');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [selectedMissingSkills, setSelectedMissingSkills] = useState<Set<string>>(new Set());
+  const [roleMissingSkills, setRoleMissingSkills] = useState<string[] | null>(null);
+  const [roleSkillsLoading, setRoleSkillsLoading] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState('');
   const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
 
   const filtered = filter === 'all' ? data.roles : data.roles.filter(r => r.category === filter);
   const selectedRole = selectedIdx !== null ? data.roles[selectedIdx] : null;
+  const userSkillsSet = useMemo(
+    () => new Set(appState.skills.map((s) => s.name.trim().toLowerCase())),
+    [appState.skills],
+  );
+  const missingSkillsForRole = selectedRole
+    ? (roleMissingSkills ?? selectedRole.missing)
+    : [];
 
   const selectedSkillsList = Array.from(selectedMissingSkills);
 
@@ -551,9 +560,45 @@ function ExploreView({ data, appState, onBackToSkills }: {
   const handleSelectRole = (idx: number | null) => {
     setSelectedIdx(idx);
     setSelectedMissingSkills(new Set());
+    setRoleMissingSkills(null);
+    setRoleSkillsLoading(false);
     setPlanError('');
     setFocusedPlan(null);
   };
+
+  useEffect(() => {
+    if (!selectedRole) {
+      setRoleMissingSkills(null);
+      setRoleSkillsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRoleSkillsLoading(true);
+    setRoleMissingSkills([]);
+    fetchSkillsForRole(selectedRole.title)
+      .then((roleSkills) => {
+        if (cancelled) return;
+        const uniqueRoleSkills = Array.from(
+          new Set(roleSkills.map((s) => s.trim()).filter(Boolean)),
+        );
+        const missing = uniqueRoleSkills.filter(
+          (skill) => !userSkillsSet.has(skill.toLowerCase()),
+        );
+        setRoleMissingSkills(missing);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          // Fallback to analysis payload if role skills can't be loaded.
+          setRoleMissingSkills(selectedRole.missing);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRoleSkillsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRole, userSkillsSet]);
 
   const handleGenerateRolePlan = async () => {
     if (!selectedRole) return;
@@ -676,7 +721,7 @@ function ExploreView({ data, appState, onBackToSkills }: {
               <span className="text-xs text-[var(--muted)]">Готовность к переходу</span>
             </div>
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center">
-              <span className="block text-xl font-bold text-[var(--ink)]">{selectedRole.missing.length}</span>
+              <span className="block text-xl font-bold text-[var(--ink)]">{missingSkillsForRole.length}</span>
               <span className="text-xs text-[var(--muted)]">Навыков развить</span>
             </div>
           </div>
@@ -692,35 +737,44 @@ function ExploreView({ data, appState, onBackToSkills }: {
             </div>
           )}
 
-          {selectedRole.missing.length > 0 && (
+          {(roleSkillsLoading || missingSkillsForRole.length > 0) && (
             <div className="mb-5">
               <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
                 Нужно освоить (выберите {EXPLORE_REQUIRED_SKILLS_COUNT} навыка)
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedRole.missing.map((sk) => {
-                  const isSelected = selectedMissingSkills.has(sk);
-                  return (
-                    <button
-                      key={sk}
-                      type="button"
-                      onClick={() => toggleMissingSkill(sk)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        isSelected
-                          ? 'bg-[var(--blue-deep)] text-white'
-                          : selectedRole.category === 'closest'
-                            ? 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]'
-                            : 'bg-[#1D9E75]/10 text-[#1D9E75]'
-                      }`}
-                    >
-                      {sk}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                Выбрано: {selectedSkillsList.length}/{EXPLORE_REQUIRED_SKILLS_COUNT}
-              </p>
+              {roleSkillsLoading ? (
+                <p className="inline-flex items-center gap-2 text-xs text-[var(--muted)]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Загружаем навыки профессии...
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {missingSkillsForRole.map((sk) => {
+                      const isSelected = selectedMissingSkills.has(sk);
+                      return (
+                        <button
+                          key={sk}
+                          type="button"
+                          onClick={() => toggleMissingSkill(sk)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-[var(--blue-deep)] text-white'
+                              : selectedRole.category === 'closest'
+                                ? 'bg-[var(--blue-deep)]/10 text-[var(--blue-deep)]'
+                                : 'bg-[#1D9E75]/10 text-[#1D9E75]'
+                          }`}
+                        >
+                          {sk}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--muted)]">
+                    Выбрано: {selectedSkillsList.length}/{EXPLORE_REQUIRED_SKILLS_COUNT}
+                  </p>
+                </>
+              )}
             </div>
           )}
 
