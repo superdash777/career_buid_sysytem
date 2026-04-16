@@ -6,6 +6,7 @@ import GoalSetup from './screens/GoalSetup';
 import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
+import RolePlan from './screens/RolePlan';
 import Auth from './screens/Auth';
 import PublicLanding from './screens/PublicLanding';
 import HRLanding from './screens/HRLanding';
@@ -16,7 +17,7 @@ import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
-import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse } from './types';
+import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { Loader2, Home } from 'lucide-react';
 
@@ -35,6 +36,7 @@ type Screen =
   | 'skills'
   | 'confirm'
   | 'result'
+  | 'role-plan'
   | 'hr-landing';
 
 const SCREEN_ORDER: Screen[] = [
@@ -52,6 +54,7 @@ const SCREEN_ORDER: Screen[] = [
   'skills',
   'confirm',
   'result',
+  'role-plan',
   'hr-landing',
 ];
 
@@ -189,6 +192,7 @@ export default function App() {
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedError, setSharedError] = useState('');
   const [pendingAuthScreen, setPendingAuthScreen] = useState<Screen | null>(null);
+  const [selectedExploreRole, setSelectedExploreRole] = useState<ExploreRole | null>(null);
 
   const setScreen = useCallback((s: Screen, replace = false) => {
     if (s === 'share') return;
@@ -224,6 +228,7 @@ export default function App() {
       && screen !== 'register'
       && screen !== 'confirm'
       && screen !== 'result'
+      && screen !== 'role-plan'
       && screen !== 'soft-gate'
       && screen !== 'hr-landing') {
       setScreen('public', true);
@@ -435,6 +440,7 @@ export default function App() {
       && screen !== 'register'
       && screen !== 'confirm'
       && screen !== 'result'
+      && screen !== 'role-plan'
       && screen !== 'hr-landing'
     ) {
       return (
@@ -701,9 +707,9 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('soft-gate')}
               onOpenShare={openShare}
-              onSelectRole={(role: string) => {
-                update({ targetProfession: role, scenario: 'Смена профессии' });
-                setScreen('goal');
+              onSelectRole={(role) => {
+                setSelectedExploreRole(role);
+                setScreen('role-plan');
               }}
             />
           );
@@ -718,12 +724,26 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('dashboard')}
               onOpenShare={openShare}
-              onSelectRole={(role: string) => {
-                update({ targetProfession: role, scenario: 'Смена профессии' });
-                setScreen('goal');
+              onSelectRole={(role) => {
+                setSelectedExploreRole(role);
+                setScreen('role-plan');
               }}
             />
           </ProtectedRoute>
+        );
+      case 'role-plan':
+        if (!selectedExploreRole) {
+          setScreen('result', true);
+          return null;
+        }
+        return (
+          <RolePlan
+            role={selectedExploreRole}
+            appState={state}
+            isAuthenticated={isAuthenticated}
+            onBack={() => setScreen('result')}
+            onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
+          />
         );
       case 'hr-landing':
         return (
