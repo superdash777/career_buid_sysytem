@@ -707,10 +707,6 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('soft-gate')}
               onOpenShare={openShare}
-              onSelectRole={(role) => {
-                setSelectedExploreRole(role);
-                setScreen('role-plan');
-              }}
             />
           );
         }
@@ -724,10 +720,6 @@ export default function App() {
               onBackToSkills={() => setScreen('skills')}
               onOpenDashboard={() => setScreen('dashboard')}
               onOpenShare={openShare}
-              onSelectRole={(role) => {
-                setSelectedExploreRole(role);
-                setScreen('role-plan');
-              }}
             />
           </ProtectedRoute>
         );
