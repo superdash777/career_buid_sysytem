@@ -3,7 +3,6 @@ import { Check } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import LoadingCarousel from '../components/LoadingCarousel';
-import MonoLabel from '../components/ui/MonoLabel';
 import { buildFocusedPlan } from '../api/client';
 import type { ExploreRole, FocusedPlan, AppState } from '../types';
 
@@ -94,14 +93,8 @@ export default function RolePlan({
     <Layout step={4} wide>
       {/* Hero */}
       <section className="mb-8 slide-up">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-3xl" role="img" aria-label="chart">
-            📈
-          </span>
-          <h1
-            className="text-3xl font-[700] text-[var(--ink)] sm:text-4xl"
-            style={{ fontFamily: 'var(--font-serif, Georgia, serif)' }}
-          >
+        <div className="mb-2">
+          <h1 className="text-3xl font-bold text-[var(--ink)] sm:text-4xl">
             {role.title}
           </h1>
         </div>
@@ -133,7 +126,7 @@ export default function RolePlan({
       </section>
 
       {/* Loading / Error / Content */}
-      {loading && <LoadingCarousel text="Генерируем план для роли..." subtext="Это может занять до минуты" />}
+      {loading && <LoadingCarousel text="AI строит персональный план..." subtext="Анализируем навыки и подбираем задачи — обычно 30–60 секунд" />}
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
@@ -258,11 +251,6 @@ export default function RolePlan({
               {focusedPlan.communication.map((item, i) => {
                 const circleColor =
                   COMM_CIRCLE_COLORS[i % COMM_CIRCLE_COLORS.length];
-                const parts = item.split(':');
-                const title =
-                  parts.length > 1 ? parts[0].trim() : `Действие ${i + 1}`;
-                const description =
-                  parts.length > 1 ? parts.slice(1).join(':').trim() : item;
 
                 return (
                   <div
@@ -270,18 +258,13 @@ export default function RolePlan({
                     className="flex gap-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]"
                   >
                     <div
-                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white ${circleColor}`}
+                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${circleColor}`}
                     >
-                      <MonoLabel className="text-white text-sm">
-                        {i + 1}
-                      </MonoLabel>
+                      {i + 1}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-[var(--ink)]">
-                        {title}
-                      </p>
-                      <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                        {description}
+                      <p className="text-sm leading-relaxed text-[var(--ink)]">
+                        {item}
                       </p>
                     </div>
                   </div>
@@ -293,32 +276,21 @@ export default function RolePlan({
           {/* Tab 2 — Обучение */}
           {activeTab === 2 && (
             <div className="space-y-3 fade-in">
-              {focusedPlan.learning.map((item, i) => {
-                const parts = item.split(':');
-                const title =
-                  parts.length > 1 ? parts[0].trim() : `Ресурс ${i + 1}`;
-                const description =
-                  parts.length > 1 ? parts.slice(1).join(':').trim() : item;
-
-                return (
-                  <div
-                    key={i}
-                    className="flex gap-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]"
-                  >
-                    <span className="mt-0.5 text-2xl" role="img" aria-label="book">
-                      📘
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-[var(--ink)]">
-                        {title}
-                      </p>
-                      <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                        {description}
-                      </p>
-                    </div>
+              {focusedPlan.learning.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex gap-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]"
+                >
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--chip)] text-sm font-bold text-[var(--blue-deep)]">
+                    {i + 1}
                   </div>
-                );
-              })}
+                  <div className="flex-1">
+                    <p className="text-sm leading-relaxed text-[var(--ink)]">
+                      {item}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </>
