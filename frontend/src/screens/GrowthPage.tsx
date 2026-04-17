@@ -29,7 +29,7 @@ interface SkillGap {
   description?: string;
 }
 
-interface GrowthPageProps {
+export interface GrowthPageProps {
   profession: string;
   currentGrade: string;
   targetGrade: string;
@@ -37,7 +37,7 @@ interface GrowthPageProps {
   skillGaps: SkillGap[];
   skillStrong: { name: string; level: number }[];
   matchPercent: number;
-  onBuildPlan: (data: GrowthPageProps) => void;
+  onBuildPlan: () => void;
   onBack: () => void;
   onGoToDashboard: () => void;
 }
@@ -204,19 +204,6 @@ export default function GrowthPage({
 
   const prioritySkills = skillGaps.filter(s => s.delta >= 2);
   const growSkills = skillGaps.filter(s => s.delta === 1);
-
-  const propsForCallback: GrowthPageProps = {
-    profession,
-    currentGrade,
-    targetGrade,
-    radarData: localParams,
-    skillGaps,
-    skillStrong,
-    matchPercent: computedMatch,
-    onBuildPlan,
-    onBack,
-    onGoToDashboard: () => {},
-  };
 
   return (
     <Layout step={4} wide>
@@ -422,7 +409,7 @@ export default function GrowthPage({
         <section className="border-t border-[var(--line)] pt-5 mt-5 flex flex-col sm:flex-row gap-2">
           <Button
             className="flex-1"
-            onClick={() => onBuildPlan(propsForCallback)}
+            onClick={onBuildPlan}
           >
             Составить план развития
             <ArrowRight className="h-4 w-4" />
