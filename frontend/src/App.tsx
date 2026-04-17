@@ -7,6 +7,8 @@ import Skills from './screens/Skills';
 import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
 import RolePlan from './screens/RolePlan';
+import GrowthPage from './screens/GrowthPage';
+import { MOCK_GROWTH_DATA } from './screens/growthMockData';
 import Auth from './screens/Auth';
 import PublicLanding from './screens/PublicLanding';
 import HRLanding from './screens/HRLanding';
@@ -37,6 +39,7 @@ type Screen =
   | 'confirm'
   | 'result'
   | 'role-plan'
+  | 'growth-page'
   | 'hr-landing';
 
 const SCREEN_ORDER: Screen[] = [
@@ -55,6 +58,7 @@ const SCREEN_ORDER: Screen[] = [
   'confirm',
   'result',
   'role-plan',
+  'growth-page',
   'hr-landing',
 ];
 
@@ -229,6 +233,7 @@ export default function App() {
       && screen !== 'confirm'
       && screen !== 'result'
       && screen !== 'role-plan'
+      && screen !== 'growth-page'
       && screen !== 'soft-gate'
       && screen !== 'hr-landing') {
       setScreen('public', true);
@@ -441,6 +446,7 @@ export default function App() {
       && screen !== 'confirm'
       && screen !== 'result'
       && screen !== 'role-plan'
+      && screen !== 'growth-page'
       && screen !== 'hr-landing'
     ) {
       return (
@@ -733,6 +739,17 @@ export default function App() {
             role={selectedExploreRole}
             appState={state}
             isAuthenticated={isAuthenticated}
+            onBack={() => setScreen('result')}
+            onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
+          />
+        );
+      case 'growth-page':
+        return (
+          <GrowthPage
+            {...MOCK_GROWTH_DATA}
+            onBuildPlan={() => {
+              if (plan) setScreen('result');
+            }}
             onBack={() => setScreen('result')}
             onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
           />

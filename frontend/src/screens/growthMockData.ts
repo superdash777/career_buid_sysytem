@@ -1,0 +1,32 @@
+export const MOCK_GROWTH_DATA = {
+  profession: 'Product Manager',
+  currentGrade: 'Middle',
+  targetGrade: 'Senior',
+  matchPercent: 58,
+  radarData: [
+    { key: 'autonomy', label: 'Автономность', current: 2, target: 3, currentLabel: 'Специалист', targetLabel: 'Старший', description: 'На грейде Senior вы принимаете решения по продуктовым задачам без постоянного согласования. Инициируете изменения и несёте ответственность за результат в рамках продукта.' },
+    { key: 'scope', label: 'Зона ответственности', current: 2, target: 3, currentLabel: 'Специалист', targetLabel: 'Старший', description: 'Ответственность за отдельный продукт или крупный модуль с измеримым бизнес-импактом. Самостоятельно определяете приоритеты и управляете backlog.' },
+    { key: 'complexity', label: 'Сложность задач', current: 3, target: 3, currentLabel: 'Старший', targetLabel: 'Старший', description: 'Вы уже справляетесь с задачами нужного уровня сложности. Фокус — на устойчивости результатов и масштабировании.' },
+    { key: 'influence', label: 'Влияние на организацию', current: 1, target: 3, currentLabel: 'Младший', targetLabel: 'Старший', description: 'Senior PM влияет на стратегию нескольких команд, формирует видение продукта и доносит его до стейкхолдеров уровня директоров.' },
+    { key: 'comm', label: 'Коммуникация и координация', current: 2, target: 3, currentLabel: 'Специалист', targetLabel: 'Старший', description: 'Самостоятельно выстраиваете коммуникацию с инженерами, дизайнерами, бизнесом и внешними партнёрами. Умеете разрешать конфликты интересов без эскалации.' },
+    { key: 'mentoring', label: 'Вклад в развитие других', current: 1, target: 2, currentLabel: 'Младший', targetLabel: 'Специалист', description: 'На Senior-уровне ожидается, что вы берёте Junior PM-ов под менторство, проводите ревью их документов и помогаете с приоритизацией.' },
+    { key: 'novelty', label: 'Новизна и неопределённость', current: 2, target: 3, currentLabel: 'Специалист', targetLabel: 'Старший', description: 'Senior PM комфортно работает в условиях высокой неопределённости: запускает 0→1 продукты, формулирует гипотезы без данных, принимает решения при неполной информации.' },
+  ],
+  skillGaps: [
+    { name: 'System Design', current: 0, required: 2, delta: 2, levelKey: 'Proficiency' },
+    { name: 'Roadmap Planning', current: 1, required: 2, delta: 1, levelKey: 'Proficiency' },
+    { name: 'Стратегия продукта', current: 0, required: 2, delta: 2, levelKey: 'Proficiency' },
+    { name: 'Stakeholder Mgmt', current: 2, required: 3, delta: 1, levelKey: 'Advanced' },
+    { name: 'P&L Basics', current: 0, required: 1, delta: 1, levelKey: 'Basic' },
+    { name: 'Tech Literacy', current: 1, required: 2, delta: 1, levelKey: 'Proficiency' },
+    { name: 'OKR Design', current: 1, required: 2, delta: 1, levelKey: 'Proficiency' },
+  ],
+  skillStrong: [
+    { name: 'SQL', level: 2 },
+    { name: 'User Research', level: 2 },
+    { name: 'Agile', level: 2 },
+    { name: 'Figma', level: 1 },
+    { name: 'A/B Testing', level: 2 },
+    { name: 'Backlog Management', level: 2 },
+  ],
+};
