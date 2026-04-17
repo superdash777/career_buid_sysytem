@@ -3,10 +3,13 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts';
-import { ArrowLeft, ArrowRight, Pencil, Download } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pencil, Sparkles, Check } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
+import ProgressLoader from '../components/ProgressLoader';
+import { buildFocusedPlan, ApiError } from '../api/client';
+import type { FocusedPlan } from '../types';
 
 // --------------- Types ---------------
 
@@ -33,11 +36,12 @@ export interface GrowthPageProps {
   profession: string;
   currentGrade: string;
   targetGrade: string;
+  grade: string;
+  scenario: string;
   radarData: AtlasParam[];
   skillGaps: SkillGap[];
   skillStrong: { name: string; level: number }[];
   matchPercent: number;
-  onBuildPlan: () => void;
   onBack: () => void;
   onGoToDashboard: () => void;
 }
@@ -107,7 +111,6 @@ function ParamRow({
         <DeltaBadge delta={delta} />
       </div>
 
-      {/* Progress bar */}
       <div className="relative h-[5px] rounded-full overflow-hidden mb-1.5">
         <div
           className="absolute inset-y-0 left-0 rounded-full bg-[var(--blue-deep)] opacity-20"
@@ -119,7 +122,6 @@ function ParamRow({
         />
       </div>
 
-      {/* Labels under bar */}
       <div className="flex items-center justify-between text-[9px] text-[var(--muted)]">
         <span>{param.currentLabel} ({param.current})</span>
         <span className="flex items-center gap-1">
@@ -128,7 +130,6 @@ function ParamRow({
         </span>
       </div>
 
-      {/* Expandable detail */}
       {isActive && (
         <div className="mt-3 space-y-3 border-t border-[#AFA9EC]/30 pt-3 fade-in" onClick={(e) => e.stopPropagation()}>
           <p className="text-[11px] leading-relaxed text-[var(--muted)]">{param.description}</p>
@@ -157,20 +158,110 @@ function ParamRow({
   );
 }
 
+function FocusedPlanSection({ plan }: { plan: FocusedPlan }) {
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+
+  const toggleCheck = (id: string) => {
+    setCheckedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section className="border-t border-[var(--line)] pt-5 mt-5 space-y-4 fade-in">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+        План развития
+      </p>
+
+      {/* Tasks */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
+        <MonoLabel>70%</MonoLabel>
+        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Задачи на развитие</h3>
+        <div className="space-y-4">
+          {plan.tasks.map((t) => (
+            <div key={t.skill}>
+              <p className="text-sm font-semibold text-[var(--blue-deep)] mb-2">{t.skill}</p>
+              <ul className="space-y-2">
+                {t.items.map((item, j) => {
+                  const itemId = `${t.skill}::${j}`;
+                  const done = checkedItems.has(itemId);
+                  return (
+                    <li key={itemId} className="flex items-start gap-3">
+                      <button
+                        onClick={() => toggleCheck(itemId)}
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                          done
+                            ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)]'
+                            : 'border-[var(--line)] hover:border-[var(--blue-deep)]'
+                        }`}
+                      >
+                        {done && <Check className="h-3.5 w-3.5 text-white" />}
+                      </button>
+                      <span className={`text-sm leading-relaxed ${done ? 'text-[var(--muted)] line-through' : 'text-[var(--ink)]'}`}>
+                        {item}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Communication */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
+        <MonoLabel>20%</MonoLabel>
+        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Развитие через общение</h3>
+        <ul className="space-y-2">
+          {plan.communication.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
+              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
+              <span className="leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Learning */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
+        <MonoLabel>10%</MonoLabel>
+        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Книги и курсы</h3>
+        <ul className="space-y-2">
+          {plan.learning.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
+              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
+              <span className="leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 // --------------- Main Component ---------------
 
 export default function GrowthPage({
   profession,
   currentGrade,
   targetGrade,
+  grade,
+  scenario,
   radarData,
   skillGaps,
   skillStrong,
-  onBuildPlan,
   onBack,
+  onGoToDashboard,
 }: GrowthPageProps) {
   const [localParams, setLocalParams] = useState<AtlasParam[]>(radarData);
   const [activeParamKey, setActiveParamKey] = useState<string | null>(null);
+  const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState('');
 
   const updateParam = (key: string, newCurrent: number) => {
     setLocalParams(prev =>
@@ -205,6 +296,26 @@ export default function GrowthPage({
   const prioritySkills = skillGaps.filter(s => s.delta >= 2);
   const growSkills = skillGaps.filter(s => s.delta === 1);
 
+  const handleBuildPlan = async () => {
+    if (planLoading) return;
+    setPlanLoading(true);
+    setPlanError('');
+    try {
+      const gapSkillNames = skillGaps.map(s => s.name);
+      const result = await buildFocusedPlan({
+        profession,
+        grade,
+        scenario,
+        selected_skills: gapSkillNames,
+      });
+      setFocusedPlan(result);
+    } catch (err) {
+      setPlanError(err instanceof ApiError ? err.message : 'Не удалось сформировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
   return (
     <Layout step={4} wide>
       <div className="space-y-0 slide-up">
@@ -222,12 +333,10 @@ export default function GrowthPage({
 
         {/* ---- Hero ---- */}
         <section className="pb-6 border-b border-[var(--line)]">
-          {/* Scenario tag */}
           <span className="inline-block rounded-full bg-[#EEEDFE] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#534AB7] mb-3">
             ↑ Growth — следующий грейд
           </span>
 
-          {/* Heading */}
           <h1 className="text-2xl font-bold text-[var(--ink)] sm:text-[26px] leading-tight mb-4" style={{ fontFamily: 'var(--font-display)' }}>
             Ваш путь к{' '}
             <em className="not-italic text-[#534AB7]" style={{ fontStyle: 'italic' }}>
@@ -235,7 +344,6 @@ export default function GrowthPage({
             </em>
           </h1>
 
-          {/* Grade row */}
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <span className="inline-flex items-center rounded-full bg-[#534AB7] px-3.5 py-1 text-xs font-semibold text-white">
               {currentGrade}
@@ -247,7 +355,6 @@ export default function GrowthPage({
             <span className="text-sm text-[var(--muted)]">{profession}</span>
           </div>
 
-          {/* Stat chips */}
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
               <p className="text-xl font-bold text-[#534AB7]">{computedMatch}%</p>
@@ -314,7 +421,6 @@ export default function GrowthPage({
                 </ResponsiveContainer>
               </div>
 
-              {/* Custom legend */}
               <div className="flex items-center justify-center gap-4 mt-2">
                 <div className="flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-[#AFA9EC]" />
@@ -355,7 +461,6 @@ export default function GrowthPage({
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            {/* Priority skills (delta >= 2) */}
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#E24B4A]" />
@@ -371,7 +476,6 @@ export default function GrowthPage({
               </div>
             </div>
 
-            {/* Grow skills (delta = 1) */}
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#EF9F27]" />
@@ -388,7 +492,6 @@ export default function GrowthPage({
             </div>
           </div>
 
-          {/* Strong skills */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-block h-2 w-2 rounded-full bg-[#1D9E75]" />
@@ -405,19 +508,44 @@ export default function GrowthPage({
           </div>
         </section>
 
+        {/* ---- Plan loading / error ---- */}
+        {planLoading && (
+          <div className="mt-5">
+            <ProgressLoader text="Формируем персональный план..." subtext="Несколько секунд" durationMs={20000} />
+          </div>
+        )}
+
+        {planError && (
+          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+            <p className="text-sm text-red-600">{planError}</p>
+          </div>
+        )}
+
+        {/* ---- Generated plan ---- */}
+        {focusedPlan && <FocusedPlanSection plan={focusedPlan} />}
+
         {/* ---- CTA bar ---- */}
         <section className="border-t border-[var(--line)] pt-5 mt-5 flex flex-col sm:flex-row gap-2">
-          <Button
-            className="flex-1"
-            onClick={onBuildPlan}
-          >
-            Составить план развития
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button variant="secondary">
-            <Download className="h-4 w-4" />
-            Скачать PDF
-          </Button>
+          {!focusedPlan ? (
+            <Button
+              className="flex-1"
+              onClick={handleBuildPlan}
+              disabled={planLoading}
+            >
+              {planLoading ? (
+                <><Sparkles className="h-4 w-4 animate-pulse" /> Генерируем...</>
+              ) : (
+                <>Составить план развития <ArrowRight className="h-4 w-4" /></>
+              )}
+            </Button>
+          ) : (
+            <Button
+              className="flex-1"
+              onClick={onGoToDashboard}
+            >
+              Отслеживать прогресс <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
         </section>
       </div>
     </Layout>

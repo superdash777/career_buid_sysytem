@@ -704,6 +704,8 @@ export default function App() {
               profession={state.profession}
               currentGrade={g.current_grade}
               targetGrade={g.target_grade}
+              grade={state.grade}
+              scenario={state.scenario}
               matchPercent={g.match_percent}
               radarData={g.radar_data.map((r, i) => ({
                 key: r.param.toLowerCase().replace(/\s+/g, '_') + '_' + i,
@@ -723,7 +725,6 @@ export default function App() {
                 description: s.description,
               }))}
               skillStrong={g.skill_strong}
-              onBuildPlan={() => {}}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />
