@@ -8,6 +8,7 @@ import Confirmation from './screens/Confirmation';
 import Result from './screens/Result';
 import RolePlan from './screens/RolePlan';
 import GrowthPage from './screens/GrowthPage';
+import SwitchPage from './screens/SwitchPage';
 import Auth from './screens/Auth';
 import PublicLanding from './screens/PublicLanding';
 import HRLanding from './screens/HRLanding';
@@ -725,6 +726,36 @@ export default function App() {
                 description: s.description,
               }))}
               skillStrong={g.skill_strong}
+              onBack={() => setScreen('skills')}
+              onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
+            />
+          );
+        }
+        if (plan.analysis?.scenario === 'switch') {
+          const sw = plan.analysis;
+          return (
+            <SwitchPage
+              fromProfession={sw.from_role}
+              fromGrade={state.grade}
+              toProfession={sw.to_role}
+              toGrade={sw.baseline_level || state.grade}
+              matchPercent={sw.match_percent}
+              grade={state.grade}
+              scenario={state.scenario}
+              transferableSkills={sw.transferable.map(t => ({
+                name: t.name,
+                levelKey: 'Proficiency',
+                transferContext: t.snippet,
+                transferDetail: t.snippet,
+              }))}
+              skillGaps={sw.gaps.map(g => ({
+                name: g.name,
+                current: 0,
+                required: g.importance === 'must-have' ? 2 : 1,
+                delta: g.importance === 'must-have' ? 2 : 1,
+                levelKey: g.level_key || 'Proficiency',
+                gapType: g.importance === 'must-have' ? 'new' as const : 'deepen' as const,
+              }))}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />
