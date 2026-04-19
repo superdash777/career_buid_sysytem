@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Sparkles, Check, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles, Check } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
@@ -40,48 +40,6 @@ export interface SwitchPageProps {
 }
 
 // --------------- Sub-components ---------------
-
-function TransferableSkillCard({
-  skill,
-  isExpanded,
-  onToggle,
-}: {
-  skill: TransferableSkill;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div
-      className="cursor-pointer rounded-xl border border-[#9FE1CB] bg-[#E1F5EE] p-3 transition-all duration-200 hover:bg-[#c8edd9] hover:border-[#5DCAA5]"
-      onClick={onToggle}
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1D9E75] mt-0.5">
-          <Check className="h-3 w-3 text-white" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-medium text-[#04342C]">{skill.name}</span>
-            <ChevronRight
-              className={`h-3.5 w-3.5 shrink-0 text-[#1D9E75] transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-            />
-          </div>
-          <p className="text-[11px] leading-relaxed text-[#085041] mt-0.5">{skill.transferContext}</p>
-          <span className="inline-flex items-center gap-1 mt-1.5 rounded-full bg-[rgba(29,158,117,.12)] px-2 py-0.5 text-[10px] font-medium text-[#1D9E75]">
-            {skill.levelKey} ✓
-          </span>
-
-          {isExpanded && (
-            <div className="mt-3 rounded-lg bg-[rgba(255,255,255,.6)] p-2.5 fade-in">
-              <p className="text-[11px] leading-[1.65] text-[#085041]">{skill.transferDetail}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function GapChip({ name, gapType }: { name: string; gapType: 'new' | 'deepen' }) {
   const isNew = gapType === 'new';
@@ -200,19 +158,9 @@ export default function SwitchPage({
   onBack,
   onGoToDashboard,
 }: SwitchPageProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [focusedPlan, setFocusedPlan] = useState<FocusedPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState('');
-
-  const toggleExpanded = (name: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
 
   const transferCount = transferableSkills.length;
 
@@ -337,23 +285,24 @@ export default function SwitchPage({
 
         {/* ---- Transferable skills ---- */}
         <section className="border-t border-[var(--line)] pt-5">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#1D9E75]" />
             <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-              Что работает на вас
+              Ваши навыки
             </p>
             <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--bg)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
-              {transferCount} навыков
+              {transferCount}
             </span>
           </div>
 
-          <div className="flex flex-col gap-[7px]">
+          <div className="flex flex-wrap gap-1.5">
             {transferableSkills.map(s => (
-              <TransferableSkillCard
+              <span
                 key={s.name}
-                skill={s}
-                isExpanded={expandedIds.has(s.name)}
-                onToggle={() => toggleExpanded(s.name)}
-              />
+                className="inline-flex items-center gap-1 rounded-full bg-[#E1F5EE] px-3 py-1 text-xs font-medium text-[#1D9E75]"
+              >
+                {s.name}
+              </span>
             ))}
           </div>
         </section>
