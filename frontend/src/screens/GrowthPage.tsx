@@ -3,7 +3,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts';
-import { ArrowLeft, ArrowRight, Pencil, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pencil, Sparkles, Check } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
@@ -65,8 +65,8 @@ function SkillChip({ name, variant }: { name: string; variant: 'critical' | 'gro
 function DeltaBadge({ delta }: { delta: number }) {
   if (delta <= 0) {
     return (
-      <span className="inline-flex items-center rounded-full bg-[#E1F5EE] px-2 py-0.5 text-[10px] font-semibold text-[#1D9E75]">
-        ✓
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[#E1F5EE] px-2 py-0.5 text-[#1D9E75]">
+        <Check className="h-3 w-3" strokeWidth={3} />
       </span>
     );
   }

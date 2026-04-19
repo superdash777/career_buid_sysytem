@@ -1,3 +1,5 @@
+import { Check } from 'lucide-react';
+
 const STEPS = ['Старт', 'Цель', 'Навыки', 'Проверка', 'План'];
 
 interface Props {
@@ -22,7 +24,7 @@ export default function Stepper({ current }: Props) {
                   ${!done && !active ? 'border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]' : ''}
                 `}
               >
-                {done ? '✓' : i + 1}
+                {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
               </div>
               <span
                 className={`hidden text-[10px] font-medium sm:block ${
