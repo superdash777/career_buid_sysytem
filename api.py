@@ -13,6 +13,7 @@ if str(PROJECT_DIR) not in sys.path:
 if os.getcwd() != str(PROJECT_DIR):
     os.chdir(PROJECT_DIR)
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -51,7 +52,35 @@ GRADE_MAP = {
     "Эксперт (Expert)": "Expert",
 }
 
-app = FastAPI(title="AI Career Pathfinder API", version="1.0")
+import logging as _logging
+_logging.basicConfig(level=_logging.INFO)
+_logger = _logging.getLogger("career-pathfinder")
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    init_db()
+
+    if Config.JWT_SECRET == "change-me-in-production":
+        _logger.warning(
+            "JWT_SECRET is using the default value! "
+            "Set JWT_SECRET environment variable in production."
+        )
+
+    db_path = str(Config.DB_PATH)
+    _logger.info(f"DB path: {db_path}")
+    if not Config.DB_PATH.exists():
+        _logger.warning(f"DB file does not exist yet: {db_path}")
+
+    port = os.environ.get("PORT", "?")
+    fe_dir = PROJECT_DIR / "frontend" / "dist"
+    fe = "YES" if fe_dir.is_dir() else "NO"
+    _logger.info(f"=== Career Pathfinder started === PORT={port}, frontend={fe}")
+
+    yield
+
+
+app = FastAPI(title="AI Career Pathfinder API", version="1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1013,20 +1042,8 @@ if FRONTEND_DIR.is_dir():
         return {"detail": "Not found"}
 
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("career-pathfinder")
-
-@app.on_event("startup")
-async def on_startup():
-    init_db()
-    port = os.environ.get("PORT", "?")
-    fe = "YES" if FRONTEND_DIR.is_dir() else "NO"
-    logger.info(f"=== Career Pathfinder started === PORT={port}, frontend={fe}")
-
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    logger.info(f"Starting uvicorn on 0.0.0.0:{port}")
+    _logger.info(f"Starting uvicorn on 0.0.0.0:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

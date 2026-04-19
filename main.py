@@ -115,12 +115,18 @@ def add_custom_skill(current_table, skill_name, skill_level):
         pass
     if skill_name not in (canonical_set or set()):
         try:
-            from rag_service import map_to_canonical_skill
-            canonical = map_to_canonical_skill(skill_name)
-            if canonical:
-                skill_name = canonical
+            from rag_service import map_to_canonical_skill_v2
+            result = map_to_canonical_skill_v2(skill_name)
+            if result.get("canonical_name"):
+                skill_name = result["canonical_name"]
         except Exception:
-            pass
+            try:
+                from rag_service import map_to_canonical_skill
+                canonical = map_to_canonical_skill(skill_name)
+                if canonical:
+                    skill_name = canonical
+            except Exception:
+                pass
 
     import pandas as pd
     if current_table is None:

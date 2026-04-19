@@ -38,6 +38,28 @@ def level_display(value: int, is_atlas: bool) -> str:
     return SKILL_LEVEL_NAMES.get(value, str(value))
 
 
+def calculate_match_percent(strong_count: int, total_count: int) -> float:
+    """match% = strong / total * 100. Safe from division by zero."""
+    if total_count <= 0:
+        return 0.0
+    return round((strong_count / total_count) * 100, 1)
+
+
+def classify_skill_gap(delta: int) -> dict:
+    """
+    delta = required_level - current_level
+    <= 0 -> Strong (mastered)
+    == 1 -> Moderate gap, Priority 2
+    >= 2 -> Critical gap, Priority 1
+    """
+    if delta <= 0:
+        return {"class": "strong", "priority": None, "in_recommendations": False}
+    elif delta == 1:
+        return {"class": "moderate", "priority": 2, "in_recommendations": True}
+    else:
+        return {"class": "critical", "priority": 1, "in_recommendations": True}
+
+
 class GapAnalyzer:
     @staticmethod
     def analyze(user_skills, target_requirements):
@@ -53,8 +75,7 @@ class GapAnalyzer:
             else:
                 strong.append((skill, curr_level))
 
-        # Legacy невзвешенный показатель (для обратной совместимости)
-        legacy_match_percent = int((len(strong) / len(target_requirements)) * 100) if target_requirements else 0
+        legacy_match_percent = int(calculate_match_percent(len(strong), len(target_requirements)))
 
         # В базовом analyze нет доступа к DataLoader, поэтому weighted=legacy.
         return {

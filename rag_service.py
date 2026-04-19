@@ -919,6 +919,94 @@ def map_to_canonical_skill(user_input: str) -> Optional[str]:
     return None
 
 
+def map_to_canonical_skill_v2(
+    user_input: str,
+    openai_client: Any = None,
+    top_k: int = 5,
+) -> Dict[str, Any]:
+    """
+    Top-K retrieval + LLM reranking.
+    Returns: {canonical_name, confidence, source} or {canonical_name: None}.
+    Falls back to map_to_canonical_skill if LLM is unavailable.
+    """
+    normalized = normalize_user_input(user_input or "")
+    if not normalized:
+        return {"canonical_name": None, "confidence": 0.0, "source": "empty_input"}
+
+    # Step 1: exact synonym match (fast path)
+    try:
+        from skill_normalizer import resolve_to_canonical
+        exact = resolve_to_canonical(normalized)
+        if exact:
+            return {"canonical_name": exact, "confidence": 1.0, "source": "exact_match"}
+    except Exception:
+        pass
+
+    # Step 2: Top-K from Qdrant (no threshold cutoff)
+    hits = search_skills_v2(normalized, top_k=top_k, score_threshold=0.2)
+    if not hits:
+        hits_legacy = retrieve(normalized, top_k=top_k, score_threshold=0.2)
+        hits = [h for h in hits_legacy if (h.get("payload") or {}).get("type") == "skill"]
+
+    if not hits:
+        return {"canonical_name": None, "confidence": 0.0, "source": "not_found"}
+
+    # High confidence — skip LLM
+    best = hits[0]
+    best_name = (best.get("payload") or {}).get("name", "").strip()
+    best_score = float(best.get("score", 0))
+    if best_score > 0.92 and best_name:
+        return {"canonical_name": best_name, "confidence": best_score, "source": "high_confidence_vector"}
+
+    # Step 3: LLM reranker for ambiguous cases
+    if not openai_client:
+        if best_score >= Config.SKILL_MAP_SIMILARITY_THRESHOLD and best_name:
+            return {"canonical_name": best_name, "confidence": best_score, "source": "vector_threshold"}
+        return {"canonical_name": None, "confidence": best_score, "source": "below_threshold_no_llm"}
+
+    candidates = []
+    for i, h in enumerate(hits[:top_k]):
+        p = h.get("payload") or {}
+        name = (p.get("name") or "").strip()
+        score = float(h.get("score", 0))
+        if name:
+            candidates.append((name, score))
+
+    if not candidates:
+        return {"canonical_name": None, "confidence": 0.0, "source": "no_candidates"}
+
+    candidate_lines = [f"{i+1}. {name} (similarity: {score:.2f})" for i, (name, score) in enumerate(candidates)]
+    rerank_prompt = (
+        f'Пользователь указал навык: "{user_input}"\n\n'
+        f"Кандидаты из базы навыков:\n"
+        + "\n".join(candidate_lines)
+        + f"\n\nВыбери номер кандидата (1-{len(candidates)}), который лучше всего соответствует навыку. "
+        f"Если ни один не подходит — ответь 0. Только число."
+    )
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": rerank_prompt}],
+            max_tokens=5,
+            temperature=0,
+        )
+        choice_str = (response.choices[0].message.content or "").strip()
+        choice = int(choice_str)
+    except (ValueError, TypeError):
+        choice = 0
+    except Exception:
+        if best_score >= Config.SKILL_MAP_SIMILARITY_THRESHOLD and best_name:
+            return {"canonical_name": best_name, "confidence": best_score, "source": "vector_fallback_llm_error"}
+        return {"canonical_name": None, "confidence": 0.0, "source": "llm_error"}
+
+    if choice < 1 or choice > len(candidates):
+        return {"canonical_name": None, "confidence": 0.0, "source": "no_match_llm"}
+
+    selected_name, selected_score = candidates[choice - 1]
+    return {"canonical_name": selected_name, "confidence": selected_score, "source": "llm_reranked"}
+
+
 def rank_opportunities(
     user_skills: Dict[str, int],
     opportunities: List[Dict],
