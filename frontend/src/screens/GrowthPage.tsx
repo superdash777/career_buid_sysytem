@@ -3,11 +3,12 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts';
-import { ArrowLeft, ArrowRight, Pencil, Sparkles, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pencil, Sparkles } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
 import ProgressLoader from '../components/ProgressLoader';
+import FocusedPlanSection from '../components/FocusedPlanSection';
 import { buildFocusedPlan, ApiError } from '../api/client';
 import type { FocusedPlan } from '../types';
 
@@ -132,7 +133,9 @@ function ParamRow({
 
       {isActive && (
         <div className="mt-3 space-y-3 border-t border-[#AFA9EC]/30 pt-3 fade-in" onClick={(e) => e.stopPropagation()}>
-          <p className="text-[11px] leading-relaxed text-[var(--muted)]">{param.description}</p>
+          {param.description && (
+            <p className="text-[11px] leading-relaxed text-[var(--muted)]">{param.description}</p>
+          )}
           <div>
             <p className="text-[10px] font-medium text-[var(--muted)] mb-1.5">
               Скорректировать самооценку (1–5):
@@ -155,91 +158,6 @@ function ParamRow({
         </div>
       )}
     </div>
-  );
-}
-
-function FocusedPlanSection({ plan }: { plan: FocusedPlan }) {
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-
-  const toggleCheck = (id: string) => {
-    setCheckedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <section className="border-t border-[var(--line)] pt-5 mt-5 space-y-4 fade-in">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-        План развития
-      </p>
-
-      {/* Tasks */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>70%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Задачи на развитие</h3>
-        <div className="space-y-4">
-          {plan.tasks.map((t) => (
-            <div key={t.skill}>
-              <p className="text-sm font-semibold text-[var(--blue-deep)] mb-2">{t.skill}</p>
-              <ul className="space-y-2">
-                {t.items.map((item, j) => {
-                  const itemId = `${t.skill}::${j}`;
-                  const done = checkedItems.has(itemId);
-                  return (
-                    <li key={itemId} className="flex items-start gap-3">
-                      <button
-                        onClick={() => toggleCheck(itemId)}
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                          done
-                            ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)]'
-                            : 'border-[var(--line)] hover:border-[var(--blue-deep)]'
-                        }`}
-                      >
-                        {done && <Check className="h-3.5 w-3.5 text-white" />}
-                      </button>
-                      <span className={`text-sm leading-relaxed ${done ? 'text-[var(--muted)] line-through' : 'text-[var(--ink)]'}`}>
-                        {item}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Communication */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>20%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Развитие через общение</h3>
-        <ul className="space-y-2">
-          {plan.communication.map((item, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
-              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
-              <span className="leading-relaxed">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Learning */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>10%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Книги и курсы</h3>
-        <ul className="space-y-2">
-          {plan.learning.map((item, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
-              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
-              <span className="leading-relaxed">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
   );
 }
 
@@ -395,7 +313,7 @@ export default function GrowthPage({
                     <PolarGrid gridType="polygon" stroke="var(--line)" strokeWidth={0.75} />
                     <PolarAngleAxis
                       dataKey="subject"
-                      tick={{ fontSize: 9, fill: 'var(--muted)', fontFamily: 'Manrope, var(--font-sans)' }}
+                      tick={{ fontSize: 9, fill: 'var(--muted)' }}
                     />
                     <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
                     <Radar
@@ -406,7 +324,7 @@ export default function GrowthPage({
                       stroke="#534AB7"
                       strokeOpacity={0.4}
                       strokeWidth={1.5}
-                      isAnimationActive={true}
+                      isAnimationActive={false}
                     />
                     <Radar
                       name="Текущий"
@@ -415,7 +333,7 @@ export default function GrowthPage({
                       fillOpacity={0.45}
                       stroke="#534AB7"
                       strokeWidth={1.5}
-                      isAnimationActive={true}
+                      isAnimationActive={false}
                     />
                   </RadarChart>
                 </ResponsiveContainer>

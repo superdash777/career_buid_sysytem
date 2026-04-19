@@ -4,11 +4,11 @@
   --ink: #1a1d2e;
   --muted: #6b7194;
   --line: #e2e5f0;
-  --blue-deep: #4f46e5;
+  --blue-deep: #534AB7;
   --accent-red: #ef4444;
   --accent-green: #10b981;
   --chip: #eef2ff;
-  --shadow-soft: 0 4px 24px rgba(79, 70, 229, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 4px 24px rgba(83, 74, 183, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 
   --color-surface: var(--bg);
   --color-surface-alt: var(--paper);
@@ -20,11 +20,11 @@
   --color-text-muted: var(--muted);
   --color-accent: var(--blue-deep);
   --color-accent-light: #eef2ff;
-  --color-accent-hover: #4338ca;
+  --color-accent-hover: #453DA1;
 
-  --gradient-hero: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
-  --gradient-hero-soft: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 50%, #faf5ff 100%);
-  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(79, 70, 229, 0.06), transparent 70%);
+  --gradient-hero: linear-gradient(135deg, #534AB7 0%, #7c3aed 50%, #a855f7 100%);
+  --gradient-hero-soft: linear-gradient(135deg, #EEEDFE 0%, #f5f3ff 50%, #faf5ff 100%);
+  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(83, 74, 183, 0.06), transparent 70%);
 }
 
 .dark {

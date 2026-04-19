@@ -209,7 +209,7 @@ export interface SwitchAnalysis {
 export interface ExploreRole {
   title: string;
   match: number;
-  category: 'closest' | 'adjacent' | 'far';
+  category: 'closest' | 'adjacent';
   match_label: string;
   summary?: string;
   missing: string[];

@@ -1,6 +1,6 @@
 :root {
-  --font-display: "Instrument Sans", "Inter", Arial, sans-serif;
-  --font-sans: "Instrument Sans", "Inter", Arial, sans-serif;
+  --font-display: "Instrument Sans", sans-serif;
+  --font-sans: "Instrument Sans", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
@@ -32,7 +32,7 @@
   }
 
   .editorial-mark {
-    background: linear-gradient(to right, rgba(79, 70, 229, 0.15), rgba(124, 58, 237, 0.15));
+    background: linear-gradient(to right, rgba(83, 74, 183, 0.15), rgba(124, 58, 237, 0.15));
     padding: 2px 6px;
     border-radius: 6px;
   }

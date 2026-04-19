@@ -19,7 +19,7 @@ import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
-import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole } from './types';
+import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole, GrowthAnalysis, SwitchAnalysis } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { Loader2, Home } from 'lucide-react';
 
@@ -94,6 +94,61 @@ function shareIdFromHash(): string | null {
   if (!raw.startsWith('share/')) return null;
   const id = raw.slice('share/'.length).trim();
   return id || null;
+}
+
+function mapGrowthProps(g: GrowthAnalysis, state: AppState) {
+  return {
+    profession: state.profession,
+    currentGrade: g.current_grade,
+    targetGrade: g.target_grade,
+    grade: state.grade,
+    scenario: state.scenario,
+    matchPercent: g.match_percent,
+    radarData: g.radar_data.map((r, i) => ({
+      key: r.param.toLowerCase().replace(/\s+/g, '_') + '_' + i,
+      label: r.param,
+      current: r.current,
+      target: r.target,
+      currentLabel: r.current_label,
+      targetLabel: r.target_label,
+      description: '',
+    })),
+    skillGaps: g.skill_gaps.map(s => ({
+      name: s.name,
+      current: s.current,
+      required: s.required,
+      delta: s.delta,
+      levelKey: s.level_key,
+      description: s.description,
+    })),
+    skillStrong: g.skill_strong,
+  };
+}
+
+function mapSwitchProps(sw: SwitchAnalysis, state: AppState) {
+  return {
+    fromProfession: sw.from_role,
+    fromGrade: state.grade,
+    toProfession: sw.to_role,
+    toGrade: sw.baseline_level || state.grade,
+    matchPercent: sw.match_percent,
+    grade: state.grade,
+    scenario: state.scenario,
+    transferableSkills: sw.transferable.map(t => ({
+      name: t.name,
+      levelKey: 'Proficiency' as const,
+      transferContext: t.snippet,
+      transferDetail: t.snippet,
+    })),
+    skillGaps: sw.gaps.map(g => ({
+      name: g.name,
+      current: 0,
+      required: g.importance === 'must-have' ? 2 : 1,
+      delta: g.importance === 'must-have' ? 2 : 1,
+      levelKey: g.level_key || 'Proficiency',
+      gapType: (g.importance === 'must-have' ? 'new' : 'deepen') as 'new' | 'deepen',
+    })),
+  };
 }
 
 function isScenario(value: string): value is Scenario {
@@ -699,63 +754,18 @@ export default function App() {
           );
         }
         if (plan.analysis?.scenario === 'growth') {
-          const g = plan.analysis;
           return (
             <GrowthPage
-              profession={state.profession}
-              currentGrade={g.current_grade}
-              targetGrade={g.target_grade}
-              grade={state.grade}
-              scenario={state.scenario}
-              matchPercent={g.match_percent}
-              radarData={g.radar_data.map((r, i) => ({
-                key: r.param.toLowerCase().replace(/\s+/g, '_') + '_' + i,
-                label: r.param,
-                current: r.current,
-                target: r.target,
-                currentLabel: r.current_label,
-                targetLabel: r.target_label,
-                description: '',
-              }))}
-              skillGaps={g.skill_gaps.map(s => ({
-                name: s.name,
-                current: s.current,
-                required: s.required,
-                delta: s.delta,
-                levelKey: s.level_key,
-                description: s.description,
-              }))}
-              skillStrong={g.skill_strong}
+              {...mapGrowthProps(plan.analysis, state)}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />
           );
         }
         if (plan.analysis?.scenario === 'switch') {
-          const sw = plan.analysis;
           return (
             <SwitchPage
-              fromProfession={sw.from_role}
-              fromGrade={state.grade}
-              toProfession={sw.to_role}
-              toGrade={sw.baseline_level || state.grade}
-              matchPercent={sw.match_percent}
-              grade={state.grade}
-              scenario={state.scenario}
-              transferableSkills={sw.transferable.map(t => ({
-                name: t.name,
-                levelKey: 'Proficiency',
-                transferContext: t.snippet,
-                transferDetail: t.snippet,
-              }))}
-              skillGaps={sw.gaps.map(g => ({
-                name: g.name,
-                current: 0,
-                required: g.importance === 'must-have' ? 2 : 1,
-                delta: g.importance === 'must-have' ? 2 : 1,
-                levelKey: g.level_key || 'Proficiency',
-                gapType: g.importance === 'must-have' ? 'new' as const : 'deepen' as const,
-              }))}
+              {...mapSwitchProps(plan.analysis, state)}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />

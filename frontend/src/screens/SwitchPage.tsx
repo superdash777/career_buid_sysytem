@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Sparkles, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import Layout from '../components/Layout';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
 import ProgressLoader from '../components/ProgressLoader';
+import FocusedPlanSection from '../components/FocusedPlanSection';
 import { buildFocusedPlan, ApiError } from '../api/client';
 import type { FocusedPlan } from '../types';
 
@@ -58,88 +59,6 @@ function GapChip({ name, gapType }: { name: string; gapType: 'new' | 'deepen' })
         {badgeText}
       </span>
     </span>
-  );
-}
-
-function FocusedPlanSection({ plan }: { plan: FocusedPlan }) {
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-
-  const toggleCheck = (id: string) => {
-    setCheckedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <section className="border-t border-[var(--line)] pt-5 mt-5 space-y-4 fade-in">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-        План перехода
-      </p>
-
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>70%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Задачи на развитие</h3>
-        <div className="space-y-4">
-          {plan.tasks.map((t) => (
-            <div key={t.skill}>
-              <p className="text-sm font-semibold text-[var(--blue-deep)] mb-2">{t.skill}</p>
-              <ul className="space-y-2">
-                {t.items.map((item, j) => {
-                  const itemId = `${t.skill}::${j}`;
-                  const done = checkedItems.has(itemId);
-                  return (
-                    <li key={itemId} className="flex items-start gap-3">
-                      <button
-                        onClick={() => toggleCheck(itemId)}
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                          done
-                            ? 'border-[var(--blue-deep)] bg-[var(--blue-deep)]'
-                            : 'border-[var(--line)] hover:border-[var(--blue-deep)]'
-                        }`}
-                      >
-                        {done && <Check className="h-3.5 w-3.5 text-white" />}
-                      </button>
-                      <span className={`text-sm leading-relaxed ${done ? 'text-[var(--muted)] line-through' : 'text-[var(--ink)]'}`}>
-                        {item}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>20%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Развитие через общение</h3>
-        <ul className="space-y-2">
-          {plan.communication.map((item, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
-              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
-              <span className="leading-relaxed">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-[var(--shadow-soft)]">
-        <MonoLabel>10%</MonoLabel>
-        <h3 className="mt-3 mb-4 font-semibold text-[var(--ink)]">Книги и курсы</h3>
-        <ul className="space-y-2">
-          {plan.learning.map((item, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-[var(--ink)]">
-              <span className="mt-0.5 shrink-0 text-[var(--muted)]">—</span>
-              <span className="leading-relaxed">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
   );
 }
 
@@ -219,7 +138,7 @@ export default function SwitchPage({
 
           {/* Bridge card */}
           <div className="rounded-2xl border border-[var(--line)] overflow-hidden mb-5">
-            <div className="grid grid-cols-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3">
               {/* From */}
               <div className="bg-[var(--bg)] p-4 flex flex-col justify-center">
                 <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] mb-1">Сейчас</span>
@@ -233,7 +152,7 @@ export default function SwitchPage({
               </div>
 
               {/* Middle */}
-              <div className="bg-[var(--bg)] border-x border-[var(--line)] p-4 flex flex-col items-center justify-center gap-1.5">
+              <div className="bg-[var(--bg)] border-y sm:border-y-0 sm:border-x border-[var(--line)] p-4 flex flex-col items-center justify-center gap-1.5">
                 <span className="text-[28px] font-bold text-[#534AB7]" style={{ fontFamily: 'var(--font-display)' }}>
                   {matchPercent}%
                 </span>
@@ -257,9 +176,9 @@ export default function SwitchPage({
 
           {/* Stat chips */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-[#9FE1CB] bg-[#E1F5EE] p-3 text-center">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
               <p className="text-xl font-bold text-[#1D9E75]">{transferCount}</p>
-              <p className="mt-0.5 text-[10px] text-[#085041]/70">Навыков переносятся</p>
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]">Навыков переносятся</p>
             </div>
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
               <p className="text-xl font-bold text-[#A32D2D]">{newSkills.length}</p>
@@ -362,7 +281,7 @@ export default function SwitchPage({
         )}
 
         {/* ---- Generated plan ---- */}
-        {focusedPlan && <FocusedPlanSection plan={focusedPlan} />}
+        {focusedPlan && <FocusedPlanSection plan={focusedPlan} title="План перехода" />}
 
         {/* ---- CTA bar ---- */}
         <section className="border-t border-[var(--line)] pt-5 mt-5 flex flex-col sm:flex-row gap-2">
