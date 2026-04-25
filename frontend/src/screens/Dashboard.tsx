@@ -61,9 +61,20 @@ interface PlanTask {
   body?: string;
 }
 
+function extractMarkdownSection(md: string, heading: string): string {
+  const pattern = new RegExp(`## ${heading}[^\\n]*\\n`, 'i');
+  const match = pattern.exec(md);
+  if (!match) return '';
+  const start = match.index + match[0].length;
+  const nextHeading = md.indexOf('\n## ', start);
+  const raw = nextHeading === -1 ? md.slice(start) : md.slice(start, nextHeading);
+  return raw.replace(/^---+\s*/gm, '').trim();
+}
+
 function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const result = asRecord(item.result_json);
   const analysis = result ? asRecord(result.analysis) : null;
+  const markdown = (result && typeof result.markdown === 'string') ? result.markdown : '';
   const tasks: PlanTask[] = [];
   const seenIds = new Set<string>();
 
@@ -73,7 +84,7 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
     tasks.push({ id, title, tag, body: body || undefined });
   };
 
-  const extractGaps = (gaps: unknown[], category: string) => {
+  const extractGaps = (gaps: unknown[]) => {
     for (const gap of gaps) {
       const rec = asRecord(gap);
       if (!rec) continue;
@@ -81,23 +92,18 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
       if (!name) continue;
       const taskText = asString(rec.tasks);
       const desc = asString(rec.description);
-      addTask(name, name, category, taskText || desc || undefined);
+      addTask(name, name, 'Практика', taskText || desc || undefined);
     }
   };
 
   if (analysis && item.scenario === 'Следующий грейд') {
-    extractGaps(Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : [], 'Практика');
-    const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
-    for (const t of tracks) {
-      const text = asString(t);
-      if (text) addTask(`track::${text}`, text, 'Взаимодействие');
-    }
+    extractGaps(Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : []);
   } else if (analysis && item.scenario === 'Смена профессии') {
-    extractGaps(Array.isArray(analysis.gaps) ? analysis.gaps : [], 'Практика');
+    extractGaps(Array.isArray(analysis.gaps) ? analysis.gaps : []);
     const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
     for (const t of tracks) {
       const text = asString(t);
-      if (text) addTask(`track::${text}`, text, 'Взаимодействие');
+      if (text) addTask(`track::${text}`, text, 'Направление');
     }
   } else if (analysis && item.scenario === 'Исследование возможностей') {
     const roles = Array.isArray(analysis.roles) ? analysis.roles : [];
@@ -109,14 +115,25 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
     }
   }
 
-  if (tasks.length > 0) return tasks;
-
-  const skillsPayload = asRecord(item.skills_json);
-  const skills = skillsPayload && Array.isArray(skillsPayload.skills) ? skillsPayload.skills : [];
-  for (const skill of skills) {
-    const name = asString(asRecord(skill)?.name);
-    if (name) addTask(name, name, 'Практика');
+  if (tasks.length === 0) {
+    const skillsPayload = asRecord(item.skills_json);
+    const skills = skillsPayload && Array.isArray(skillsPayload.skills) ? skillsPayload.skills : [];
+    for (const skill of skills) {
+      const name = asString(asRecord(skill)?.name);
+      if (name) addTask(name, name, 'Практика');
+    }
   }
+
+  const interactionBody = extractMarkdownSection(markdown, 'Взаимодействие');
+  if (interactionBody) {
+    addTask('__interaction__', 'Взаимодействие и обратная связь', 'Взаимодействие', interactionBody);
+  }
+
+  const booksBody = extractMarkdownSection(markdown, 'Книги');
+  if (booksBody) {
+    addTask('__books__', 'Книги', 'Литература', booksBody);
+  }
+
   return tasks;
 }
 
