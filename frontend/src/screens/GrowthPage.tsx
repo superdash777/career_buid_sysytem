@@ -251,10 +251,6 @@ export default function GrowthPage({
 
         {/* ---- Hero ---- */}
         <section className="pb-6 border-b border-[var(--line)]">
-          <span className="inline-block rounded-full bg-[#EEEDFE] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#534AB7] mb-3">
-            ↑ Growth — следующий грейд
-          </span>
-
           <h1 className="text-2xl font-bold text-[var(--ink)] sm:text-[26px] leading-tight mb-4" style={{ fontFamily: 'var(--font-display)' }}>
             Ваш путь к{' '}
             <em className="not-italic text-[#534AB7]" style={{ fontStyle: 'italic' }}>
