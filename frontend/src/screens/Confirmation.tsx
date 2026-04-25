@@ -19,11 +19,6 @@ interface Props {
   onRequireAuth?: () => void;
 }
 
-const SCENARIO_LABELS: Record<Scenario, string> = {
-  'Следующий грейд': 'Следующий грейд',
-  'Смена профессии': 'Смена профессии',
-  'Исследование возможностей': 'Исследование возможностей',
-};
 
 const INITIAL_VISIBLE = 5;
 
@@ -123,7 +118,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
             <dd className="text-(--color-text-primary)">{state.profession}</dd>
             <dt className="font-medium text-(--color-text-muted)">Сценарий</dt>
             <dd className="text-(--color-text-primary)">
-              {state.scenario ? SCENARIO_LABELS[state.scenario as Scenario] : '—'}
+              {state.scenario || '—'}
             </dd>
             <dt className="font-medium text-(--color-text-muted)">Грейд</dt>
             <dd className="text-(--color-text-primary)">{state.grade}</dd>
@@ -138,13 +133,12 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
 
         {/* Skills summary — expandable */}
         <div className="card space-y-4">
-          <MonoLabel>Навыки профиля</MonoLabel>
-          <h2 className="text-lg font-semibold text-(--color-text-primary)">
-            Навыки
-            <span className="ml-2 text-sm font-normal text-(--color-text-muted)">
+          <MonoLabel>
+            Навыки профиля
+            <span className="ml-2 text-sm font-normal text-(--color-text-muted) lowercase tracking-normal" style={{ fontFamily: 'inherit' }}>
               ({state.skills.length})
             </span>
-          </h2>
+          </MonoLabel>
           <div className="flex flex-wrap gap-2">
             {visibleSkills.map((s) => (
               <span

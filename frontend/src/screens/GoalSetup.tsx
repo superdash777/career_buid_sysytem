@@ -11,7 +11,7 @@ import type { AppState, Scenario, Grade, QuizPainPoint } from '../types';
 import { GRADES, SCENARIOS } from '../types';
 import { recommendScenarioFromPainPoint } from '../utils/onboarding';
 import Button from '../components/ui/Button';
-import Eyebrow from '../components/ui/Eyebrow';
+
 import MonoLabel from '../components/ui/MonoLabel';
 
 interface Props {
@@ -89,8 +89,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
     <Layout step={1}>
       <div className="space-y-8 slide-up">
         <div>
-          <Eyebrow className="mb-2">Карьерная цель</Eyebrow>
-          <MiniProgress current={1} total={3} label="Цель" />
+          <MiniProgress current={1} total={3} label="Карьерная цель" />
           <h1 className="mb-2 mt-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Определим вашу цель
           </h1>

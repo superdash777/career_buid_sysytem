@@ -17,11 +17,6 @@ interface Props {
   onOpenOnboarding?: () => void;
 }
 
-const SCENARIO_LABELS: Record<string, string> = {
-  'Следующий грейд': 'Следующий грейд',
-  'Смена профессии': 'Смена профессии',
-  'Исследование возможностей': 'Исследование возможностей',
-};
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -42,16 +37,6 @@ function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function uniqueSkills(values: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const value of values) {
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    out.push(value);
-  }
-  return out;
-}
 
 function getMatchPercent(item: AnalysisRecord): number {
   const result = asRecord(item.result_json);
@@ -69,22 +54,45 @@ function getMatchPercent(item: AnalysisRecord): number {
   return 0;
 }
 
-function getTrackedSkills(item: AnalysisRecord): string[] {
+interface PlanTask {
+  id: string;
+  title: string;
+  tag: string;
+}
+
+function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const result = asRecord(item.result_json);
   const analysis = result ? asRecord(result.analysis) : null;
-  const skillNames: string[] = [];
+  const tasks: PlanTask[] = [];
+  const seenIds = new Set<string>();
+
+  const addTask = (id: string, title: string, tag: string) => {
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    tasks.push({ id, title, tag });
+  };
 
   if (analysis && item.scenario === 'Следующий грейд') {
     const gaps = Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : [];
     for (const gap of gaps) {
-      const name = asString(asRecord(gap)?.name);
-      if (name) skillNames.push(name);
+      const rec = asRecord(gap);
+      if (!rec) continue;
+      const name = asString(rec.name);
+      if (!name) continue;
+      const taskDesc = asString(rec.tasks);
+      const desc = asString(rec.description);
+      addTask(name, taskDesc || desc || name, name);
     }
   } else if (analysis && item.scenario === 'Смена профессии') {
     const gaps = Array.isArray(analysis.gaps) ? analysis.gaps : [];
     for (const gap of gaps) {
-      const name = asString(asRecord(gap)?.name);
-      if (name) skillNames.push(name);
+      const rec = asRecord(gap);
+      if (!rec) continue;
+      const name = asString(rec.name);
+      if (!name) continue;
+      const taskDesc = asString(rec.tasks);
+      const desc = asString(rec.description);
+      addTask(name, taskDesc || desc || name, name);
     }
   } else if (analysis && item.scenario === 'Исследование возможностей') {
     const roles = Array.isArray(analysis.roles) ? analysis.roles : [];
@@ -92,19 +100,19 @@ function getTrackedSkills(item: AnalysisRecord): string[] {
     const missing = firstRole && Array.isArray(firstRole.missing) ? firstRole.missing : [];
     for (const miss of missing) {
       const name = asString(miss);
-      if (name) skillNames.push(name);
+      if (name) addTask(name, name, 'Навык');
     }
   }
 
-  if (skillNames.length > 0) return uniqueSkills(skillNames);
+  if (tasks.length > 0) return tasks;
 
   const skillsPayload = asRecord(item.skills_json);
   const skills = skillsPayload && Array.isArray(skillsPayload.skills) ? skillsPayload.skills : [];
   for (const skill of skills) {
     const name = asString(asRecord(skill)?.name);
-    if (name) skillNames.push(name);
+    if (name) addTask(name, name, 'Навык');
   }
-  return uniqueSkills(skillNames);
+  return tasks;
 }
 
 function formatDate(value: string): string {
@@ -172,13 +180,13 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
   }, [progress]);
 
   const latestAnalysis = analyses.length > 0 ? analyses[0] : null;
-  const trackedSkills = useMemo(
-    () => (latestAnalysis ? getTrackedSkills(latestAnalysis).slice(0, 8) : []),
+  const trackedTasks = useMemo(
+    () => (latestAnalysis ? getTrackedTasks(latestAnalysis).slice(0, 8) : []),
     [latestAnalysis],
   );
   const matchPercent = latestAnalysis ? getMatchPercent(latestAnalysis) : 0;
-  const doneCount = trackedSkills.filter((name) => progressMap.get(name)?.status === 'done').length;
-  const weeklyProgress = trackedSkills.length > 0 ? Math.round((doneCount / trackedSkills.length) * 100) : 0;
+  const doneCount = trackedTasks.filter((t) => progressMap.get(t.id)?.status === 'done').length;
+  const weeklyProgress = trackedTasks.length > 0 ? Math.round((doneCount / trackedTasks.length) * 100) : 0;
   const forecastText = estimateForecast(matchPercent, user?.development_hours_per_week);
 
   const updateSkillStatus = async (skillName: string, status: 'todo' | 'in_progress' | 'done') => {
@@ -191,7 +199,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
         next[idx] = item;
         return next;
       });
-      if (status === 'done') showToast(`Навык «${skillName}» отмечен как выполненный`);
+      if (status === 'done') showToast(`Задача «${skillName}» отмечена как выполненная`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Не удалось обновить статус';
       showToast(message);
@@ -254,15 +262,15 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                 marker="01"
               />
               <MetricCard
-                title="Освоено навыков"
-                value={`${doneCount}/${trackedSkills.length || 0}`}
-                subtitle="По задачам текущей недели"
+                title="Выполнено задач"
+                value={`${doneCount}/${trackedTasks.length || 0}`}
+                subtitle="По задачам текущего плана"
                 marker="02"
               />
               <MetricCard
                 title="Цель"
                 value={latestAnalysis?.target_role || latestAnalysis?.current_role || '—'}
-                subtitle={latestAnalysis ? SCENARIO_LABELS[latestAnalysis.scenario] || latestAnalysis.scenario : 'Пока нет анализа'}
+                subtitle={latestAnalysis ? latestAnalysis.scenario : 'Пока нет анализа'}
                 marker="03"
               />
               <MetricCard
@@ -275,8 +283,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
 
             <div className="card">
               <MonoLabel>Прогресс к цели</MonoLabel>
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-(--color-text-primary)">Прогресс к цели</span>
+              <div className="mb-2 flex items-center justify-end text-sm">
                 <span className="text-(--color-text-secondary)">{matchPercent}% → 100%</span>
               </div>
               <div className="h-2 rounded-full bg-(--color-surface-alt) overflow-hidden">
@@ -286,19 +293,18 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
             </div>
 
             <div className="card space-y-4">
-              <MonoLabel>Задачи</MonoLabel>
-              <h2 className="text-lg font-semibold text-(--color-text-primary)">Задачи на развитие</h2>
-              {trackedSkills.length === 0 ? (
+              <MonoLabel>Задачи на развитие</MonoLabel>
+              {trackedTasks.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
                   Сначала завершите хотя бы один план, чтобы получить персональные задачи.
                 </p>
               ) : (
                 <KanbanBoard
-                  tasks={trackedSkills.map((skill): KanbanTask => ({
-                    id: skill,
-                    title: skill,
-                    tag: 'Навык',
-                    status: (progressMap.get(skill)?.status as 'todo' | 'in_progress' | 'done') ?? 'todo',
+                  tasks={trackedTasks.map((task): KanbanTask => ({
+                    id: task.id,
+                    title: task.title,
+                    tag: task.tag,
+                    status: (progressMap.get(task.id)?.status as 'todo' | 'in_progress' | 'done') ?? 'todo',
                   }))}
                   onStatusChange={(taskId, newStatus) => updateSkillStatus(taskId, newStatus)}
                 />
@@ -306,8 +312,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
             </div>
 
             <div className="card space-y-4">
-              <MonoLabel>Планы</MonoLabel>
-              <h2 className="text-lg font-semibold text-(--color-text-primary)">Мои карьерные планы</h2>
+              <MonoLabel>Мои карьерные планы</MonoLabel>
               {analyses.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
                   История пока пуста. Сформируйте первый план, и он появится здесь.
@@ -318,7 +323,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                     <div key={item.id} className="rounded-lg border border-(--color-border) p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div>
                         <p className="font-medium text-(--color-text-primary)">
-                          {SCENARIO_LABELS[item.scenario] || item.scenario}
+                          {item.scenario}
                         </p>
                         <p className="text-xs text-(--color-text-muted)">
                           {item.current_role || '—'}{item.target_role ? ` → ${item.target_role}` : ''} • {formatDate(item.created_at)}

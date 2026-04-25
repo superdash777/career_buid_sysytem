@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import GoalSelection from './screens/GoalSelection';
 import Dashboard from './screens/Dashboard';
 import OnboardingQuiz from './screens/OnboardingQuiz';
 import GoalSetup from './screens/GoalSetup';
@@ -31,7 +30,6 @@ type Screen =
   | 'login'
   | 'register'
   | 'share'
-  | 'welcome'
   | 'onboarding'
   | 'dashboard'
   | 'goal'
@@ -49,7 +47,6 @@ const SCREEN_ORDER: Screen[] = [
   'login',
   'register',
   'share',
-  'welcome',
   'onboarding',
   'dashboard',
   'goal',
@@ -85,6 +82,7 @@ function loadSavedPlan(): PlanResponse | null {
 function screenFromHash(): Screen {
   const hash = window.location.hash.replace('#', '') as Screen;
   if (hash.startsWith('share/')) return 'share';
+  if ((hash as string) === 'welcome') return 'dashboard';
   if (SCREEN_ORDER.includes(hash)) return hash;
   return 'public';
 }
@@ -271,7 +269,7 @@ export default function App() {
       return;
     }
     if (isAuthenticated && (screen === 'public' || screen === 'login' || screen === 'register' || screen === 'demo')) {
-      setScreen(pendingAuthScreen || 'welcome', true);
+      setScreen(pendingAuthScreen || 'dashboard', true);
       setPendingAuthScreen(null);
       return;
     }
@@ -401,7 +399,7 @@ export default function App() {
     setPlanRaw(null);
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(PLAN_STORAGE_KEY);
-    setScreen(isAuthenticated ? 'welcome' : 'public', true);
+    setScreen(isAuthenticated ? 'dashboard' : 'public', true);
   };
 
   if (serviceDown) {
@@ -473,7 +471,7 @@ export default function App() {
 
               <div className="text-center">
                 <button
-                  onClick={() => setScreen(isAuthenticated ? 'welcome' : 'public', true)}
+                  onClick={() => setScreen(isAuthenticated ? 'dashboard' : 'public', true)}
                   className="btn-secondary text-sm"
                 >
                   <Home className="h-4 w-4" /> На главную
@@ -605,7 +603,7 @@ export default function App() {
           <Auth
             initialMode="login"
             onSuccess={() => {
-              setScreen(pendingAuthScreen || 'welcome', true);
+              setScreen(pendingAuthScreen || 'dashboard', true);
               setPendingAuthScreen(null);
             }}
             onSkip={() => setScreen(plan ? 'result' : 'quickstart')}
@@ -624,20 +622,6 @@ export default function App() {
             onBackToPublic={() => setScreen('public')}
           />
         );
-      case 'welcome':
-        return (
-          <ProtectedRoute>
-            <GoalSelection
-              onSelect={(scenario) => {
-                update({ scenario: scenario as Scenario });
-                setScreen('goal');
-              }}
-              onOpenDashboard={() => setScreen('dashboard')}
-              onOpenOnboarding={() => setScreen('onboarding')}
-              recommendedPainPoint={state.onboardingPainPoint || null}
-            />
-          </ProtectedRoute>
-        );
       case 'onboarding':
         return (
           <ProtectedRoute>
@@ -649,7 +633,7 @@ export default function App() {
                   onboardingPainPoint: answers.painPoint,
                 });
                 await refreshMe();
-                setScreen('welcome', true);
+                setScreen('dashboard', true);
               }}
             />
           </ProtectedRoute>
@@ -658,7 +642,7 @@ export default function App() {
         return (
           <ProtectedRoute>
             <Dashboard
-              onBack={() => setScreen('welcome')}
+              onBack={() => setScreen('public')}
               onStartNew={() => setScreen('goal')}
               onOpenAnalysis={openAnalysisFromHistory}
               onOpenOnboarding={() => setScreen('onboarding')}
@@ -682,7 +666,7 @@ export default function App() {
               state={state}
               onChange={update}
               onNext={() => setScreen('skills')}
-              onBack={() => setScreen('welcome')}
+              onBack={() => setScreen('dashboard')}
             />
           </ProtectedRoute>
         );
