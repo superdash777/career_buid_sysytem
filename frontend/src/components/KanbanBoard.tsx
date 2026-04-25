@@ -45,16 +45,16 @@ function TaskCard({
       role="button"
       tabIndex={0}
       onPointerDown={(e) => onPointerDown(e, task)}
-      className={`cursor-grab touch-none select-none rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-left transition-shadow active:cursor-grabbing ${
+      className={`cursor-grab touch-none select-none rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-left transition-shadow active:cursor-grabbing overflow-hidden ${
         isDragging ? 'opacity-0' : ''
       }`}
     >
       {task.tag ? (
-        <span className="mb-2 inline-block rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
+        <span className="mb-2 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
           {task.tag}
         </span>
       ) : null}
-      <p className="text-sm font-medium text-[var(--ink)]">{task.title}</p>
+      <p className="text-sm font-medium text-[var(--ink)] whitespace-pre-line break-words line-clamp-4">{task.title}</p>
     </div>
   );
 }
@@ -197,7 +197,7 @@ export default function KanbanBoard({ tasks, onStatusChange, onAddTask }: Kanban
 
       {drag ? (
         <div
-          className="pointer-events-none fixed z-[1000] rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 opacity-80 shadow-lg scale-105"
+          className="pointer-events-none fixed z-[1000] rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 opacity-80 shadow-lg scale-105 overflow-hidden"
           style={{
             width: drag.width,
             height: drag.height,
@@ -206,11 +206,11 @@ export default function KanbanBoard({ tasks, onStatusChange, onAddTask }: Kanban
           }}
         >
           {drag.task.tag ? (
-            <span className="mb-2 inline-block rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
+            <span className="mb-2 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
               {drag.task.tag}
             </span>
           ) : null}
-          <p className="text-sm font-medium text-[var(--ink)]">{drag.task.title}</p>
+          <p className="text-sm font-medium text-[var(--ink)] whitespace-pre-line break-words line-clamp-4">{drag.task.title}</p>
         </div>
       ) : null}
     </div>

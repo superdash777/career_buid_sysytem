@@ -60,13 +60,22 @@ interface PlanTask {
   tag: string;
 }
 
+function splitTaskText(text: string): string[] {
+  return text
+    .split(/\n{2,}|\n(?=\d+\.\s)/)
+    .map((s) => s.replace(/^\d+\.\s*/, '').trim())
+    .filter(Boolean);
+}
+
 function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const result = asRecord(item.result_json);
   const analysis = result ? asRecord(result.analysis) : null;
   const tasks: PlanTask[] = [];
   const seenIds = new Set<string>();
+  let counter = 0;
 
-  const addTask = (id: string, title: string, tag: string) => {
+  const addTask = (title: string, tag: string) => {
+    const id = `${tag}::${counter++}`;
     if (seenIds.has(id)) return;
     seenIds.add(id);
     tasks.push({ id, title, tag });
@@ -79,9 +88,20 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
       if (!rec) continue;
       const name = asString(rec.name);
       if (!name) continue;
-      const taskDesc = asString(rec.tasks);
+      const taskText = asString(rec.tasks);
       const desc = asString(rec.description);
-      addTask(name, taskDesc || desc || name, name);
+      const raw = taskText || desc || '';
+      const items = splitTaskText(raw);
+      if (items.length > 0) {
+        for (const t of items) addTask(t, name);
+      } else {
+        addTask(name, 'Навык');
+      }
+    }
+    const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
+    for (const t of tracks) {
+      const text = asString(t);
+      if (text) addTask(text, 'Общение');
     }
   } else if (analysis && item.scenario === 'Смена профессии') {
     const gaps = Array.isArray(analysis.gaps) ? analysis.gaps : [];
@@ -90,9 +110,20 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
       if (!rec) continue;
       const name = asString(rec.name);
       if (!name) continue;
-      const taskDesc = asString(rec.tasks);
+      const taskText = asString(rec.tasks);
       const desc = asString(rec.description);
-      addTask(name, taskDesc || desc || name, name);
+      const raw = taskText || desc || '';
+      const items = splitTaskText(raw);
+      if (items.length > 0) {
+        for (const t of items) addTask(t, name);
+      } else {
+        addTask(name, 'Навык');
+      }
+    }
+    const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
+    for (const t of tracks) {
+      const text = asString(t);
+      if (text) addTask(text, 'Направление');
     }
   } else if (analysis && item.scenario === 'Исследование возможностей') {
     const roles = Array.isArray(analysis.roles) ? analysis.roles : [];
@@ -100,7 +131,7 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
     const missing = firstRole && Array.isArray(firstRole.missing) ? firstRole.missing : [];
     for (const miss of missing) {
       const name = asString(miss);
-      if (name) addTask(name, name, 'Навык');
+      if (name) addTask(name, 'Навык');
     }
   }
 
@@ -110,7 +141,7 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const skills = skillsPayload && Array.isArray(skillsPayload.skills) ? skillsPayload.skills : [];
   for (const skill of skills) {
     const name = asString(asRecord(skill)?.name);
-    if (name) addTask(name, name, 'Навык');
+    if (name) addTask(name, 'Навык');
   }
   return tasks;
 }
@@ -181,7 +212,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
 
   const latestAnalysis = analyses.length > 0 ? analyses[0] : null;
   const trackedTasks = useMemo(
-    () => (latestAnalysis ? getTrackedTasks(latestAnalysis).slice(0, 8) : []),
+    () => (latestAnalysis ? getTrackedTasks(latestAnalysis) : []),
     [latestAnalysis],
   );
   const matchPercent = latestAnalysis ? getMatchPercent(latestAnalysis) : 0;
@@ -294,6 +325,9 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
 
             <div className="card space-y-4">
               <MonoLabel>Задачи на развитие</MonoLabel>
+              <p className="text-xs text-(--color-text-muted) -mt-2">
+                Как только выполните задачу — перетащите её в нужный столбец. Прогресс обновится автоматически.
+              </p>
               {trackedTasks.length === 0 ? (
                 <p className="text-sm text-(--color-text-muted)">
                   Сначала завершите хотя бы один план, чтобы получить персональные задачи.
