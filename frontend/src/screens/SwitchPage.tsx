@@ -131,11 +131,6 @@ export default function SwitchPage({
 
         {/* ---- Hero ---- */}
         <section className="pb-6 border-b border-[var(--line)]">
-          {/* Scenario tag */}
-          <span className="inline-block rounded-full bg-[#E1F5EE] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#1D9E75] mb-4">
-            ⇄ Switch — смена профессии
-          </span>
-
           {/* Bridge card */}
           <div className="rounded-2xl border border-[var(--line)] overflow-hidden mb-5">
             <div className="grid grid-cols-1 sm:grid-cols-3">
