@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export interface KanbanTask {
   id: string;
   title: string;
   tag?: string;
+  body?: string;
   status: 'todo' | 'in_progress' | 'done';
 }
 
@@ -40,21 +42,46 @@ function TaskCard({
   isDragging: boolean;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>, task: KanbanTask) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const hasBody = !!task.body;
+
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onPointerDown={(e) => onPointerDown(e, task)}
-      className={`cursor-grab touch-none select-none rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-left transition-shadow active:cursor-grabbing overflow-hidden ${
+      className={`select-none rounded-xl border border-[var(--line)] bg-[var(--paper)] text-left transition-shadow overflow-hidden ${
         isDragging ? 'opacity-0' : ''
       }`}
     >
-      {task.tag ? (
-        <span className="mb-2 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
-          {task.tag}
-        </span>
-      ) : null}
-      <p className="text-sm font-medium text-[var(--ink)] whitespace-pre-line break-words line-clamp-4">{task.title}</p>
+      <div
+        role="button"
+        tabIndex={0}
+        onPointerDown={(e) => onPointerDown(e, task)}
+        className="cursor-grab touch-none p-3 active:cursor-grabbing"
+      >
+        {task.tag ? (
+          <span className="mb-1.5 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-[10px] font-medium text-[var(--blue-deep)]">
+            {task.tag}
+          </span>
+        ) : null}
+        <p className="text-sm font-medium text-[var(--ink)] break-words">{task.title}</p>
+      </div>
+
+      {hasBody && (
+        <div className="border-t border-[var(--line)]">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full items-center gap-1 px-3 py-1.5 text-[11px] text-[var(--muted)] transition-colors hover:text-[var(--blue-deep)]"
+          >
+            <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+            {open ? 'Свернуть' : 'Подробнее'}
+          </button>
+          {open && (
+            <div className="px-3 pb-3 text-[12px] leading-relaxed text-[var(--ink)]/80 break-words whitespace-pre-line fade-in">
+              {task.body}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -200,17 +227,16 @@ export default function KanbanBoard({ tasks, onStatusChange, onAddTask }: Kanban
           className="pointer-events-none fixed z-[1000] rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 opacity-80 shadow-lg scale-105 overflow-hidden"
           style={{
             width: drag.width,
-            height: drag.height,
             left: drag.clientX - drag.offsetX,
             top: drag.clientY - drag.offsetY,
           }}
         >
           {drag.task.tag ? (
-            <span className="mb-2 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-xs text-[var(--blue-deep)]">
+            <span className="mb-1.5 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-[10px] font-medium text-[var(--blue-deep)]">
               {drag.task.tag}
             </span>
           ) : null}
-          <p className="text-sm font-medium text-[var(--ink)] whitespace-pre-line break-words line-clamp-4">{drag.task.title}</p>
+          <p className="text-sm font-medium text-[var(--ink)] break-words">{drag.task.title}</p>
         </div>
       ) : null}
     </div>

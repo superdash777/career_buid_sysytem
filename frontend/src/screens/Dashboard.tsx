@@ -58,13 +58,7 @@ interface PlanTask {
   id: string;
   title: string;
   tag: string;
-}
-
-function splitTaskText(text: string): string[] {
-  return text
-    .split(/\n{2,}|\n(?=\d+\.\s)/)
-    .map((s) => s.replace(/^\d+\.\s*/, '').trim())
-    .filter(Boolean);
+  body?: string;
 }
 
 function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
@@ -72,58 +66,38 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const analysis = result ? asRecord(result.analysis) : null;
   const tasks: PlanTask[] = [];
   const seenIds = new Set<string>();
-  let counter = 0;
 
-  const addTask = (title: string, tag: string) => {
-    const id = `${tag}::${counter++}`;
+  const addTask = (id: string, title: string, tag: string, body?: string) => {
     if (seenIds.has(id)) return;
     seenIds.add(id);
-    tasks.push({ id, title, tag });
+    tasks.push({ id, title, tag, body: body || undefined });
+  };
+
+  const extractGaps = (gaps: unknown[], category: string) => {
+    for (const gap of gaps) {
+      const rec = asRecord(gap);
+      if (!rec) continue;
+      const name = asString(rec.name);
+      if (!name) continue;
+      const taskText = asString(rec.tasks);
+      const desc = asString(rec.description);
+      addTask(name, name, category, taskText || desc || undefined);
+    }
   };
 
   if (analysis && item.scenario === 'Следующий грейд') {
-    const gaps = Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : [];
-    for (const gap of gaps) {
-      const rec = asRecord(gap);
-      if (!rec) continue;
-      const name = asString(rec.name);
-      if (!name) continue;
-      const taskText = asString(rec.tasks);
-      const desc = asString(rec.description);
-      const raw = taskText || desc || '';
-      const items = splitTaskText(raw);
-      if (items.length > 0) {
-        for (const t of items) addTask(t, name);
-      } else {
-        addTask(name, 'Навык');
-      }
-    }
+    extractGaps(Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : [], 'Практика');
     const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
     for (const t of tracks) {
       const text = asString(t);
-      if (text) addTask(text, 'Общение');
+      if (text) addTask(`track::${text}`, text, 'Взаимодействие');
     }
   } else if (analysis && item.scenario === 'Смена профессии') {
-    const gaps = Array.isArray(analysis.gaps) ? analysis.gaps : [];
-    for (const gap of gaps) {
-      const rec = asRecord(gap);
-      if (!rec) continue;
-      const name = asString(rec.name);
-      if (!name) continue;
-      const taskText = asString(rec.tasks);
-      const desc = asString(rec.description);
-      const raw = taskText || desc || '';
-      const items = splitTaskText(raw);
-      if (items.length > 0) {
-        for (const t of items) addTask(t, name);
-      } else {
-        addTask(name, 'Навык');
-      }
-    }
+    extractGaps(Array.isArray(analysis.gaps) ? analysis.gaps : [], 'Практика');
     const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
     for (const t of tracks) {
       const text = asString(t);
-      if (text) addTask(text, 'Направление');
+      if (text) addTask(`track::${text}`, text, 'Взаимодействие');
     }
   } else if (analysis && item.scenario === 'Исследование возможностей') {
     const roles = Array.isArray(analysis.roles) ? analysis.roles : [];
@@ -131,7 +105,7 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
     const missing = firstRole && Array.isArray(firstRole.missing) ? firstRole.missing : [];
     for (const miss of missing) {
       const name = asString(miss);
-      if (name) addTask(name, 'Навык');
+      if (name) addTask(name, name, 'Практика');
     }
   }
 
@@ -141,7 +115,7 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const skills = skillsPayload && Array.isArray(skillsPayload.skills) ? skillsPayload.skills : [];
   for (const skill of skills) {
     const name = asString(asRecord(skill)?.name);
-    if (name) addTask(name, 'Навык');
+    if (name) addTask(name, name, 'Практика');
   }
   return tasks;
 }
@@ -338,6 +312,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                     id: task.id,
                     title: task.title,
                     tag: task.tag,
+                    body: task.body,
                     status: (progressMap.get(task.id)?.status as 'todo' | 'in_progress' | 'done') ?? 'todo',
                   }))}
                   onStatusChange={(taskId, newStatus) => updateSkillStatus(taskId, newStatus)}
