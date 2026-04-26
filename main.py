@@ -215,7 +215,7 @@ def build_role_matches(opps, user_skills, data_loader):
 
     if not opps:
         return []
-    max_workers = min(12, max(4, len(opps)))
+    max_workers = min(4, max(1, len(opps)))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         return list(pool.map(_one, opps))
 

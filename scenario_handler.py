@@ -27,10 +27,16 @@ class ScenarioHandler:
 
         # Пытаемся использовать profile embedding
         try:
-            from rag_service import semantic_match_skills, compute_profile_similarity, encode_user_skills_query_vectors
+            from rag_service import (
+                semantic_match_skills,
+                compute_profile_similarity,
+                encode_user_skills_query_vectors,
+                _cached_role_passage_embeddings,
+            )
             use_semantic = True
         except Exception:
             use_semantic = False
+            _cached_role_passage_embeddings = None  # type: ignore
 
         user_skill_vecs = None
         if use_semantic and user_skill_names:
@@ -55,12 +61,22 @@ class ScenarioHandler:
                 exact_overlap = sum(1 for s, req in skill_reqs.items()
                                     if s in norm and norm[s] >= req)
 
-                # Semantic match
+                # Semantic match (reuse passage embeddings for this role×grade)
                 sem_overlap = 0
-                if use_semantic and user_skill_names:
+                profile_sim = 0.0
+                req_passage_vecs = None
+                if use_semantic and user_skill_names and _cached_role_passage_embeddings:
+                    try:
+                        req_passage_vecs = _cached_role_passage_embeddings((internal, grade), req_names)
+                    except Exception:
+                        req_passage_vecs = None
+                if use_semantic and user_skill_names and req_passage_vecs is not None:
                     try:
                         sem_map = semantic_match_skills(
-                            user_skill_names, req_names, user_vectors=user_skill_vecs
+                            user_skill_names,
+                            req_names,
+                            user_vectors=user_skill_vecs,
+                            req_vectors=req_passage_vecs,
                         )
                         for u_name, r_name in sem_map.items():
                             if r_name not in norm and norm.get(u_name, 0) >= skill_reqs.get(r_name, 1):
@@ -73,11 +89,13 @@ class ScenarioHandler:
                 score = int((combined / total) * 100) if total else 0
 
                 # Profile similarity bonus
-                profile_sim = 0.0
-                if use_semantic and user_skill_names:
+                if use_semantic and user_skill_names and req_passage_vecs is not None:
                     try:
                         profile_sim = compute_profile_similarity(
-                            user_skill_names, req_names, precomputed_user_vecs=user_skill_vecs
+                            user_skill_names,
+                            req_names,
+                            precomputed_user_vecs=user_skill_vecs,
+                            precomputed_role_vecs=req_passage_vecs,
                         )
                     except Exception:
                         pass

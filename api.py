@@ -807,7 +807,8 @@ def _build_role_matches(opps, user_skills):
 
     if not opps:
         return []
-    max_workers = min(12, max(4, len(opps)))
+    # Fewer workers: each task runs RAG retrieve + embed; avoids Qdrant/timeouts and model thread contention.
+    max_workers = min(4, max(1, len(opps)))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         return list(pool.map(_one, opps))
 

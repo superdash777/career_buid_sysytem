@@ -2,8 +2,10 @@
 """RAG и NLP: индексация навыков/атласа, поиск, подсказки навыков, семантическое ранжирование."""
 
 import json
+import threading
 import urllib.request
 import urllib.error
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -12,6 +14,14 @@ from config import Config
 # Ленивая загрузка тяжёлых зависимостей (отдельно по model_name)
 _sentence_transformers: Dict[str, Any] = {}
 _cross_encoder = None
+
+# SentenceTransformer.encode is not reliably thread-safe; explore uses a thread pool.
+_encode_lock = threading.Lock()
+
+# (internal_role, grade) -> (tuple of skill names in encode order, passage embeddings matrix)
+_role_requirement_emb_cache: "OrderedDict[Tuple[str, str], Tuple[Tuple[str, ...], Any]]" = OrderedDict()
+_role_req_emb_lock = threading.Lock()
+_ROLE_REQ_EMB_CACHE_MAX = 512
 
 # --- Qdrant через REST API ---
 
@@ -304,7 +314,28 @@ def _encode_texts(
     show_progress_bar: bool = False,
 ):
     embedder = _get_embedder(model_name=model_name)
-    return embedder.encode(texts, normalize_embeddings=normalize, show_progress_bar=show_progress_bar)
+    with _encode_lock:
+        return embedder.encode(texts, normalize_embeddings=normalize, show_progress_bar=show_progress_bar)
+
+
+def _cached_role_passage_embeddings(
+    role_key: Tuple[str, str],
+    required_skill_names: List[str],
+) -> Any:
+    """Passage-side embeddings for one role×grade; reused by semantic_match + profile_sim in explore."""
+    names_t = tuple(required_skill_names)
+    with _role_req_emb_lock:
+        hit = _role_requirement_emb_cache.get(role_key)
+        if hit is not None and hit[0] == names_t:
+            _role_requirement_emb_cache.move_to_end(role_key)
+            return hit[1]
+    req_vecs = _encode_for_matching(list(required_skill_names), is_query=False)
+    with _role_req_emb_lock:
+        _role_requirement_emb_cache[role_key] = (names_t, req_vecs)
+        _role_requirement_emb_cache.move_to_end(role_key)
+        while len(_role_requirement_emb_cache) > _ROLE_REQ_EMB_CACHE_MAX:
+            _role_requirement_emb_cache.popitem(last=False)
+    return req_vecs
 
 
 def _e5_query_text(raw_skill: str) -> str:
@@ -1023,8 +1054,13 @@ def rank_opportunities(
         embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
     except Exception:
         return opportunities
-    # Текст профиля пользователя
-    profile_parts = [f"{name} (уровень {lvl})" for name, lvl in user_skills.items()]
+    # Текст профиля пользователя (без параметров атласа — они общие для всех ролей и раздувают текст)
+    atlas_keys = getattr(data_loader, "atlas_map", None) or {}
+    profile_parts = [
+        f"{name} (уровень {lvl})"
+        for name, lvl in user_skills.items()
+        if name not in atlas_keys
+    ]
     profile_text = " ".join(profile_parts) or "Нет навыков"
     try:
         profile_vec = embedder.encode([profile_text], normalize_embeddings=True)[0]
@@ -1117,6 +1153,7 @@ def semantic_match_skills(
     required_skill_names: List[str],
     threshold: Optional[float] = None,
     user_vectors: Any = None,
+    req_vectors: Any = None,
 ) -> Dict[str, str]:
     """Для каждого user-навыка находит ближайший required-навык по embedding similarity.
     Возвращает {user_name: matched_required_name} для пар с score >= threshold.
@@ -1125,6 +1162,8 @@ def semantic_match_skills(
 
     user_vectors: optional precomputed embeddings (same order as user_skill_names) to avoid
     re-encoding the user profile inside tight loops (e.g. explore_opportunities).
+    req_vectors: optional passage-side embeddings (same order as required_skill_names), e.g. from
+    _cached_role_passage_embeddings — avoids encoding role requirements twice per iteration.
     """
     threshold = threshold or Config.SKILL_MATCH_THRESHOLD
     if not user_skill_names or not required_skill_names:
@@ -1140,7 +1179,12 @@ def semantic_match_skills(
                 user_vecs = _encode_for_matching(user_skill_names, is_query=True)
         else:
             user_vecs = _encode_for_matching(user_skill_names, is_query=True)
-        req_vecs = _encode_for_matching(required_skill_names, is_query=False)
+        if req_vectors is not None:
+            req_vecs = np.asarray(req_vectors, dtype=float)
+            if req_vecs.shape[0] != len(required_skill_names):
+                req_vecs = _encode_for_matching(required_skill_names, is_query=False)
+        else:
+            req_vecs = _encode_for_matching(required_skill_names, is_query=False)
         sim_matrix = np.dot(user_vecs, req_vecs.T)
 
         result = {}
@@ -1169,12 +1213,14 @@ def compute_profile_similarity(
     user_skill_names: List[str],
     role_skill_names: List[str],
     precomputed_user_vecs: Any = None,
+    precomputed_role_vecs: Any = None,
 ) -> float:
     """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли.
     Uses E5-large for higher accuracy.
 
     precomputed_user_vecs: optional matrix of user skill embeddings (same order as user_skill_names)
     to avoid re-encoding the user profile for every role×grade pair in explore_opportunities.
+    precomputed_role_vecs: optional passage embeddings for role_skill_names (same order).
     """
     if not user_skill_names or not role_skill_names:
         return 0.0
@@ -1186,7 +1232,12 @@ def compute_profile_similarity(
                 u_vecs = _encode_for_matching(user_skill_names, is_query=True)
         else:
             u_vecs = _encode_for_matching(user_skill_names, is_query=True)
-        r_vecs = _encode_for_matching(role_skill_names, is_query=False)
+        if precomputed_role_vecs is not None:
+            r_vecs = np.asarray(precomputed_role_vecs, dtype=float)
+            if r_vecs.shape[0] != len(role_skill_names):
+                r_vecs = _encode_for_matching(role_skill_names, is_query=False)
+        else:
+            r_vecs = _encode_for_matching(role_skill_names, is_query=False)
         u_mean = np.mean(u_vecs, axis=0)
         r_mean = np.mean(r_vecs, axis=0)
         u_mean = u_mean / (np.linalg.norm(u_mean) + 1e-9)
