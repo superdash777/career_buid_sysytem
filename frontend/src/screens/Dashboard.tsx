@@ -71,6 +71,22 @@ function extractMarkdownSection(md: string, heading: string): string {
   return raw.replace(/^---+\s*/gm, '').trim();
 }
 
+/** Plain text for kanban card bodies (no **, lists as simple bullets). */
+function stripMarkdownForKanban(md: string): string {
+  let s = md.replace(/\r\n/g, '\n');
+  s = s.replace(/```[\s\S]*?```/g, '');
+  s = s.replace(/^#{1,6}\s+/gm, '');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  s = s.replace(/__([^_]+)__/g, '$1');
+  s = s.replace(/\*([^*\n]+)\*/g, '$1');
+  s = s.replace(/`([^`]+)`/g, '$1');
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  s = s.replace(/^[\t ]*[-*+]\s+/gm, '• ');
+  s = s.replace(/^\d+\.\s+/gm, '');
+  s = s.replace(/^---+$/gm, '');
+  return s.trim().replace(/\n{3,}/g, '\n\n');
+}
+
 function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
   const result = asRecord(item.result_json);
   const analysis = result ? asRecord(result.analysis) : null;
@@ -100,11 +116,6 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
     extractGaps(Array.isArray(analysis.skill_gaps) ? analysis.skill_gaps : []);
   } else if (analysis && item.scenario === 'Смена профессии') {
     extractGaps(Array.isArray(analysis.gaps) ? analysis.gaps : []);
-    const tracks = Array.isArray(analysis.suggested_tracks) ? analysis.suggested_tracks : [];
-    for (const t of tracks) {
-      const text = asString(t);
-      if (text) addTask(`track::${text}`, text, 'Направление');
-    }
   } else if (analysis && item.scenario === 'Исследование возможностей') {
     const roles = Array.isArray(analysis.roles) ? analysis.roles : [];
     const firstRole = roles.length > 0 ? asRecord(roles[0]) : null;
@@ -126,12 +137,17 @@ function getTrackedTasks(item: AnalysisRecord): PlanTask[] {
 
   const interactionBody = extractMarkdownSection(markdown, 'Взаимодействие');
   if (interactionBody) {
-    addTask('__interaction__', 'Взаимодействие и обратная связь', 'Взаимодействие', interactionBody);
+    addTask(
+      '__interaction__',
+      'Взаимодействие и обратная связь',
+      'Взаимодействие',
+      stripMarkdownForKanban(interactionBody),
+    );
   }
 
   const booksBody = extractMarkdownSection(markdown, 'Книги');
   if (booksBody) {
-    addTask('__books__', 'Книги', 'Литература', booksBody);
+    addTask('__books__', 'Книги', 'Литература', stripMarkdownForKanban(booksBody));
   }
 
   return tasks;
@@ -329,7 +345,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                     id: task.id,
                     title: task.title,
                     tag: task.tag,
-                    body: task.body,
+                    body: task.body ? stripMarkdownForKanban(task.body) : undefined,
                     status: (progressMap.get(task.id)?.status as 'todo' | 'in_progress' | 'done') ?? 'todo',
                   }))}
                   onStatusChange={(taskId, newStatus) => updateSkillStatus(taskId, newStatus)}
