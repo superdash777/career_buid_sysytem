@@ -357,7 +357,7 @@ docker build -t career-copilot .
 docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... career-copilot
 ```
 
-Образ объявляет том на `/app/data`: при монтировании volume туда SQLite по умолчанию (`data/app.db` относительно `/app`) переживает пересоздание контейнера. Либо задайте абсолютный путь, например `-e DB_PATH=/data/app.db -v copilot_db:/data`.
+На **Railway** в Dockerfile нельзя использовать `VOLUME` — диск подключается только через **Railway Volumes** в UI и переменную `DB_PATH` (см. ниже). Локально в Docker: `-e DB_PATH=/data/app.db -v copilot_db:/data`.
 
 Compose с постоянной БД:
 

@@ -21,9 +21,8 @@ COPY . .
 
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
-# Default SQLite path (override with DB_PATH, e.g. /data/app.db + volume — see README)
+# App may use ./data/app.db by default; on Railway use a Railway Volume + DB_PATH (no Dockerfile VOLUME — unsupported).
 RUN mkdir -p /app/data
-VOLUME ["/app/data"]
 
 EXPOSE 8000
 CMD ["python", "api.py"]
