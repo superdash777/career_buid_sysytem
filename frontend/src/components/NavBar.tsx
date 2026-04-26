@@ -32,14 +32,14 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
       )}
 
       <div className="flex items-center gap-2">
-        {!user && onLogin && (
-          <Button variant="ghost" size="sm" onClick={onLogin}>
-            Войти
-          </Button>
-        )}
         {!user && onRegister && (
           <Button size="sm" onClick={onRegister}>
             Начать бесплатно
+          </Button>
+        )}
+        {!user && onLogin && (
+          <Button variant="ghost" size="sm" onClick={onLogin}>
+            Войти
           </Button>
         )}
 
