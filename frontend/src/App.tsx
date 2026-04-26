@@ -60,6 +60,21 @@ const SCREEN_ORDER: Screen[] = [
 
 const STORAGE_KEY = 'career_copilot_state';
 const PLAN_STORAGE_KEY = 'career_copilot_plan';
+/** After register + onboarding, return here instead of dashboard (wizard progress). */
+const PENDING_SCREEN_AFTER_ONBOARDING_KEY = 'career_copilot_resume_after_onboarding';
+
+const FLOW_WIZARD_SCREENS: ReadonlySet<Screen> = new Set([
+  'quickstart',
+  'goal',
+  'skills',
+  'confirm',
+  'result',
+  'role-plan',
+]);
+
+function isFlowWizardScreen(s: Screen): boolean {
+  return FLOW_WIZARD_SCREENS.has(s);
+}
 
 function loadSavedState(): AppState {
   try {
@@ -259,6 +274,12 @@ export default function App() {
   const [sharedError, setSharedError] = useState('');
   const [pendingAuthScreen, setPendingAuthScreen] = useState<Screen | null>(null);
   const [selectedExploreRole] = useState<ExploreRole | null>(null);
+
+  const rememberWizardBeforeAuth = useCallback(() => {
+    if (isFlowWizardScreen(screen)) {
+      setPendingAuthScreen(screen);
+    }
+  }, [screen]);
 
   const setScreen = useCallback((s: Screen, replace = false) => {
     if (s === 'share') return;
@@ -516,8 +537,14 @@ export default function App() {
             setScreen('quickstart');
           }}
           onWatchDemo={() => setScreen('demo')}
-          onLogin={() => setScreen('login')}
-          onRegister={() => setScreen('register')}
+          onLogin={() => {
+            rememberWizardBeforeAuth();
+            setScreen('login');
+          }}
+          onRegister={() => {
+            rememberWizardBeforeAuth();
+            setScreen('register');
+          }}
           onTeams={() => setScreen('hr-landing')}
         />
       );
@@ -532,8 +559,14 @@ export default function App() {
               setScreen('quickstart');
             }}
             onWatchDemo={() => setScreen('demo')}
-            onLogin={() => setScreen('login')}
-            onRegister={() => setScreen('register')}
+            onLogin={() => {
+              rememberWizardBeforeAuth();
+              setScreen('login');
+            }}
+            onRegister={() => {
+              rememberWizardBeforeAuth();
+              setScreen('register');
+            }}
             onTeams={() => setScreen('hr-landing')}
           />
         );
@@ -586,7 +619,7 @@ export default function App() {
                   <button
                     className="btn-primary"
                     onClick={() => {
-                      setPendingAuthScreen('dashboard');
+                      setPendingAuthScreen(plan ? 'result' : 'dashboard');
                       setScreen('register');
                     }}
                   >
@@ -595,7 +628,7 @@ export default function App() {
                   <button
                     className="btn-secondary"
                     onClick={() => {
-                      setPendingAuthScreen('dashboard');
+                      setPendingAuthScreen(plan ? 'result' : 'dashboard');
                       setScreen('login');
                     }}
                   >
@@ -616,8 +649,14 @@ export default function App() {
             authNotice={authNoticeMessage(sessionInvalidReason)}
             onDismissNotice={clearSessionInvalidReason}
             onSuccess={() => {
-              setScreen(pendingAuthScreen || 'dashboard', true);
+              try {
+                sessionStorage.removeItem(PENDING_SCREEN_AFTER_ONBOARDING_KEY);
+              } catch {
+                /* ignore */
+              }
+              const next = pendingAuthScreen || 'dashboard';
               setPendingAuthScreen(null);
+              setScreen(next, true);
             }}
             onSkip={() => setScreen(plan ? 'result' : 'quickstart')}
             onBackToPublic={() => setScreen('public')}
@@ -630,8 +669,18 @@ export default function App() {
             authNotice={authNoticeMessage(sessionInvalidReason)}
             onDismissNotice={clearSessionInvalidReason}
             onSuccess={() => {
-              setScreen(pendingAuthScreen || 'onboarding', true);
+              const resume = pendingAuthScreen && isFlowWizardScreen(pendingAuthScreen)
+                ? pendingAuthScreen
+                : null;
               setPendingAuthScreen(null);
+              if (resume) {
+                try {
+                  sessionStorage.setItem(PENDING_SCREEN_AFTER_ONBOARDING_KEY, resume);
+                } catch {
+                  /* ignore */
+                }
+              }
+              setScreen('onboarding', true);
             }}
             onSkip={() => setScreen(plan ? 'result' : 'quickstart')}
             onBackToPublic={() => setScreen('public')}
@@ -648,7 +697,17 @@ export default function App() {
                   onboardingPainPoint: answers.painPoint,
                 });
                 await refreshMe();
-                setScreen('dashboard', true);
+                let next: Screen = 'dashboard';
+                try {
+                  const raw = sessionStorage.getItem(PENDING_SCREEN_AFTER_ONBOARDING_KEY);
+                  if (raw && SCREEN_ORDER.includes(raw as Screen) && isFlowWizardScreen(raw as Screen)) {
+                    next = raw as Screen;
+                  }
+                  sessionStorage.removeItem(PENDING_SCREEN_AFTER_ONBOARDING_KEY);
+                } catch {
+                  /* ignore */
+                }
+                setScreen(next, true);
               }}
             />
           </ProtectedRoute>
