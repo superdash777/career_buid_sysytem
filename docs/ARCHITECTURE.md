@@ -4,7 +4,7 @@
 
 Career Copilot — клиент-серверное веб-приложение, объединяющее NLP, семантический поиск (RAG) и генеративный AI для построения персонализированных планов карьерного развития.
 
-Единый сервис: Python-бэкенд обслуживает REST API и раздаёт статические файлы React-фронтенда. Такой монолитный подход исключает необходимость в отдельном веб-сервере, настройке CORS между доменами или CDN.
+Единый сервис: Python-бэкенд обслуживает REST API и раздаёт статические файлы React-фронтенда. Такой монолитный подход исключает необходимость в отдельном веб-сервере и отдельном CDN для MVP; при необходимости CORS уже включён в приложение (см. `api.py`).
 
 ---
 
@@ -14,35 +14,42 @@ Career Copilot — клиент-серверное веб-приложение, 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                         КЛИЕНТ (Браузер)                               │
 │                                                                        │
-│   React 19 · TypeScript 5.9 · Tailwind CSS 4 · Vite 7                │
+│   React 19 · TypeScript 5.9 · Tailwind CSS 4 · Vite 7 · Recharts       │
 │                                                                        │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│   │ Welcome  │→ │ GoalSetup│→ │  Skills  │→ │ Confirm  │→ │ Result │ │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
-│        ↑                                                        ↑     │
+│   PublicLanding / Auth · Onboarding · Dashboard                        │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐   │
+│   │ GoalSetup│→ │  Skills  │→ │ Confirm  │→ │ Result   │ (+ Growth/   │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────┘  Switch по    │
+│        ↑              ↑             ↑            ↑        сценарию)   │
 │        └────────── History API (browser back / forward) ────────┘     │
-│                    sessionStorage (state persistence)                   │
+│                    sessionStorage (wizard + план)                      │
+│                                                                        │
+│   AuthContext (JWT access + refresh) · ProtectedRoute                  │
 │                                                                        │
 │   UI-компоненты:                                                       │
 │   SearchableSelect · SkillCard · ScenarioCard · Alert · Toast         │
-│   Stepper · Skeleton · Spinner · ErrorBoundary · FeedbackRating       │
-│   Layout · NavBar · MiniProgress · SoftOnboardingHint                 │
+│   Stepper · Skeleton · Spinner · ErrorBoundary · FeedbackRating         │
+│   Layout · NavBar · MiniProgress · SoftOnboardingHint · ShareCard      │
 │                                                                        │
 │   API-клиент: fetch + AbortController (отмена при размонтировании)    │
 │                                                                        │
 └────────────────────────────┬───────────────────────────────────────────┘
                              │
                              │ HTTP (JSON / multipart/form-data)
+                             │  Authorization: Bearer … для защищённых маршрутов
                              │
 ┌────────────────────────────▼───────────────────────────────────────────┐
 │                      FastAPI (api.py)                                   │
 │                                                                        │
 │   REST-эндпоинты:                   SPA Fallback:                      │
 │   GET  /api/professions             /{path} → frontend/dist/index.html │
-│   GET  /api/skills-for-role                                            │
-│   GET  /api/suggest-skills                                             │
-│   POST /api/analyze-resume                                             │
-│   POST /api/plan                                                       │
+│   GET  /api/skills-for-role         POST /api/auth/register|login      │
+│   GET  /api/skills-by-category      POST /api/auth/refresh|logout      │
+│   GET  /api/suggest-skills          GET  /api/auth/me                  │
+│   POST /api/analyze-resume          PATCH /api/auth/onboarding         │
+│   POST /api/plan                    GET|POST /api/analyses               │
+│   POST /api/focused-plan            GET  /api/analyses/{id}            │
+│   GET  /api/share/{analysis_id}     GET|PATCH /api/progress            │
 │   GET  /health                                                         │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤
@@ -104,12 +111,20 @@ Career Copilot — клиент-серверное веб-приложение, 
 │  └───────────────┘                                                    │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤
-│                       ХРАНЕНИЕ                                         │
+│                       ХРАНЕНИЕ И БЕЗОПАСНОСТЬ                          │
 │                                                                        │
-│  Файловая система:                   Внешние сервисы:                  │
-│  data/clean_skills.json (~6 900)     OpenAI GPT-4o (обязательно)       │
-│  data/atlas_params_clean.json (~10)  Qdrant Cloud  (опционально)       │
-│  data/skill_synonyms.json                                              │
+│  Справочники (JSON, read-only):      SQLite (путь `DB_PATH`, см. env): │
+│  clean_skills.json                   users, refresh_tokens, analyses,  │
+│  atlas_params_clean.json             progress                          │
+│  skill_synonyms.json (+ roles.json)  bcrypt + JWT (access / refresh)   │
+│                                                                        │
+│  Rate limiting: register / login (окно и лимиты через `config.py`)    │
+│                                                                        │
+├────────────────────────────────────────────────────────────────────────┤
+│                       ВНЕШНИЕ СЕРВИСЫ                                  │
+│                                                                        │
+│  OpenAI GPT-4o (обязательно для резюме и планов)                       │
+│  Qdrant Cloud (опционально — RAG, подсказки, ранжирование explore)     │
 │                                                                        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -148,7 +163,8 @@ Career Copilot — клиент-серверное веб-приложение, 
          │   ├── Markdown-диагностика (шаг 1)
          │   └── Вызов plan_generator с RAG-контекстом (шаг 2)
          │
-         └── 5. Ответ: {markdown, role_titles?}
+         └── 5. Ответ: { markdown, role_titles?, analysis? }
+              analysis — структура для UI (radar, skill_gaps, explore-роли и т.д.)
 ```
 
 ### 3.2. Нормализация навыков (цепочка ответственности)
@@ -180,7 +196,8 @@ build_rag_index.py (офлайн):
     clean_skills.json + atlas_params_clean.json
         │
         ├── Формирование текстовых описаний для каждого навыка/параметра
-        ├── Sentence-Transformers → 384-dim embeddings
+        ├── Sentence-Transformers → эмбеддинги (размерность зависит от модели:
+        │     legacy MiniLM ~384d, v2 E5-large-instruct — см. `EMBED_MODEL_NAME*`)
         └── Загрузка в Qdrant с metadata (тип, название, профессия)
 
 Runtime (при запросах):
@@ -225,7 +242,7 @@ Runtime (при запросах):
 ErrorBoundary                    ← перехват непредвиденных ошибок
   └── ThemeProvider              ← dark/light тема (localStorage)
        └── App                   ← состояние + навигация
-            ├── Welcome
+            ├── PublicLanding / Auth / Onboarding / Dashboard
             ├── GoalSetup
             │    ├── Layout (header + stepper + footer)
             │    ├── SearchableSelect (комбобокс профессий)
@@ -241,12 +258,12 @@ ErrorBoundary                    ← перехват непредвиденны
             │    ├── Layout
             │    ├── Summary (dl/dt/dd)
             │    └── Expandable skills chips
-            └── Result
+            └── Result (+ GrowthPage / SwitchPage по сценарию)
                  ├── Layout (wide)
-                 ├── ReactMarkdown + remarkGfm
+                 ├── ReactMarkdown + remarkGfm · Recharts (radar)
                  ├── Desktop TOC (sticky sidebar)
                  ├── Mobile TOC (bottom sheet)
-                 └── FeedbackRating
+                 └── FeedbackRating / фокусный план (POST /api/focused-plan)
        └── ToastContainer          ← глобальные toast-уведомления
 ```
 
@@ -280,7 +297,9 @@ ErrorBoundary                    ← перехват непредвиденны
 
 | Решение | Обоснование |
 |---------|-------------|
-| **Монолитный деплой** | Один сервис = один контейнер. Нет CORS, нет отдельного CDN. Подходит для MVP |
+| **Монолитный деплой** | Один сервис = один контейнер. Подходит для MVP; CORS в коде широкий — при публичном API с несколькими origin сузить |
+| **SQLite + JWT** | Пользователи, сохранённые анализы, прогресс по навыкам, refresh-токены без отдельной СУБД на старте |
+| **Rate limit на auth** | Защита от перебора паролей на `/api/auth/register` и `/api/auth/login` |
 | **RAG вместо fine-tuning** | При обновлении данных достаточно переиндексировать Qdrant. Без затрат на переобучение модели |
 | **pymorphy3 вместо NLTK Snowball** | Лемматизация точнее стемминга для русского языка. «разработка» и «разработчик» → одна лемма |
 | **Ленивая загрузка ML** | Sentence-Transformers и PyTorch грузятся только при первом RAG-запросе. Ускоряет старт |
@@ -294,8 +313,10 @@ ErrorBoundary                    ← перехват непредвиденны
 
 ## 6. Ограничения и компромиссы
 
-- Резюме обрезается до 14 000 символов перед отправкой в LLM
-- Диагностика сжимается до ~1 000 символов перед передачей в plan_generator
+- Резюме обрезается до `RESUME_TEXT_MAX_CHARS` (по умолчанию 14 000 символов) перед отправкой в LLM
+- Контекст для генератора плана ограничен `PLAN_CONTEXT_MAX_CHARS` (по умолчанию 12 000 символов)
 - Ответ плана ограничен `max_tokens`; при ошибке API — retry с backoff, затем fallback
-- Нет аутентификации и rate limiting (MVP)
-- Нет i18n — интерфейс только на русском языке
+- **SQLite:** горизонтальное масштабирование нескольких воркеров с записью в одну БД без общего диска или миграции на PostgreSQL затруднительно; при ephemeral-контейнере без тома для `DB_PATH` возможен рассинхрон JWT и данных (`USER_NOT_FOUND` — см. README)
+- **Аутентификация:** есть JWT и хранение анализов; нет полноценного SSO/OAuth «из коробки»
+- Rate limiting включён для **регистрации и логина**, не для всех публичных эндпоинтов
+- Нет i18n — интерфейс ориентирован на русский язык
