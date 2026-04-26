@@ -1,10 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+/* Hooks live next to provider; fast-refresh rule expects components-only files. */
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   fetchMe,
   login as loginApi,
   register as registerApi,
+  storeAuthTokens,
+  clearStoredAuthTokens,
+  revokeRefreshOnServer,
+  ApiError,
+  AUTH_ACCESS_STORAGE_KEY,
 } from '../api/client';
-import type { UserProfile } from '../types';
+import type { UserProfile, SessionInvalidReason } from '../types';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -14,65 +21,99 @@ interface AuthContextValue {
   loading: boolean;
   token: string | null;
   user: UserProfile | null;
-  setAuthSession: (token: string, user: UserProfile) => void;
+  sessionInvalidReason: SessionInvalidReason;
+  clearSessionInvalidReason: () => void;
+  setAuthSession: (accessToken: string, refreshToken: string, user: UserProfile) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
 }
 
-const TOKEN_KEY = 'career_copilot_jwt';
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [sessionInvalidReason, setSessionInvalidReason] = useState<SessionInvalidReason>(null);
 
-  const setAuthSession = (nextToken: string, nextUser: UserProfile) => {
-    localStorage.setItem(TOKEN_KEY, nextToken);
-    setToken(nextToken);
+  const clearSessionInvalidReason = useCallback(() => setSessionInvalidReason(null), []);
+
+  const setAuthSession = useCallback((accessToken: string, refreshToken: string, nextUser: UserProfile) => {
+    storeAuthTokens(accessToken, refreshToken);
+    setToken(accessToken);
     setUser(nextUser);
+    setSessionInvalidReason(null);
     setStatus('authenticated');
-  };
+  }, []);
 
-  const login = async (email: string, password: string) => {
-    const data = await loginApi({ email, password });
-    setAuthSession(data.access_token, data.user);
-  };
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const data = await loginApi({ email, password });
+      setAuthSession(data.access_token, data.refresh_token, data.user);
+    },
+    [setAuthSession],
+  );
 
-  const register = async (email: string, password: string) => {
-    const data = await registerApi({ email, password });
-    setAuthSession(data.access_token, data.user);
-  };
+  const register = useCallback(
+    async (email: string, password: string) => {
+      const data = await registerApi({ email, password });
+      setAuthSession(data.access_token, data.refresh_token, data.user);
+    },
+    [setAuthSession],
+  );
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
+  const logout = useCallback(() => {
+    void revokeRefreshOnServer();
+    clearStoredAuthTokens();
     setToken(null);
     setUser(null);
+    setSessionInvalidReason(null);
     setStatus('unauthenticated');
-  };
+  }, []);
 
-  const refreshMe = async () => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
+  const refreshMe = useCallback(async () => {
+    const storedToken = localStorage.getItem(AUTH_ACCESS_STORAGE_KEY);
     if (!storedToken) {
-      logout();
+      clearStoredAuthTokens();
+      setToken(null);
+      setUser(null);
+      setSessionInvalidReason(null);
+      setStatus('unauthenticated');
       return;
     }
     try {
       const me = await fetchMe();
       setToken(storedToken);
       setUser(me);
+      setSessionInvalidReason(null);
       setStatus('authenticated');
-    } catch {
-      logout();
+    } catch (err) {
+      await revokeRefreshOnServer();
+      clearStoredAuthTokens();
+      setToken(null);
+      setUser(null);
+      setStatus('unauthenticated');
+      if (err instanceof ApiError && err.code === 'USER_NOT_FOUND') {
+        setSessionInvalidReason('stale_session');
+      } else if (err instanceof ApiError && err.status === 401) {
+        setSessionInvalidReason('session_expired');
+      } else {
+        setSessionInvalidReason(null);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    refreshMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refreshMe();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshMe]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -81,13 +122,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading: status === 'loading',
       token,
       user,
+      sessionInvalidReason,
+      clearSessionInvalidReason,
       setAuthSession,
       login,
       register,
       logout,
       refreshMe,
     }),
-    [status, token, user],
+    [
+      status,
+      token,
+      user,
+      sessionInvalidReason,
+      clearSessionInvalidReason,
+      setAuthSession,
+      login,
+      register,
+      logout,
+      refreshMe,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

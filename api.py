@@ -205,7 +205,13 @@ def _get_current_user(
         raise HTTPException(status_code=401, detail="Недействительный токен")
     user = _get_user_by_id(user_id)
     if user is None:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "message": "Пользователь не найден",
+                "code": "USER_NOT_FOUND",
+            },
+        )
     return user
 
 

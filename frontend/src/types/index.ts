@@ -17,8 +17,12 @@ export interface UserProfile {
   development_hours_per_week?: number | null;
 }
 
+/** Причина принудительного выхода после ошибки /api/auth/me */
+export type SessionInvalidReason = 'stale_session' | 'session_expired' | null;
+
 export interface AuthResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: UserProfile;
 }

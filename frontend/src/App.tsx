@@ -17,6 +17,7 @@ import ShareCard from './components/ShareCard';
 import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
+import type { SessionInvalidReason } from './types';
 import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole, GrowthAnalysis, SwitchAnalysis } from './types';
 import { GRADES, INITIAL_STATE } from './types';
@@ -237,8 +238,18 @@ function getShareMatchPercent(analysis: SharedAnalysisResponse['analysis']): num
   return Math.round(analysis.roles?.[0]?.match ?? 0);
 }
 
+function authNoticeMessage(reason: SessionInvalidReason): string | undefined {
+  if (reason === 'stale_session') {
+    return 'Сессия устарела (например, после обновления сервера). Войдите снова — данные на сервере могли быть сброшены.';
+  }
+  if (reason === 'session_expired') {
+    return 'Сессия истекла. Войдите снова.';
+  }
+  return undefined;
+}
+
 export default function App() {
-  const { isAuthenticated, user, refreshMe } = useAuth();
+  const { isAuthenticated, user, refreshMe, sessionInvalidReason, clearSessionInvalidReason } = useAuth();
   const [screen, setScreenRaw] = useState<Screen>(screenFromHash);
   const [state, setStateRaw] = useState<AppState>(loadSavedState);
   const [plan, setPlanRaw] = useState<PlanResponse | null>(loadSavedPlan);
@@ -602,6 +613,8 @@ export default function App() {
         return (
           <Auth
             initialMode="login"
+            authNotice={authNoticeMessage(sessionInvalidReason)}
+            onDismissNotice={clearSessionInvalidReason}
             onSuccess={() => {
               setScreen(pendingAuthScreen || 'dashboard', true);
               setPendingAuthScreen(null);
@@ -614,6 +627,8 @@ export default function App() {
         return (
           <Auth
             initialMode="register"
+            authNotice={authNoticeMessage(sessionInvalidReason)}
+            onDismissNotice={clearSessionInvalidReason}
             onSuccess={() => {
               setScreen(pendingAuthScreen || 'onboarding', true);
               setPendingAuthScreen(null);

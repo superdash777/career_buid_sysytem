@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      # Persist SQLite here so users survive container recreation
+      - DB_PATH=/data/app.db
+    volumes:
+      - career_copilot_data:/data
+
+volumes:
+  career_copilot_data:

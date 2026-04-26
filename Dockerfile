@@ -21,5 +21,9 @@ COPY . .
 
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
+# Default SQLite path (override with DB_PATH, e.g. /data/app.db + volume — see README)
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
 EXPOSE 8000
 CMD ["python", "api.py"]

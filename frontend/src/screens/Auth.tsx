@@ -9,9 +9,18 @@ interface Props {
   onSuccess: () => void;
   onSkip?: () => void;
   onBackToPublic?: () => void;
+  authNotice?: string;
+  onDismissNotice?: () => void;
 }
 
-export default function Auth({ initialMode = 'register', onSuccess, onSkip, onBackToPublic }: Props) {
+export default function Auth({
+  initialMode = 'register',
+  onSuccess,
+  onSkip,
+  onBackToPublic,
+  authNotice,
+  onDismissNotice,
+}: Props) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
@@ -51,6 +60,14 @@ export default function Auth({ initialMode = 'register', onSuccess, onSkip, onBa
               Твой AI-проводник на пути к блистательной карьере
             </p>
           </div>
+
+          {authNotice && (
+            <div className="mb-4">
+              <Alert variant="warning" onClose={onDismissNotice}>
+                {authNotice}
+              </Alert>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4">

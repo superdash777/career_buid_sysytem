@@ -357,6 +357,18 @@ docker build -t career-copilot .
 docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... career-copilot
 ```
 
+Образ объявляет том на `/app/data`: при монтировании volume туда SQLite по умолчанию (`data/app.db` относительно `/app`) переживает пересоздание контейнера. Либо задайте абсолютный путь, например `-e DB_PATH=/data/app.db -v copilot_db:/data`.
+
+Compose с постоянной БД:
+
+```bash
+docker compose up --build
+```
+
+(в `docker-compose.yml` заданы `DB_PATH=/data/app.db` и именованный volume.)
+
+**Важно для авторизации:** если контейнер каждый раз стартует с **пустой** SQLite, старый JWT из браузера остаётся валидным, а записи пользователя в новой базе нет — API вернёт 401 с кодом `USER_NOT_FOUND`. Нужен постоянный диск для `DB_PATH` или одна реплика с общим хранилищем.
+
 ---
 
 ## REST API
@@ -410,6 +422,8 @@ curl -X POST http://localhost:8000/api/plan \
 | `SKILLS_V2_COLLECTION_NAME` | Нет | `skills_v2` | Новая коллекция канонических навыков (E5) |
 | `EMBED_MODEL_NAME_V2` | Нет | `intfloat/multilingual-e5-large-instruct` | Модель эмбеддингов v2 для нормализации навыков |
 | `PORT` | Нет | `8000` | Порт сервера |
+| `DB_PATH` | Нет | `<корень проекта>/data/app.db` | Путь к файлу SQLite (лучше абсолютный путь на смонтированный том в Docker) |
+| `JWT_SECRET` | Нет | `change-me-in-production` | Секрет подписи JWT; в продакшене задайте свой |
 
 Без Qdrant приложение работает полностью — не будет семантических подсказок навыков и семантического ранжирования ролей, но gap-анализ и генерация планов доступны.
 

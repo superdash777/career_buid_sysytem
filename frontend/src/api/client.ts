@@ -14,12 +14,112 @@ import type {
 
 const BASE = '';
 
-class ApiError extends Error {
+export const AUTH_ACCESS_STORAGE_KEY = 'career_copilot_jwt';
+export const AUTH_REFRESH_STORAGE_KEY = 'career_copilot_refresh';
+
+export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
+  }
+}
+
+function parseFastApiDetail(body: unknown): { message: string; code?: string } {
+  if (!body || typeof body !== 'object') return { message: 'Ошибка запроса' };
+  const raw = (body as { detail?: unknown }).detail;
+  if (typeof raw === 'string') return { message: raw };
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const o = raw as { message?: unknown; code?: unknown };
+    if (typeof o.message === 'string') {
+      return {
+        message: o.message,
+        code: typeof o.code === 'string' ? o.code : undefined,
+      };
+    }
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String((item as { msg?: unknown }).msg ?? '');
+      }
+      return String(item);
+    });
+    return { message: parts.filter(Boolean).join('; ') || 'Ошибка запроса' };
+  }
+  return { message: 'Ошибка запроса' };
+}
+
+let refreshInFlight: Promise<void> | null = null;
+
+export function storeAuthTokens(accessToken: string, refreshToken: string): void {
+  localStorage.setItem(AUTH_ACCESS_STORAGE_KEY, accessToken);
+  localStorage.setItem(AUTH_REFRESH_STORAGE_KEY, refreshToken);
+}
+
+export function clearStoredAuthTokens(): void {
+  localStorage.removeItem(AUTH_ACCESS_STORAGE_KEY);
+  localStorage.removeItem(AUTH_REFRESH_STORAGE_KEY);
+}
+
+/** Revokes refresh token on server (best-effort); does not clear local storage. */
+export async function revokeRefreshOnServer(): Promise<void> {
+  const refreshToken = localStorage.getItem(AUTH_REFRESH_STORAGE_KEY)?.trim();
+  if (!refreshToken) return;
+  try {
+    await fetch(`${BASE}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  } catch {
+    /* ignore network errors */
+  }
+}
+
+function shouldAttemptTokenRefresh(url: string): boolean {
+  if (url.includes('/api/auth/refresh')) return false;
+  if (url.includes('/api/auth/login') || url.includes('/api/auth/register')) return false;
+  return Boolean(localStorage.getItem(AUTH_REFRESH_STORAGE_KEY)?.trim());
+}
+
+async function refreshAccessToken(): Promise<void> {
+  const refreshToken = localStorage.getItem(AUTH_REFRESH_STORAGE_KEY)?.trim();
+  if (!refreshToken) throw new Error('missing refresh token');
+
+  if (refreshInFlight) {
+    await refreshInFlight;
+    return;
+  }
+
+  refreshInFlight = (async () => {
+    const res = await fetch(`${BASE}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const { message } = parseFastApiDetail(body);
+      throw new ApiError(res.status, message);
+    }
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token: string;
+    };
+    if (!data.access_token || !data.refresh_token) {
+      throw new Error('invalid refresh response');
+    }
+    storeAuthTokens(data.access_token, data.refresh_token);
+  })();
+
+  try {
+    await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
 
@@ -27,8 +127,9 @@ async function request<T>(
   url: string,
   init?: RequestInit,
   signal?: AbortSignal,
+  didRefresh = false,
 ): Promise<T> {
-  const authToken = localStorage.getItem('career_copilot_jwt') || '';
+  const authToken = localStorage.getItem(AUTH_ACCESS_STORAGE_KEY) || '';
   const initHeaders = new Headers(init?.headers || {});
   if (authToken && !initHeaders.has('Authorization')) {
     initHeaders.set('Authorization', `Bearer ${authToken}`);
@@ -36,12 +137,30 @@ async function request<T>(
 
   const res = await fetch(`${BASE}${url}`, { ...init, headers: initHeaders, signal });
   if (!res.ok) {
-    let detail = res.statusText;
+    let body: unknown = {};
     try {
-      const body = await res.json();
-      detail = body.detail || detail;
+      body = await res.json();
     } catch { /* ignore */ }
-    throw new ApiError(res.status, detail);
+    const { message, code } = parseFastApiDetail(body);
+
+    if (
+      res.status === 401
+      && !didRefresh
+      && shouldAttemptTokenRefresh(url)
+    ) {
+      try {
+        await refreshAccessToken();
+        return request<T>(url, init, signal, true);
+      } catch (err) {
+        if (code === 'USER_NOT_FOUND') {
+          throw new ApiError(res.status, message, code);
+        }
+        if (err instanceof ApiError) throw err;
+        throw new ApiError(res.status, message, code);
+      }
+    }
+
+    throw new ApiError(res.status, message, code);
   }
   return res.json();
 }
@@ -250,5 +369,3 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
-
-export { ApiError };
