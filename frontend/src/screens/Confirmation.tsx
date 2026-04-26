@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import Alert from '../components/Alert';
 import MiniProgress from '../components/MiniProgress';
@@ -26,6 +26,21 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAllSkills, setShowAllSkills] = useState(false);
+  const [tabSwitchNotice, setTabSwitchNotice] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setTabSwitchNotice(false);
+      return;
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        setTabSwitchNotice(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [loading]);
 
   const sortedSkills = [...state.skills].sort((a, b) => a.name.localeCompare(b.name));
   const visibleSkills = showAllSkills ? sortedSkills : sortedSkills.slice(0, INITIAL_VISIBLE);
@@ -82,11 +97,24 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   if (loading) {
     return (
       <Layout step={3}>
-        <LoadingCarousel
-          text="Анализ профиля…"
-          subtext="Сравниваем ваши навыки с требованиями роли — обычно до минуты"
-          showSpinner={false}
-        />
+        <div className="mx-auto max-w-lg px-4">
+          {tabSwitchNotice && (
+            <div className="mb-6">
+              <Alert
+                variant="info"
+                title="Анализ продолжается в этой вкладке"
+                onClose={() => setTabSwitchNotice(false)}
+              >
+                Вы переключились на другое окно. Не закрывайте вкладку — результат появится здесь, когда будет готов.
+              </Alert>
+            </div>
+          )}
+          <LoadingCarousel
+            text="Анализ профиля…"
+            subtext="Этот шаг может занять до минуты."
+            showSpinner={false}
+          />
+        </div>
       </Layout>
     );
   }
