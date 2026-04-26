@@ -14,6 +14,7 @@ except ImportError:
     OpenAI = None
 
 MAX_TOKENS_RESPONSE = 6144
+PLAN_PATCH_MAX_TOKENS = 4096
 FOCUSED_PLAN_MAX_TOKENS = 3000
 
 REQUIRED_PLAN_SECTIONS = [
@@ -23,6 +24,11 @@ REQUIRED_PLAN_SECTIONS = [
     "Книги",
     "Метрики",
 ]
+
+
+def _missing_plan_sections(content: str) -> List[str]:
+    low = (content or "").lower()
+    return [s for s in REQUIRED_PLAN_SECTIONS if s.lower() not in low]
 
 
 class _FocusedTaskItem(BaseModel):
@@ -251,42 +257,71 @@ class PlanGenerator:
         last_error = None
         prompt_chars = len(prompt)
         start_ms = int(time.time() * 1000)
+        system_msg = {"role": "system", "content": self._system_policy()}
+        user_msg = {"role": "user", "content": prompt}
+        messages: List[Dict[str, str]] = [system_msg, user_msg]
+        content = ""
+
         for attempt in range(3):
             try:
                 response = self.client.chat.completions.create(
                     model=Config.PLAN_GENERATOR_MODEL,
-                    messages=[
-                        {"role": "system", "content": self._system_policy()},
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=messages,
                     temperature=0.3,
                     max_tokens=MAX_TOKENS_RESPONSE,
                 )
                 content = response.choices[0].message.content.strip()
-                missing_sections = [
-                    s for s in REQUIRED_PLAN_SECTIONS
-                    if s.lower() not in content.lower()
-                ]
-                if missing_sections and attempt < 2:
-                    continue
-                if Config.LLM_OBSERVABILITY_ENABLED:
-                    log_llm_call(
-                        LLMCallMetrics(
-                            component="plan_generator",
-                            operation="generate_plan_702010",
-                            model=Config.PLAN_GENERATOR_MODEL,
-                            request_id=None,
-                            success=True,
-                            latency_ms=int(time.time() * 1000) - start_ms,
-                            prompt_chars=prompt_chars,
-                            completion_chars=len(content),
-                        )
-                    )
-                return content
+                break
             except Exception as e:
                 last_error = e
                 if attempt < 2:
-                    time.sleep(1 + attempt)
+                    time.sleep(0.35 * (attempt + 1))
+
+        if not content.strip():
+            if Config.LLM_OBSERVABILITY_ENABLED:
+                log_llm_call(
+                    LLMCallMetrics(
+                        component="plan_generator",
+                        operation="generate_plan_702010",
+                        model=Config.PLAN_GENERATOR_MODEL,
+                        request_id=None,
+                        success=False,
+                        latency_ms=int(time.time() * 1000) - start_ms,
+                        prompt_chars=prompt_chars,
+                        completion_chars=0,
+                        error=str(last_error),
+                    )
+                )
+            return self._fallback_plan(target_name) + f"\n\n*(Ошибка генерации: {last_error})*"
+
+        # Неполный ответ: дорого заново слать весь контекст — дополняем коротким follow-up в том же чате.
+        for _patch_round in range(2):
+            missing_sections = _missing_plan_sections(content)
+            if not missing_sections:
+                break
+            messages.append({"role": "assistant", "content": content})
+            patch_prompt = (
+                "В предыдущем ответе не хватает обязательных разделов (по ключевым словам в заголовках ##): "
+                + ", ".join(missing_sections)
+                + ".\n\nДобавь в КОНЕЦ документа только недостающие разделы: каждый с заголовком ## на русском "
+                "в стиле исходного задания (## Приоритизация, блоки развития, ## Взаимодействие и обратная связь, "
+                "## Книги, ## Метрики и чекпоинты — по необходимости). Не дублируй уже полностью написанные разделы."
+            )
+            messages.append({"role": "user", "content": patch_prompt})
+            try:
+                patch_resp = self.client.chat.completions.create(
+                    model=Config.PLAN_GENERATOR_MODEL,
+                    messages=messages,
+                    temperature=0.2,
+                    max_tokens=PLAN_PATCH_MAX_TOKENS,
+                )
+                delta = (patch_resp.choices[0].message.content or "").strip()
+                if delta:
+                    content = f"{content.rstrip()}\n\n{delta}"
+            except Exception as patch_err:
+                last_error = patch_err
+                break
+
         if Config.LLM_OBSERVABILITY_ENABLED:
             log_llm_call(
                 LLMCallMetrics(
@@ -294,14 +329,13 @@ class PlanGenerator:
                     operation="generate_plan_702010",
                     model=Config.PLAN_GENERATOR_MODEL,
                     request_id=None,
-                    success=False,
+                    success=True,
                     latency_ms=int(time.time() * 1000) - start_ms,
                     prompt_chars=prompt_chars,
-                    completion_chars=0,
-                    error=str(last_error),
+                    completion_chars=len(content),
                 )
             )
-        return self._fallback_plan(target_name) + f"\n\n*(Ошибка генерации: {last_error})*"
+        return content
 
     def generate_focused_plan_json(
         self,
