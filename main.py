@@ -12,6 +12,7 @@ if os.getcwd() != str(PROJECT_DIR):
 import gradio as gr
 import pandas as pd
 from data_loader import DataLoader
+from config import Config
 from resume_parser import ResumeParser
 from gap_analyzer import GapAnalyzer
 from scenario_handler import ScenarioHandler
@@ -201,7 +202,9 @@ def build_role_matches(opps, user_skills, data_loader):
         skill_keys = [k for k in reqs.keys() if k not in data_loader.atlas_map]
         matched = [{"name": s} for s in user_skills if s in reqs][:5]
         missing = [{"name": s} for s in skill_keys if s not in user_skills][:3]
-        why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
+        why = get_rag_why_role_bullets(
+            user_skills, role_title, top_k=5, atlas_keys=set(data_loader.atlas_map.keys())
+        )
         score = (opp.get("match", 0) or 0) / 100.0
         return RoleMatch(
             role_title=role_title,
@@ -215,7 +218,7 @@ def build_role_matches(opps, user_skills, data_loader):
 
     if not opps:
         return []
-    max_workers = min(4, max(1, len(opps)))
+    max_workers = min(2, max(1, len(opps)))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         return list(pool.map(_one, opps))
 
@@ -305,11 +308,16 @@ def build_plan(skills_table, profession, current_grade, scenario, target_profess
 
         else:
             opps = scenarios.explore_opportunities(user_skills)
-            try:
-                from rag_service import rank_opportunities
-                opps = rank_opportunities(user_skills, opps, data)
-            except Exception:
-                pass
+            if not getattr(Config, "EXPLORE_SKIP_SECOND_RANK", True):
+                try:
+                    from rag_service import rank_opportunities
+                    opps = rank_opportunities(user_skills, opps, data)
+                except Exception:
+                    pass
+            else:
+                opps.sort(
+                    key=lambda x: (-x.get("semantic_score", 0), -x.get("match", 0), x.get("role", ""))
+                )
             opps = dedupe_opportunities_by_profession(opps)
             matches = build_role_matches(opps, user_skills, data)
             from explore_recommendations import build_explore_recommendations

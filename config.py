@@ -88,6 +88,11 @@ class Config:
     SKILL_SUGGESTIONS_TOP_K = int(os.getenv("SKILL_SUGGESTIONS_TOP_K", "5"))
     SUGGESTIONS_MIN_SCORE = float(os.getenv("SUGGESTIONS_MIN_SCORE", "0.35"))
 
+    # Explore: семантика в explore_opportunities (E5-large на каждую роль×грейд очень медленно)
+    EXPLORE_FAST_EMBEDDINGS = _env_bool("EXPLORE_FAST_EMBEDDINGS", True)
+    # Уже есть semantic_score из explore_opportunities; повторный rank_opportunities — лишний прогон энкодера
+    EXPLORE_SKIP_SECOND_RANK = _env_bool("EXPLORE_SKIP_SECOND_RANK", True)
+
     # Explore: категории по доле совпадения (0..1)
     EXPLORE_CLOSEST_MIN = float(os.getenv("EXPLORE_CLOSEST_MIN", "0.15"))   # >= 15% → ближайшие
     EXPLORE_ADJACENT_MIN = float(os.getenv("EXPLORE_ADJACENT_MIN", "0.05")) # 5–15% → смежные

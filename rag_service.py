@@ -7,7 +7,7 @@ import urllib.request
 import urllib.error
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, AbstractSet
 
 from config import Config
 
@@ -321,18 +321,22 @@ def _encode_texts(
 def _cached_role_passage_embeddings(
     role_key: Tuple[str, str],
     required_skill_names: List[str],
+    explore_fast: bool = False,
 ) -> Any:
     """Passage-side embeddings for one role×grade; reused by semantic_match + profile_sim in explore."""
     names_t = tuple(required_skill_names)
+    cache_key = (role_key[0], role_key[1], explore_fast)
     with _role_req_emb_lock:
-        hit = _role_requirement_emb_cache.get(role_key)
+        hit = _role_requirement_emb_cache.get(cache_key)
         if hit is not None and hit[0] == names_t:
-            _role_requirement_emb_cache.move_to_end(role_key)
+            _role_requirement_emb_cache.move_to_end(cache_key)
             return hit[1]
-    req_vecs = _encode_for_matching(list(required_skill_names), is_query=False)
+    req_vecs = _encode_for_matching(
+        list(required_skill_names), is_query=False, explore_fast=explore_fast
+    )
     with _role_req_emb_lock:
-        _role_requirement_emb_cache[role_key] = (names_t, req_vecs)
-        _role_requirement_emb_cache.move_to_end(role_key)
+        _role_requirement_emb_cache[cache_key] = (names_t, req_vecs)
+        _role_requirement_emb_cache.move_to_end(cache_key)
         while len(_role_requirement_emb_cache) > _ROLE_REQ_EMB_CACHE_MAX:
             _role_requirement_emb_cache.popitem(last=False)
     return req_vecs
@@ -897,11 +901,23 @@ def get_rag_why_role(user_skills: Dict[str, int], role_display: str, top_k: int 
     return " Релевантные навыки из базы: " + " ".join(parts) if parts else ""
 
 
-def get_rag_why_role_bullets(user_skills: Dict[str, int], role_display: str, top_k: int = 5) -> List[str]:
+def get_rag_why_role_bullets(
+    user_skills: Dict[str, int],
+    role_display: str,
+    top_k: int = 5,
+    atlas_keys: Optional[AbstractSet[str]] = None,
+) -> List[str]:
     """Возвращает 3–5 коротких пунктов «почему подходит» для карточки Explore."""
     if not _qdrant_rest_config()[0]:
         return []
-    skills_text = ", ".join(user_skills.keys()) if user_skills else "не указаны"
+    if user_skills:
+        if atlas_keys is None:
+            names = list(user_skills.keys())
+        else:
+            names = [k for k in user_skills if k not in atlas_keys]
+        skills_text = ", ".join(names[:40]) if names else "не указаны"
+    else:
+        skills_text = "не указаны"
     role_name = role_display.split(" (")[0] if " (" in role_display else role_display
     query = f"Навыки пользователя: {skills_text}. Профессия: {role_name}. Какие навыки из базы релевантны?"
     hits = retrieve(query, top_k=top_k, score_threshold=0.3)
@@ -1075,7 +1091,8 @@ def rank_opportunities(
         if "(" in role_display and ")" in role_display:
             grade = role_display.split("(")[-1].replace(")", "").strip()
         reqs = data_loader.get_role_requirements(internal, grade) if internal else {}
-        req_text = " ".join(reqs.keys()) if reqs else role_display
+        req_skill_keys = [k for k in reqs if k not in atlas_keys]
+        req_text = " ".join(req_skill_keys) if req_skill_keys else role_display
         role_texts.append(req_text)
     if not role_texts:
         return opportunities
@@ -1125,8 +1142,17 @@ def _get_skill_embeddings(skill_names: List[str]) -> Dict[str, Any]:
             return {}
 
 
-def _encode_for_matching(texts: List[str], is_query: bool = False) -> Any:
-    """Encode texts for semantic matching using E5-large with fallback to MiniLM."""
+def _encode_for_matching(
+    texts: List[str],
+    is_query: bool = False,
+    explore_fast: bool = False,
+) -> Any:
+    """Encode texts for semantic matching using E5-large with fallback to MiniLM.
+
+    explore_fast: use MiniLM only (no E5) — для цикла explore_opportunities, иначе сотни тяжёлых батчей.
+    """
+    if explore_fast:
+        return _encode_texts(texts, model_name=Config.EMBED_MODEL_NAME, normalize=True)
     try:
         if is_query:
             wrapped = [_e5_query_text(t) for t in texts]
@@ -1134,16 +1160,18 @@ def _encode_for_matching(texts: List[str], is_query: bool = False) -> Any:
             wrapped = [_e5_passage_text(t) for t in texts]
         return _encode_texts(wrapped, model_name=Config.EMBED_MODEL_NAME_V2, normalize=True)
     except Exception:
-        embedder = _get_embedder(model_name=Config.EMBED_MODEL_NAME)
-        return embedder.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        return _encode_texts(texts, model_name=Config.EMBED_MODEL_NAME, normalize=True)
 
 
-def encode_user_skills_query_vectors(user_skill_names: List[str]) -> Any:
+def encode_user_skills_query_vectors(
+    user_skill_names: List[str],
+    explore_fast: bool = False,
+) -> Any:
     """Precompute query-side embeddings for user skills (explore / semantic_match hot paths)."""
     if not user_skill_names:
         return None
     try:
-        return _encode_for_matching(user_skill_names, is_query=True)
+        return _encode_for_matching(user_skill_names, is_query=True, explore_fast=explore_fast)
     except Exception:
         return None
 
@@ -1154,6 +1182,7 @@ def semantic_match_skills(
     threshold: Optional[float] = None,
     user_vectors: Any = None,
     req_vectors: Any = None,
+    explore_fast: bool = False,
 ) -> Dict[str, str]:
     """Для каждого user-навыка находит ближайший required-навык по embedding similarity.
     Возвращает {user_name: matched_required_name} для пар с score >= threshold.
@@ -1176,15 +1205,23 @@ def semantic_match_skills(
         if user_vectors is not None:
             user_vecs = np.asarray(user_vectors, dtype=float)
             if user_vecs.shape[0] != len(user_skill_names):
-                user_vecs = _encode_for_matching(user_skill_names, is_query=True)
+                user_vecs = _encode_for_matching(
+                    user_skill_names, is_query=True, explore_fast=explore_fast
+                )
         else:
-            user_vecs = _encode_for_matching(user_skill_names, is_query=True)
+            user_vecs = _encode_for_matching(
+                user_skill_names, is_query=True, explore_fast=explore_fast
+            )
         if req_vectors is not None:
             req_vecs = np.asarray(req_vectors, dtype=float)
             if req_vecs.shape[0] != len(required_skill_names):
-                req_vecs = _encode_for_matching(required_skill_names, is_query=False)
+                req_vecs = _encode_for_matching(
+                    required_skill_names, is_query=False, explore_fast=explore_fast
+                )
         else:
-            req_vecs = _encode_for_matching(required_skill_names, is_query=False)
+            req_vecs = _encode_for_matching(
+                required_skill_names, is_query=False, explore_fast=explore_fast
+            )
         sim_matrix = np.dot(user_vecs, req_vecs.T)
 
         result = {}
@@ -1214,6 +1251,7 @@ def compute_profile_similarity(
     role_skill_names: List[str],
     precomputed_user_vecs: Any = None,
     precomputed_role_vecs: Any = None,
+    explore_fast: bool = False,
 ) -> float:
     """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли.
     Uses E5-large for higher accuracy.
@@ -1229,15 +1267,23 @@ def compute_profile_similarity(
         if precomputed_user_vecs is not None:
             u_vecs = np.asarray(precomputed_user_vecs, dtype=float)
             if u_vecs.shape[0] != len(user_skill_names):
-                u_vecs = _encode_for_matching(user_skill_names, is_query=True)
+                u_vecs = _encode_for_matching(
+                    user_skill_names, is_query=True, explore_fast=explore_fast
+                )
         else:
-            u_vecs = _encode_for_matching(user_skill_names, is_query=True)
+            u_vecs = _encode_for_matching(
+                user_skill_names, is_query=True, explore_fast=explore_fast
+            )
         if precomputed_role_vecs is not None:
             r_vecs = np.asarray(precomputed_role_vecs, dtype=float)
             if r_vecs.shape[0] != len(role_skill_names):
-                r_vecs = _encode_for_matching(role_skill_names, is_query=False)
+                r_vecs = _encode_for_matching(
+                    role_skill_names, is_query=False, explore_fast=explore_fast
+                )
         else:
-            r_vecs = _encode_for_matching(role_skill_names, is_query=False)
+            r_vecs = _encode_for_matching(
+                role_skill_names, is_query=False, explore_fast=explore_fast
+            )
         u_mean = np.mean(u_vecs, axis=0)
         r_mean = np.mean(r_vecs, axis=0)
         u_mean = u_mean / (np.linalg.norm(u_mean) + 1e-9)

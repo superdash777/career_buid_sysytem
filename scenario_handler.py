@@ -1,3 +1,6 @@
+from config import Config
+
+
 class ScenarioHandler:
     def __init__(self, data_loader):
         self.data = data_loader
@@ -38,9 +41,12 @@ class ScenarioHandler:
             use_semantic = False
             _cached_role_passage_embeddings = None  # type: ignore
 
+        explore_fast = bool(getattr(Config, "EXPLORE_FAST_EMBEDDINGS", True))
         user_skill_vecs = None
         if use_semantic and user_skill_names:
-            user_skill_vecs = encode_user_skills_query_vectors(user_skill_names)
+            user_skill_vecs = encode_user_skills_query_vectors(
+                user_skill_names, explore_fast=explore_fast
+            )
 
         opportunities = []
         for role_display in self.data.get_all_roles():
@@ -67,7 +73,9 @@ class ScenarioHandler:
                 req_passage_vecs = None
                 if use_semantic and user_skill_names and _cached_role_passage_embeddings:
                     try:
-                        req_passage_vecs = _cached_role_passage_embeddings((internal, grade), req_names)
+                        req_passage_vecs = _cached_role_passage_embeddings(
+                            (internal, grade), req_names, explore_fast=explore_fast
+                        )
                     except Exception:
                         req_passage_vecs = None
                 if use_semantic and user_skill_names and req_passage_vecs is not None:
@@ -77,6 +85,7 @@ class ScenarioHandler:
                             req_names,
                             user_vectors=user_skill_vecs,
                             req_vectors=req_passage_vecs,
+                            explore_fast=explore_fast,
                         )
                         for u_name, r_name in sem_map.items():
                             if r_name not in norm and norm.get(u_name, 0) >= skill_reqs.get(r_name, 1):
@@ -96,6 +105,7 @@ class ScenarioHandler:
                             req_names,
                             precomputed_user_vecs=user_skill_vecs,
                             precomputed_role_vecs=req_passage_vecs,
+                            explore_fast=explore_fast,
                         )
                     except Exception:
                         pass

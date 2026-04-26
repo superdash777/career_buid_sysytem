@@ -793,7 +793,9 @@ def _build_role_matches(opps, user_skills):
             if user_skills.get(s, 0) >= reqs.get(s, 0)
         ][:5]
         missing = [{"name": s} for s in skill_keys if user_skills.get(s, 0) < reqs.get(s, 0)]
-        why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
+        why = get_rag_why_role_bullets(
+            user_skills, role_title, top_k=5, atlas_keys=set(data.atlas_map.keys())
+        )
         score = (opp.get("match", 0) or 0) / 100.0
         return RoleMatch(
             role_title=role_title,
@@ -807,8 +809,8 @@ def _build_role_matches(opps, user_skills):
 
     if not opps:
         return []
-    # Fewer workers: each task runs RAG retrieve + embed; avoids Qdrant/timeouts and model thread contention.
-    max_workers = min(4, max(1, len(opps)))
+    # Sequential-ish RAG: many parallel retrieves still serialize on embed lock and overload Qdrant.
+    max_workers = min(2, max(1, len(opps)))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         return list(pool.map(_one, opps))
 
@@ -950,11 +952,17 @@ def build_plan_api(req: PlanRequest):
 
         else:
             opps = scenarios.explore_opportunities(user_skills)
-            try:
-                from rag_service import rank_opportunities
-                opps = rank_opportunities(user_skills, opps, data)
-            except Exception:
-                pass
+            # semantic_score уже посчитан в explore_opportunities; повторный rank — лишняя загрузка MiniLM
+            if not getattr(Config, "EXPLORE_SKIP_SECOND_RANK", True):
+                try:
+                    from rag_service import rank_opportunities
+                    opps = rank_opportunities(user_skills, opps, data)
+                except Exception:
+                    pass
+            else:
+                opps.sort(
+                    key=lambda x: (-x.get("semantic_score", 0), -x.get("match", 0), x.get("role", ""))
+                )
             opps = _dedupe_opportunities(opps)
             matches = _build_role_matches(opps, user_skills)
             from explore_recommendations import build_explore_recommendations
