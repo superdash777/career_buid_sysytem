@@ -48,10 +48,16 @@ class Config:
     PLAN_GENERATOR_MODEL = os.getenv("PLAN_GENERATOR_MODEL", "gpt-4o")
     PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "12000"))
     RESUME_TEXT_MAX_CHARS = int(os.getenv("RESUME_TEXT_MAX_CHARS", "14000"))
-    DATA_DIR = _PROJECT_DIR / "data"
-    # SQLite separate from DATA_DIR so a Docker/Railway volume can mount on /app/var
-    # without hiding shipped JSON under ./data/ (e.g. clean_skills.json).
-    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "var" / "app.db")))
+    # Shipped JSON lives in ./data/ in the image. If a Railway volume is mounted on
+    # /app/data, that directory hides the image files — use duplicate at ./_data_shipped
+    # (created in Dockerfile) for read-only reference data.
+    _data_candidate = _PROJECT_DIR / "data"
+    _data_shipped = _PROJECT_DIR / "_data_shipped"
+    if (_data_shipped / "clean_skills.json").is_file() and not (_data_candidate / "clean_skills.json").is_file():
+        DATA_DIR = _data_shipped
+    else:
+        DATA_DIR = _data_candidate
+    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "data" / "app.db")))
     SKILLS_FILE = DATA_DIR / "clean_skills.json"
     ATLAS_FILE = DATA_DIR / "atlas_params_clean.json"
     ROLES_FILE = DATA_DIR / "roles.json"

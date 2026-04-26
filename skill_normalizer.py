@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Optional, Set, Dict
 
+from config import Config
+
 _morph = None
 _stemmer_en = None
 _synonym_map: Optional[Dict[str, str]] = None
@@ -83,7 +85,7 @@ def _load_synonym_map() -> Dict[str, str]:
     global _synonym_map
     if _synonym_map is not None:
         return _synonym_map
-    path = Path(__file__).resolve().parent / "data" / "skill_synonyms.json"
+    path = Config.DATA_DIR / "skill_synonyms.json"
     _synonym_map = {}
     if path.exists():
         try:

@@ -21,8 +21,8 @@ COPY . .
 
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
-# JSON skills live in ./data/ (image). SQLite defaults to ./var/app.db — mount Railway volume on /app/var, not /app/data.
-RUN mkdir -p /app/data /app/var
+# Duplicate reference JSON so a volume mounted on /app/data (SQLite) does not hide clean_skills.json etc.
+RUN cp -a /app/data /app/_data_shipped && mkdir -p /app/data
 
 EXPOSE 8000
 CMD ["python", "api.py"]
