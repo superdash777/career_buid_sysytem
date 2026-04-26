@@ -52,13 +52,6 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
             Выйти
           </button>
         )}
-        <button
-          onClick={toggle}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)] transition-colors hover:border-[var(--blue-deep)] hover:text-[var(--blue-deep)]"
-          aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-        >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
 
         {onTeams && (
           <button
@@ -69,6 +62,14 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
             Для команд
           </button>
         )}
+
+        <button
+          onClick={toggle}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)] transition-colors hover:border-[var(--blue-deep)] hover:text-[var(--blue-deep)]"
+          aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
       </div>
     </div>
   );
