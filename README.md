@@ -57,15 +57,17 @@ Career Copilot — веб-приложение, которое помогает 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                         КЛИЕНТ (Браузер)                               │
 │                                                                        │
-│   React 19 · TypeScript 5.9 · Tailwind CSS 4 · Vite 7                │
+│   React 19 · TypeScript 5.9 · Tailwind CSS 4 · Vite 7 · Recharts      │
 │                                                                        │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│   │ Welcome  │→ │ GoalSetup│→ │  Skills  │→ │ Confirm  │→ │ Result │ │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+│   PublicLanding · Auth · Onboarding · Dashboard                        │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐   │
+│   │ GoalSetup│→ │  Skills  │→ │ Confirm  │→ │ Result   │ (+ Growth/   │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────┘  Switch UI)   │
 │        ↑              ↑             ↑              ↑            ↑     │
 │        └──────── History API (browser back/forward) ────────────┘     │
 │                  sessionStorage (persist on refresh)                    │
 │                                                                        │
+│   AuthContext (JWT) · ProtectedRoute · ShareCard                       │
 │   Компоненты: SearchableSelect · SkillCard · ScenarioCard · Toast    │
 │               Stepper · Skeleton · ErrorBoundary · FeedbackRating     │
 │                                                                        │
@@ -79,10 +81,13 @@ Career Copilot — веб-приложение, которое помогает 
 │                                                                        │
 │   REST API                         SPA Fallback                        │
 │   ├─ GET  /api/professions         /{path} → frontend/dist/index.html │
-│   ├─ GET  /api/skills-for-role                                        │
-│   ├─ GET  /api/suggest-skills                                         │
-│   ├─ POST /api/analyze-resume                                         │
-│   ├─ POST /api/plan                                                   │
+│   ├─ GET  /api/skills-for-role     POST /api/auth/register · login     │
+│   ├─ GET  /api/skills-by-category  POST /api/auth/refresh · logout    │
+│   ├─ GET  /api/suggest-skills      GET  /api/auth/me                  │
+│   ├─ POST /api/analyze-resume      PATCH /api/auth/onboarding         │
+│   ├─ POST /api/plan                GET|POST /api/analyses · GET/{id}  │
+│   ├─ POST /api/focused-plan        GET|PATCH /api/progress            │
+│   ├─ GET  /api/share/{analysis_id}                                    │
 │   └─ GET  /health                                                     │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤
@@ -123,6 +128,13 @@ Career Copilot — веб-приложение, которое помогает 
 │   └──────────────┘                                                    │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤
+│                     ДАННЫЕ ПРИЛОЖЕНИЯ                                  │
+│                                                                        │
+│   JSON-справочники (data/)          SQLite (`DB_PATH`, см. env):      │
+│   навыки · атлас · синонимы         пользователи, анализы, прогресс,   │
+│                                     refresh-токены (bcrypt + JWT)      │
+│                                                                        │
+├────────────────────────────────────────────────────────────────────────┤
 │                     ВНЕШНИЕ СЕРВИСЫ                                     │
 │                                                                        │
 │   ┌──────────────────────┐       ┌──────────────────────────────┐     │
@@ -160,7 +172,7 @@ Career Copilot — веб-приложение, которое помогает 
        │                        │                          │  → rag_service (контекст)
        │                        │                          │  → output_formatter
        │                        │                          │  → plan_generator (GPT-4o)
-       │                        │◀─────────────────────────│  {markdown, role_titles?}
+       │                        │◀─────────────────────────│  {markdown, analysis?, role_titles?}
        │                        │                          │
        │  Видит план развития   │                          │
        │◀───────────────────────│  ReactMarkdown + TOC     │
@@ -184,6 +196,8 @@ Career Copilot — веб-приложение, которое помогает 
 | pypdf | ≥ 3.0 | Извлечение текста из PDF |
 | scikit-learn | ≥ 1.0 | Кластеризация навыков (KMeans) |
 | OpenAI SDK | ≥ 1.0 | Взаимодействие с GPT-4o |
+| bcrypt, PyJWT | — | Хеширование паролей, access/refresh JWT |
+| SQLite (stdlib + `db.py`) | — | Пользователи, анализы, прогресс, сессии refresh |
 
 ### Frontend
 
@@ -194,6 +208,7 @@ Career Copilot — веб-приложение, которое помогает 
 | Vite | 7 | Сборщик с мгновенным HMR |
 | Tailwind CSS | 4 | Utility-first стилизация с CSS-переменными для тем |
 | React Markdown | 10 | Рендеринг Markdown-планов с поддержкой GFM |
+| Recharts | 3 | Радар и визуализация gap-анализа |
 | Lucide React | — | SVG-иконки (tree-shakeable) |
 | React Dropzone | 15 | Drag-and-drop загрузка PDF |
 
@@ -255,11 +270,16 @@ career-copilot/
 │   │   ├── App.tsx                 # Корневой компонент: состояние, навигация, persistence
 │   │   │
 │   │   ├── screens/
-│   │   │   ├── Welcome.tsx         # Лендинг с CTA
+│   │   │   ├── PublicLanding.tsx   # Публичный лендинг
+│   │   │   ├── Auth.tsx            # Регистрация / вход
+│   │   │   ├── OnboardingQuiz.tsx  # Квиз после регистрации
+│   │   │   ├── Dashboard.tsx       # Личный кабинет
 │   │   │   ├── GoalSetup.tsx       # Профессия + сценарий + грейд
 │   │   │   ├── Skills.tsx          # Ввод навыков (PDF / вручную / подсказки)
 │   │   │   ├── Confirmation.tsx    # Проверка данных перед генерацией
-│   │   │   └── Result.tsx          # Отображение плана с TOC
+│   │   │   ├── Result.tsx          # План + TOC + сохранение анализа
+│   │   │   ├── GrowthPage.tsx      # UI сценария «Следующий грейд»
+│   │   │   └── SwitchPage.tsx      # UI сценария «Смена профессии»
 │   │   │
 │   │   ├── components/
 │   │   │   ├── SearchableSelect.tsx # Комбобокс с поиском для профессий
@@ -270,6 +290,8 @@ career-copilot/
 │   │   │   ├── toastStore.ts        # Глобальный store для toast-ов
 │   │   │   ├── Skeleton.tsx         # Skeleton-загрузочные экраны
 │   │   │   ├── FeedbackRating.tsx   # Оценка полезности плана
+│   │   │   ├── ShareCard.tsx        # Шаринг результата по ссылке
+│   │   │   ├── ProtectedRoute.tsx   # Защита маршрутов с авторизацией
 │   │   │   ├── Alert.tsx            # Алерты (error/warning/info/success)
 │   │   │   ├── Layout.tsx           # Обёртка: header + stepper + footer
 │   │   │   ├── NavBar.tsx           # Логотип + переключатель темы
@@ -278,8 +300,10 @@ career-copilot/
 │   │   │   ├── MiniProgress.tsx     # Метка «Шаг N из M»
 │   │   │   └── SoftOnboardingHint.tsx # Всплывающие подсказки
 │   │   │
+│   │   ├── auth/
+│   │   │   └── AuthContext.tsx     # JWT access/refresh, persist в sessionStorage
 │   │   ├── api/
-│   │   │   └── client.ts           # API-клиент с AbortController
+│   │   │   └── client.ts           # API-клиент с AbortController + Bearer
 │   │   │
 │   │   ├── types/
 │   │   │   └── index.ts            # TypeScript-типы: Skill, AppState, PlanRequest и др.
@@ -382,6 +406,19 @@ docker compose up --build
 | GET | `/api/suggest-skills?q=...` | Подсказки навыков (синонимы + RAG) |
 | POST | `/api/analyze-resume` | Загрузка PDF → список навыков |
 | POST | `/api/plan` | Построение плана развития |
+| POST | `/api/focused-plan` | Фокусный план по выбранным навыкам (JSON) |
+| POST | `/api/auth/register` | Регистрация (email, пароль) → JWT |
+| POST | `/api/auth/login` | Вход → JWT |
+| POST | `/api/auth/refresh` | Обновление access по refresh |
+| POST | `/api/auth/logout` | Отзыв refresh |
+| GET | `/api/auth/me` | Текущий пользователь (Bearer) |
+| PATCH | `/api/auth/onboarding` | Сохранение онбординга (Bearer) |
+| GET | `/api/analyses` | Список сохранённых анализов (Bearer) |
+| POST | `/api/analyses` | Сохранить результат анализа (Bearer) |
+| GET | `/api/analyses/{id}` | Детали анализа (Bearer) |
+| GET | `/api/share/{analysis_id}` | Публичный просмотр сохранённого результата |
+| GET | `/api/progress` | Прогресс по навыкам (Bearer) |
+| PATCH | `/api/progress` | Обновить статус навыка todo / in_progress / done (Bearer) |
 | GET | `/health` | Health check |
 
 ### Пример: построение плана
@@ -402,9 +439,12 @@ curl -X POST http://localhost:8000/api/plan \
 ```json
 {
   "markdown": "# План развития: Product Manager → Senior\n\n...",
-  "role_titles": null
+  "role_titles": null,
+  "analysis": { "...": "структура для UI (radar, skill_gaps, сценарий и т.д.)" }
 }
 ```
+
+Поле `analysis` присутствует, когда бэкенд сформировал структурированные данные для экранов Growth / Switch / Explore.
 
 ---
 
@@ -424,6 +464,11 @@ curl -X POST http://localhost:8000/api/plan \
 | `PORT` | Нет | `8000` | Порт сервера |
 | `DB_PATH` | Нет | `<корень проекта>/data/app.db` | SQLite; при томе на `/app/data` файл окажется на постоянном диске. Иначе можно абсолютный путь, например `/data/app.db` |
 | `JWT_SECRET` | Нет | `change-me-in-production` | Секрет подписи JWT; в продакшене задайте свой |
+| `JWT_ACCESS_TOKEN_TTL_MINUTES` | Нет | `4320` | Срок жизни access-токена (по умолчанию 3 суток) |
+| `JWT_REFRESH_TOKEN_TTL_MINUTES` | Нет | `43200` | Срок жизни refresh-токена (по умолчанию 30 суток) |
+| `AUTH_RATE_LIMIT_WINDOW_SEC` | Нет | `60` | Окно rate limit для auth |
+| `AUTH_LOGIN_RATE_LIMIT` / `AUTH_REGISTER_RATE_LIMIT` | Нет | `10` | Макс. попыток логина / регистраций в окне |
+| `PLAN_CONTEXT_MAX_CHARS` | Нет | `12000` | Лимит символов контекста для генератора плана |
 
 Без Qdrant приложение работает полностью — не будет семантических подсказок навыков и семантического ранжирования ролей, но gap-анализ и генерация планов доступны.
 
