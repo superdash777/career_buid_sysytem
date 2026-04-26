@@ -5,7 +5,7 @@ type Variant = 'error' | 'warning' | 'info' | 'success';
 interface Props {
   variant?: Variant;
   title?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   onClose?: () => void;
 }
 
@@ -22,8 +22,8 @@ export default function Alert({ variant = 'error', title, children, onClose }: P
     <div className={`fade-in flex gap-3 rounded-xl border p-4 ${s.bg} ${s.border}`} role="alert">
       <div className={`mt-0.5 shrink-0 ${s.icon}`}><s.El className="h-5 w-5" /></div>
       <div className="flex-1 text-sm">
-        {title && <p className="font-semibold mb-0.5 text-(--color-text-primary)">{title}</p>}
-        <div className="text-(--color-text-secondary)">{children}</div>
+        {title && <p className={`font-semibold text-(--color-text-primary) ${children ? 'mb-0.5' : ''}`}>{title}</p>}
+        {children ? <div className="text-(--color-text-secondary)">{children}</div> : null}
       </div>
       {onClose && (
         <button onClick={onClose} className="shrink-0 text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors">
