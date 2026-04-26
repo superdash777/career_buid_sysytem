@@ -225,6 +225,8 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
   const matchPercent = latestAnalysis ? getMatchPercent(latestAnalysis) : 0;
   const doneCount = trackedTasks.filter((t) => progressMap.get(t.id)?.status === 'done').length;
   const weeklyProgress = trackedTasks.length > 0 ? Math.round((doneCount / trackedTasks.length) * 100) : 0;
+  const allPlanTasksDone =
+    trackedTasks.length > 0 && doneCount === trackedTasks.length;
   const forecastText = estimateForecast(matchPercent, user?.development_hours_per_week);
 
   const updateSkillStatus = async (skillName: string, status: 'todo' | 'in_progress' | 'done') => {
@@ -340,6 +342,10 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                   Сначала завершите хотя бы один план, чтобы получить персональные задачи.
                 </p>
               ) : (
+                <>
+                  {allPlanTasksDone && (
+                    <Alert variant="success" title="Ура! Все задачи плана выполнены" />
+                  )}
                 <KanbanBoard
                   tasks={trackedTasks.map((task): KanbanTask => ({
                     id: task.id,
@@ -350,6 +356,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
                   }))}
                   onStatusChange={(taskId, newStatus) => updateSkillStatus(taskId, newStatus)}
                 />
+                </>
               )}
             </div>
 
