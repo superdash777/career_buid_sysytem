@@ -72,26 +72,6 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
               понятный пошаговый план развития. Без воды, с задачами на каждую неделю.
             </p>
 
-            <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-left shadow-[var(--shadow-soft)]">
-              <p className="text-center text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                Как это работает
-              </p>
-              <ol className="mt-2 space-y-1.5 text-sm text-[var(--ink)]/90">
-                <li className="flex gap-2">
-                  <span className="font-mono text-[var(--blue-deep)]">1.</span>
-                  <span>Цель и роль — пара минут</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-mono text-[var(--blue-deep)]">2.</span>
-                  <span>Навыки — вручную или из резюме</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-mono text-[var(--blue-deep)]">3.</span>
-                  <span>Анализ профиля и план — без регистрации до результата</span>
-                </li>
-              </ol>
-            </div>
-
             {/* Chips */}
             <div className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-2">
               {EXAMPLES.map((ex) => (
