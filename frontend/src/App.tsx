@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Dashboard from './screens/Dashboard';
 import OnboardingQuiz from './screens/OnboardingQuiz';
 import GoalSetup from './screens/GoalSetup';
@@ -18,7 +18,8 @@ import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import type { SessionInvalidReason } from './types';
-import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
+import { healthCheck, fetchSharedAnalysis, ApiError, createAnalysis } from './api/client';
+import { showToast } from './components/toastStore';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole, GrowthAnalysis, SwitchAnalysis } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { Loader2, Home } from 'lucide-react';
@@ -273,6 +274,7 @@ export default function App() {
   const [sharedError, setSharedError] = useState('');
   const [pendingAuthScreen, setPendingAuthScreen] = useState<Screen | null>(null);
   const [selectedExploreRole] = useState<ExploreRole | null>(null);
+  const guestPlanSaveInFlight = useRef(false);
 
   const rememberWizardBeforeAuth = useCallback(() => {
     if (isFlowWizardScreen(screen)) {
@@ -345,6 +347,59 @@ export default function App() {
       sessionStorage.removeItem(PLAN_STORAGE_KEY);
     }
   }, [plan]);
+
+  /** Гость построил план без сохранения в БД — после логина дописываем analysis_id без повторной генерации. */
+  useEffect(() => {
+    if (!isAuthenticated || !user || !plan?.markdown?.trim() || plan.analysis_id) return;
+    if (guestPlanSaveInFlight.current) return;
+
+    const scenario = (state.scenario || 'Следующий грейд') as Scenario;
+    const saveKey = `career_copilot_guest_plan_saved:${plan.markdown.length}:${scenario}:${state.skills.length}`;
+    try {
+      if (sessionStorage.getItem(saveKey) === '1') return;
+    } catch {
+      /* ignore */
+    }
+
+    guestPlanSaveInFlight.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const saved = await createAnalysis({
+          scenario,
+          current_role: state.profession || undefined,
+          target_role: state.scenario === 'Смена профессии' ? state.targetProfession || undefined : undefined,
+          skills_json: {
+            profession: state.profession,
+            grade: state.grade,
+            scenario,
+            target_profession: state.targetProfession,
+            skills: state.skills,
+          },
+          result_json: plan as unknown as Record<string, unknown>,
+        });
+        if (cancelled) return;
+        try {
+          sessionStorage.setItem(saveKey, '1');
+        } catch {
+          /* ignore */
+        }
+        setPlanRaw((prev) => (prev ? { ...prev, analysis_id: saved.id } : prev));
+        showToast('План сохранён в историю');
+      } catch {
+        if (!cancelled) {
+          showToast('Не удалось сохранить план в историю. Откройте результат ещё раз или нажмите «Построить план» заново.');
+        }
+      } finally {
+        guestPlanSaveInFlight.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user, plan, state.scenario, state.profession, state.grade, state.targetProfession, state.skills]);
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
