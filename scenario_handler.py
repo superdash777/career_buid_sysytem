@@ -27,10 +27,14 @@ class ScenarioHandler:
 
         # Пытаемся использовать profile embedding
         try:
-            from rag_service import semantic_match_skills, compute_profile_similarity
+            from rag_service import semantic_match_skills, compute_profile_similarity, encode_user_skills_query_vectors
             use_semantic = True
         except Exception:
             use_semantic = False
+
+        user_skill_vecs = None
+        if use_semantic and user_skill_names:
+            user_skill_vecs = encode_user_skills_query_vectors(user_skill_names)
 
         opportunities = []
         for role_display in self.data.get_all_roles():
@@ -55,7 +59,9 @@ class ScenarioHandler:
                 sem_overlap = 0
                 if use_semantic and user_skill_names:
                     try:
-                        sem_map = semantic_match_skills(user_skill_names, req_names)
+                        sem_map = semantic_match_skills(
+                            user_skill_names, req_names, user_vectors=user_skill_vecs
+                        )
                         for u_name, r_name in sem_map.items():
                             if r_name not in norm and norm.get(u_name, 0) >= skill_reqs.get(r_name, 1):
                                 sem_overlap += 1
@@ -70,7 +76,9 @@ class ScenarioHandler:
                 profile_sim = 0.0
                 if use_semantic and user_skill_names:
                     try:
-                        profile_sim = compute_profile_similarity(user_skill_names, req_names)
+                        profile_sim = compute_profile_similarity(
+                            user_skill_names, req_names, precomputed_user_vecs=user_skill_vecs
+                        )
                     except Exception:
                         pass
 

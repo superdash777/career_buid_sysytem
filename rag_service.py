@@ -1102,15 +1102,30 @@ def _encode_for_matching(texts: List[str], is_query: bool = False) -> Any:
         return embedder.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
+def encode_user_skills_query_vectors(user_skill_names: List[str]) -> Any:
+    """Precompute query-side embeddings for user skills (explore / semantic_match hot paths)."""
+    if not user_skill_names:
+        return None
+    try:
+        return _encode_for_matching(user_skill_names, is_query=True)
+    except Exception:
+        return None
+
+
 def semantic_match_skills(
     user_skill_names: List[str],
     required_skill_names: List[str],
     threshold: Optional[float] = None,
+    user_vectors: Any = None,
 ) -> Dict[str, str]:
     """Для каждого user-навыка находит ближайший required-навык по embedding similarity.
     Возвращает {user_name: matched_required_name} для пар с score >= threshold.
     Пары выбираются жадно: один required-навык может быть сопоставлен только одному user-навыку.
-    Uses E5-large (query/passage) for higher accuracy, with MiniLM fallback."""
+    Uses E5-large (query/passage) for higher accuracy, with MiniLM fallback.
+
+    user_vectors: optional precomputed embeddings (same order as user_skill_names) to avoid
+    re-encoding the user profile inside tight loops (e.g. explore_opportunities).
+    """
     threshold = threshold or Config.SKILL_MATCH_THRESHOLD
     if not user_skill_names or not required_skill_names:
         return {}
@@ -1119,7 +1134,12 @@ def semantic_match_skills(
     except Exception:
         return {}
     try:
-        user_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        if user_vectors is not None:
+            user_vecs = np.asarray(user_vectors, dtype=float)
+            if user_vecs.shape[0] != len(user_skill_names):
+                user_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        else:
+            user_vecs = _encode_for_matching(user_skill_names, is_query=True)
         req_vecs = _encode_for_matching(required_skill_names, is_query=False)
         sim_matrix = np.dot(user_vecs, req_vecs.T)
 
@@ -1145,14 +1165,27 @@ def semantic_match_skills(
         return {}
 
 
-def compute_profile_similarity(user_skill_names: List[str], role_skill_names: List[str]) -> float:
+def compute_profile_similarity(
+    user_skill_names: List[str],
+    role_skill_names: List[str],
+    precomputed_user_vecs: Any = None,
+) -> float:
     """Cosine similarity между средним эмбеддингом профиля пользователя и профиля роли.
-    Uses E5-large for higher accuracy."""
+    Uses E5-large for higher accuracy.
+
+    precomputed_user_vecs: optional matrix of user skill embeddings (same order as user_skill_names)
+    to avoid re-encoding the user profile for every role×grade pair in explore_opportunities.
+    """
     if not user_skill_names or not role_skill_names:
         return 0.0
     try:
         import numpy as np
-        u_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        if precomputed_user_vecs is not None:
+            u_vecs = np.asarray(precomputed_user_vecs, dtype=float)
+            if u_vecs.shape[0] != len(user_skill_names):
+                u_vecs = _encode_for_matching(user_skill_names, is_query=True)
+        else:
+            u_vecs = _encode_for_matching(user_skill_names, is_query=True)
         r_vecs = _encode_for_matching(role_skill_names, is_query=False)
         u_mean = np.mean(u_vecs, axis=0)
         r_mean = np.mean(r_vecs, axis=0)

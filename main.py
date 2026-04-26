@@ -187,13 +187,14 @@ def dedupe_opportunities_by_profession(opportunities):
 
 def build_role_matches(opps, user_skills, data_loader):
     """Строит список RoleMatch из opps для build_explore_recommendations."""
+    from concurrent.futures import ThreadPoolExecutor
     from explore_recommendations import RoleMatch
     try:
         from rag_service import get_rag_why_role_bullets
     except Exception:
         get_rag_why_role_bullets = lambda u, r, **kw: []
-    matches = []
-    for opp in opps:
+
+    def _one(opp):
         role_title = opp.get("role", "")
         internal = opp.get("internal_role")
         reqs = data_loader.get_role_requirements(internal, "Middle") if internal else {}
@@ -202,7 +203,7 @@ def build_role_matches(opps, user_skills, data_loader):
         missing = [{"name": s} for s in skill_keys if s not in user_skills][:3]
         why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
         score = (opp.get("match", 0) or 0) / 100.0
-        matches.append(RoleMatch(
+        return RoleMatch(
             role_title=role_title,
             match_score=score,
             why_match=why,
@@ -210,8 +211,13 @@ def build_role_matches(opps, user_skills, data_loader):
             key_skills=skill_keys[:8],
             missing_skills=missing,
             internal_role=internal,
-        ))
-    return matches
+        )
+
+    if not opps:
+        return []
+    max_workers = min(12, max(4, len(opps)))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        return list(pool.map(_one, opps))
 
 
 def build_plan(skills_table, profession, current_grade, scenario, target_profession):

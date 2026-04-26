@@ -774,13 +774,15 @@ def _dedupe_opportunities(opportunities):
 
 
 def _build_role_matches(opps, user_skills):
+    """Строит RoleMatch для explore; RAG why_match запрашивается параллельно (раньше — N последовательных HTTP)."""
+    from concurrent.futures import ThreadPoolExecutor
     from explore_recommendations import RoleMatch
     try:
         from rag_service import get_rag_why_role_bullets
     except Exception:
         get_rag_why_role_bullets = lambda u, r, **kw: []
-    matches = []
-    for opp in opps:
+
+    def _one(opp: Dict[str, Any]) -> RoleMatch:
         role_title = opp.get("role", "")
         internal = opp.get("internal_role")
         reqs = data.get_role_requirements(internal, "Middle") if internal else {}
@@ -790,11 +792,10 @@ def _build_role_matches(opps, user_skills):
             for s in skill_keys
             if user_skills.get(s, 0) >= reqs.get(s, 0)
         ][:5]
-        # Для explore UI нужны все навыки, где уровень ниже требуемого.
         missing = [{"name": s} for s in skill_keys if user_skills.get(s, 0) < reqs.get(s, 0)]
         why = get_rag_why_role_bullets(user_skills, role_title, top_k=5)
         score = (opp.get("match", 0) or 0) / 100.0
-        matches.append(RoleMatch(
+        return RoleMatch(
             role_title=role_title,
             match_score=score,
             why_match=why,
@@ -802,8 +803,13 @@ def _build_role_matches(opps, user_skills):
             key_skills=skill_keys[:8],
             missing_skills=missing,
             internal_role=internal,
-        ))
-    return matches
+        )
+
+    if not opps:
+        return []
+    max_workers = min(12, max(4, len(opps)))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        return list(pool.map(_one, opps))
 
 
 def _build_growth_analysis(structured, current_grade, target_grade):
