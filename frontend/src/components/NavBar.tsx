@@ -24,7 +24,7 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
             ✦
           </span>
           <span className="text-sm font-semibold tracking-tight text-[var(--ink)]">
-            Career CoPilot
+            Career Copilot
           </span>
         </div>
       ) : (

@@ -62,7 +62,7 @@ export default function GoalSelection({
         <div className="w-full max-w-3xl slide-up">
           {/* Header */}
           <div className="mb-10 text-center">
-            <Eyebrow className="mb-3">Career CoPilot</Eyebrow>
+            <Eyebrow className="mb-3">Career Copilot</Eyebrow>
             <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] md:text-4xl">
               Какая у вас главная цель?
             </h1>
@@ -157,7 +157,7 @@ export default function GoalSelection({
       </main>
 
       <footer className="border-t border-[var(--line)] py-6 text-center text-xs text-[var(--muted)]">
-        Career CoPilot
+        Career Copilot
       </footer>
     </GridBg>
   );

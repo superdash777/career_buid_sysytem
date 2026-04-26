@@ -83,7 +83,7 @@ export default function ShareCard({
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-[var(--ink)] font-bold text-xl leading-tight">{title}</h2>
-          <p className="mt-1 text-sm font-medium text-[var(--blue-deep)]">Career CoPilot</p>
+          <p className="mt-1 text-sm font-medium text-[var(--blue-deep)]">Career Copilot</p>
         </div>
         <div
           className={`inline-flex shrink-0 items-center rounded-full border px-4 py-1.5 text-sm font-semibold tabular-nums ${matchBadgeClasses(matchPercent)}`}
@@ -146,7 +146,7 @@ export default function ShareCard({
       </div>
 
       <p className="text-center text-sm text-[var(--muted)]">
-        Присоединяйтесь к Career CoPilot!
+        Присоединяйтесь к Career Copilot!
       </p>
     </div>
   );

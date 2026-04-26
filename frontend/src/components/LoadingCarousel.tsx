@@ -17,11 +17,14 @@ const TIPS = [
 interface Props {
   text?: string;
   subtext?: string;
+  /** When false, only text / progress / tips — no spinning ring */
+  showSpinner?: boolean;
 }
 
 export default function LoadingCarousel({
   text = 'Создаем ваш персональный план...',
   subtext = 'Это может занять до минуты',
+  showSpinner = true,
 }: Props) {
   const [currentTip, setCurrentTip] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -44,8 +47,10 @@ export default function LoadingCarousel({
     <div className="mx-auto max-w-lg space-y-8 py-12 text-center">
       {/* Spinner + text */}
       <div>
-        <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-3 border-[var(--line)] border-t-[var(--blue-deep)]" />
-        <p className="text-lg font-semibold text-[var(--ink)]">{text}</p>
+        {showSpinner ? (
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-3 border-[var(--line)] border-t-[var(--blue-deep)]" />
+        ) : null}
+        <p className={`text-lg font-semibold text-[var(--ink)] ${showSpinner ? '' : 'pt-1'}`}>{text}</p>
         <p className="mt-1 text-sm text-[var(--muted)]">{subtext}</p>
       </div>
 

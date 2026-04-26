@@ -68,7 +68,7 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
-              Career CoPilot проанализирует ваше резюме и требования рынка, чтобы построить
+              Career Copilot проанализирует ваше резюме и требования рынка, чтобы построить
               понятный пошаговый план развития. Без воды, с задачами на каждую неделю.
             </p>
 
@@ -119,7 +119,7 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
       </main>
 
       <footer className="border-t border-[var(--line)] py-6 text-center text-xs text-[var(--muted)]">
-        Career CoPilot
+        Career Copilot
       </footer>
     </GridBg>
   );

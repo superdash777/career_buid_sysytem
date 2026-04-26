@@ -36,7 +36,7 @@ function SkillQualityBar({ count }: { count: number }) {
     : count < 5 ? 'bg-amber-400'
     : 'bg-emerald-400';
   const label =
-    count === 0 ? 'Добавьте навыки для точного плана'
+    count === 0 ? 'Добавьте навыки для точного анализа профиля'
     : count < 3 ? 'Маловато — добавьте еще для точности'
     : count < 5 ? 'Хорошо, можно добавить еще'
     : count < 7 ? 'Отлично!'
@@ -281,7 +281,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
 
   const handleNext = () => {
     if (skills.length === 0) {
-      setValidationError('Добавьте хотя бы один навык, чтобы мы могли построить план.');
+      setValidationError('Добавьте хотя бы один навык для анализа профиля.');
       return;
     }
     setValidationError('');
@@ -308,7 +308,7 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
         </div>
 
         <SoftOnboardingHint id="skills_intro">
-          Это ключевой шаг — чем точнее данные, тем лучше план.
+          Это ключевой шаг — чем точнее данные, тем точнее анализ профиля и план на следующих шагах.
         </SoftOnboardingHint>
 
         {validationError && (

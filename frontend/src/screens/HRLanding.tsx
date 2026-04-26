@@ -56,7 +56,7 @@ export default function HRLanding({ onBack }: Props) {
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
-              Career CoPilot — это AI-платформа, которая помогает растить кадры внутри компании,
+              Career Copilot — это AI-платформа, которая помогает растить кадры внутри компании,
               снижать текучесть и прозрачно управлять компетенциями команды.
             </p>
           </div>
@@ -96,7 +96,7 @@ export default function HRLanding({ onBack }: Props) {
             ) : (
               <>
                 <h3 className="mb-1 text-lg font-semibold text-[var(--ink)]">
-                  Узнайте, как Career CoPilot поможет вашей команде
+                  Узнайте, как Career Copilot поможет вашей команде
                 </h3>
                 <p className="mb-6 text-sm text-[var(--muted)]">
                   Оставьте заявку, и мы покажем платформу в действии, а также рассчитаем стоимость для вашей компании.
@@ -145,13 +145,13 @@ export default function HRLanding({ onBack }: Props) {
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Вернуться к Career CoPilot
+            Вернуться к Career Copilot
           </button>
         </div>
       </main>
 
       <footer className="border-t border-[var(--line)] py-6 text-center text-xs text-[var(--muted)]">
-        Career CoPilot
+        Career Copilot
       </footer>
     </GridBg>
   );

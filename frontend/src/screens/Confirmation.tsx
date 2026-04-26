@@ -82,7 +82,11 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   if (loading) {
     return (
       <Layout step={3}>
-        <LoadingCarousel />
+        <LoadingCarousel
+          text="Анализ профиля…"
+          subtext="Сравниваем ваши навыки с требованиями роли — обычно до минуты"
+          showSpinner={false}
+        />
       </Layout>
     );
   }
@@ -175,8 +179,8 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
             <div>
               <p className="mb-1 text-sm font-semibold text-(--color-text-primary)">Что произойдет дальше</p>
               <p className="text-sm text-(--color-text-secondary) leading-relaxed">
-                Мы сравним ваш уровень с требованиями рынка, определим зоны роста
-                и сформируем детальный план развития.
+                На следующем шаге мы проанализируем ваш профиль: сравним навыки с требованиями роли
+                и покажем зоны роста. Персональный план сформируется после этого.
               </p>
             </div>
           </div>

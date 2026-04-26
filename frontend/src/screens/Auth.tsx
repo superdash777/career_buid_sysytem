@@ -55,7 +55,7 @@ export default function Auth({
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--blue-deep)] text-lg font-bold text-white">
               ✦
             </div>
-            <h1 className="text-xl font-semibold text-[var(--ink)]">Career CoPilot</h1>
+            <h1 className="text-xl font-semibold text-[var(--ink)]">Career Copilot</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
               Твой AI-проводник на пути к блистательной карьере
             </p>

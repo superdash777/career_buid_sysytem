@@ -100,7 +100,7 @@ export default function RolePlan({
         </div>
 
         <p className="text-sm text-[var(--muted)] mb-6">
-          Персональный план развития · Career CoPilot AI
+          Персональный план развития · Career Copilot AI
         </p>
 
         <div className="grid grid-cols-3 gap-3">
