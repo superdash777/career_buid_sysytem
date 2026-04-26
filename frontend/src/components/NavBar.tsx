@@ -32,16 +32,6 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
       )}
 
       <div className="flex items-center gap-2">
-        {onTeams && (
-          <button
-            onClick={onTeams}
-            className="hidden items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--blue-deep)] sm:inline-flex"
-          >
-            <Users className="h-3.5 w-3.5" />
-            Для команд
-          </button>
-        )}
-
         {!user && onLogin && (
           <Button variant="ghost" size="sm" onClick={onLogin}>
             Войти
@@ -69,6 +59,16 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
+
+        {onTeams && (
+          <button
+            onClick={onTeams}
+            className="hidden items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--blue-deep)] sm:inline-flex"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Для команд
+          </button>
+        )}
       </div>
     </div>
   );
