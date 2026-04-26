@@ -49,7 +49,9 @@ class Config:
     PLAN_CONTEXT_MAX_CHARS = int(os.getenv("PLAN_CONTEXT_MAX_CHARS", "12000"))
     RESUME_TEXT_MAX_CHARS = int(os.getenv("RESUME_TEXT_MAX_CHARS", "14000"))
     DATA_DIR = _PROJECT_DIR / "data"
-    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "data" / "app.db")))
+    # SQLite separate from DATA_DIR so a Docker/Railway volume can mount on /app/var
+    # without hiding shipped JSON under ./data/ (e.g. clean_skills.json).
+    DB_PATH = Path(os.getenv("DB_PATH", str(_PROJECT_DIR / "var" / "app.db")))
     SKILLS_FILE = DATA_DIR / "clean_skills.json"
     ATLAS_FILE = DATA_DIR / "atlas_params_clean.json"
     ROLES_FILE = DATA_DIR / "roles.json"

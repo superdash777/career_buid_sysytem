@@ -357,7 +357,7 @@ docker build -t career-copilot .
 docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... career-copilot
 ```
 
-На **Railway** в Dockerfile нельзя использовать `VOLUME` — диск подключается только через **Railway Volumes** в UI и переменную `DB_PATH` (см. ниже). Локально в Docker: `-e DB_PATH=/data/app.db -v copilot_db:/data`.
+На **Railway** в Dockerfile нельзя использовать `VOLUME` — диск подключается через **Railway Volumes** и переменную `DB_PATH`. **Не вешайте том на `/app/data`**: в образе там уже лежат JSON-справочники (`clean_skills.json` и др.); пустой том их скроет и контейнер упадёт. Монтируйте, например, на **`/app/var`** и задайте `DB_PATH=/app/var/app.db`. Локально в Docker: `-e DB_PATH=/data/app.db -v copilot_db:/data`.
 
 Compose с постоянной БД:
 
@@ -422,7 +422,7 @@ curl -X POST http://localhost:8000/api/plan \
 | `SKILLS_V2_COLLECTION_NAME` | Нет | `skills_v2` | Новая коллекция канонических навыков (E5) |
 | `EMBED_MODEL_NAME_V2` | Нет | `intfloat/multilingual-e5-large-instruct` | Модель эмбеддингов v2 для нормализации навыков |
 | `PORT` | Нет | `8000` | Порт сервера |
-| `DB_PATH` | Нет | `<корень проекта>/data/app.db` | Путь к файлу SQLite (лучше абсолютный путь на смонтированный том в Docker) |
+| `DB_PATH` | Нет | `<корень проекта>/var/app.db` | SQLite отдельно от каталога `data/` со справочниками; на Railway том — на `/app/var` или `/data`, не на `/app/data`. Старая локальная база в `data/app.db`: скопируйте в `var/` или задайте `DB_PATH=data/app.db` |
 | `JWT_SECRET` | Нет | `change-me-in-production` | Секрет подписи JWT; в продакшене задайте свой |
 
 Без Qdrant приложение работает полностью — не будет семантических подсказок навыков и семантического ранжирования ролей, но gap-анализ и генерация планов доступны.

@@ -21,8 +21,8 @@ COPY . .
 
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
-# App may use ./data/app.db by default; on Railway use a Railway Volume + DB_PATH (no Dockerfile VOLUME — unsupported).
-RUN mkdir -p /app/data
+# JSON skills live in ./data/ (image). SQLite defaults to ./var/app.db — mount Railway volume on /app/var, not /app/data.
+RUN mkdir -p /app/data /app/var
 
 EXPOSE 8000
 CMD ["python", "api.py"]
