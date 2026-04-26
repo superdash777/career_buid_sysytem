@@ -113,9 +113,6 @@ export default function PublicLanding({ onTryInstant, onLogin, onRegister, onTea
               </Button>
             </div>
 
-            <p className="mt-4 text-sm text-[var(--muted)]">
-              Первый план — бесплатно и без регистрации.
-            </p>
           </div>
         </section>
 

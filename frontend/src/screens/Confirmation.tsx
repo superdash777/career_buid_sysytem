@@ -104,10 +104,6 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
             subtext="Этот шаг может занять до минуты."
             showSpinner={false}
           />
-          <p className="mt-4 text-center text-xs text-(--color-text-muted) px-2">
-            Если разрешите уведомления в браузере, напомним, когда анализ завершится — удобно,
-            если переключитесь на другую вкладку.
-          </p>
         </div>
       </Layout>
     );

@@ -311,11 +311,6 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
           Это ключевой шаг — чем точнее данные, тем точнее анализ профиля и план на следующих шагах.
         </SoftOnboardingHint>
 
-        <Alert variant="info" title="Как оценивать уровень">
-          Шкала 0–4 — не «грейд в компании», а насколько вы уверенно применяете навык в работе.
-          Лучше честно: так gap-анализ и план будут полезнее.
-        </Alert>
-
         {validationError && (
           <Alert variant="warning" onClose={() => setValidationError('')}>
             {validationError}
