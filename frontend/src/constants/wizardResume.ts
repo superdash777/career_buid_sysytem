@@ -7,7 +7,6 @@ export const FLOW_WIZARD_SCREEN_IDS = [
   'skills',
   'confirm',
   'result',
-  'role-plan',
 ] as const;
 
 export type FlowWizardScreenId = (typeof FLOW_WIZARD_SCREEN_IDS)[number];
