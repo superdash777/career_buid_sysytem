@@ -96,9 +96,6 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
           <p className="text-(--color-text-secondary)">
             Выберите направление развития — Career Copilot соберёт оптимальный маршрут.
           </p>
-          <p className="mt-2 text-xs text-(--color-text-muted)">
-            Дальше: навыки → проверка данных → анализ профиля и план. Регистрация не нужна, пока не захотите сохранить историю.
-          </p>
         </div>
 
         {apiError && (
