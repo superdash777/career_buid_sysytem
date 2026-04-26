@@ -21,6 +21,18 @@ const COLUMNS: { status: KanbanTask['status']; title: string }[] = [
   { status: 'done', title: 'Выполнено' },
 ];
 
+function tagChipClassName(tag: string | undefined): string {
+  const t = (tag || '').trim();
+  if (t === 'Взаимодействие') {
+    return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200';
+  }
+  if (t === 'Литература') {
+    return 'bg-amber-100 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100';
+  }
+  /* Практика и прочее — как раньше (фиолетовый чип) */
+  return 'bg-[var(--chip)] text-[var(--blue-deep)]';
+}
+
 type DragState = {
   taskId: string;
   task: KanbanTask;
@@ -58,7 +70,9 @@ function TaskCard({
         className="cursor-grab touch-none p-3 active:cursor-grabbing"
       >
         {task.tag ? (
-          <span className="mb-1.5 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-[10px] font-medium text-[var(--blue-deep)]">
+          <span
+            className={`mb-1.5 inline-block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-medium ${tagChipClassName(task.tag)}`}
+          >
             {task.tag}
           </span>
         ) : null}
@@ -232,7 +246,9 @@ export default function KanbanBoard({ tasks, onStatusChange, onAddTask }: Kanban
           }}
         >
           {drag.task.tag ? (
-            <span className="mb-1.5 inline-block max-w-full truncate rounded-full bg-[var(--chip)] px-2 py-0.5 text-[10px] font-medium text-[var(--blue-deep)]">
+            <span
+              className={`mb-1.5 inline-block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-medium ${tagChipClassName(drag.task.tag)}`}
+            >
               {drag.task.tag}
             </span>
           ) : null}
