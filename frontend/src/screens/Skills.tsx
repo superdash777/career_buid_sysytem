@@ -295,10 +295,10 @@ export default function Skills({ state, onChange, onNext, onBack }: Props) {
     : filteredRoleSkills.slice(0, RECOMMENDED_VISIBLE);
 
   return (
-    <Layout step={2}>
+    <Layout step={1}>
       <div className="space-y-8 slide-up">
         <div>
-          <MiniProgress current={2} total={3} label="Навыки" />
+          <MiniProgress current={2} total={4} label="Навыки" />
           <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Ваши навыки
           </h1>

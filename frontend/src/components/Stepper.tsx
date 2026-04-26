@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react';
 
-const STEPS = ['Старт', 'Цель', 'Навыки', 'Анализ', 'План'];
+const STEPS = ['Цель', 'Навыки', 'Анализ', 'План'];
 
 interface Props {
   current: number;

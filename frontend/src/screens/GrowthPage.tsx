@@ -235,7 +235,7 @@ export default function GrowthPage({
   };
 
   return (
-    <Layout step={4} wide>
+    <Layout step={3} wide>
       <div className="space-y-0 slide-up">
         {/* ---- Topbar row ---- */}
         <div className="flex items-center gap-3 mb-6">

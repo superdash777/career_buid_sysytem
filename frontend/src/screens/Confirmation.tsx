@@ -94,7 +94,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
 
   if (loading) {
     return (
-      <Layout step={3}>
+      <Layout step={2}>
         <div className="mx-auto max-w-lg px-4">
           <LoadingCarousel
             text="Анализ профиля"
@@ -111,10 +111,10 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   }
 
   return (
-    <Layout step={3}>
+    <Layout step={2}>
       <div className="space-y-8 slide-up">
         <div>
-          <MiniProgress current={3} total={3} label="Анализ" />
+          <MiniProgress current={3} total={4} label="Анализ" />
           <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Проверьте данные перед анализом
           </h1>

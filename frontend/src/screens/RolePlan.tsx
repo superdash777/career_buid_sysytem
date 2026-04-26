@@ -90,7 +90,7 @@ export default function RolePlan({
     : [0, 0, 0];
 
   return (
-    <Layout step={4} wide>
+    <Layout step={3} wide>
       {/* Hero */}
       <section className="mb-8 slide-up">
         <div className="mb-2">

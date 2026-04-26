@@ -76,7 +76,7 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
 
   if (loading) {
     return (
-      <Layout step={1}>
+      <Layout step={0}>
         <SkeletonForm />
       </Layout>
     );
@@ -86,10 +86,10 @@ export default function GoalSetup({ state, onChange, onNext, onBack }: Props) {
   const showScenario = !!state.profession && !!state.grade;
 
   return (
-    <Layout step={1}>
+    <Layout step={0}>
       <div className="space-y-8 slide-up">
         <div>
-          <MiniProgress current={1} total={3} label="Карьерная цель" />
+          <MiniProgress current={1} total={4} label="Карьерная цель" />
           <h1 className="mb-2 mt-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Определим вашу цель
           </h1>

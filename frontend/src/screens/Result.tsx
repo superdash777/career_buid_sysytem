@@ -55,7 +55,7 @@ export default function Result({
   };
 
   return (
-    <Layout step={4} wide>
+    <Layout step={3} wide>
       <div className="space-y-6 slide-up">
         {/* Header actions */}
         <div className="flex flex-wrap justify-end gap-2">
