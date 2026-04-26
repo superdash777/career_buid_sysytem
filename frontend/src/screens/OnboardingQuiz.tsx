@@ -15,6 +15,8 @@ interface Props {
   initialPainPoint?: string;
   initialHours?: number;
   onBack?: () => void;
+  /** После регистрации из мастера: короче копирайт + выход к плану без квиза */
+  compactFromWizard?: boolean;
   onComplete: (result: { recommendedScenario: Scenario; painPoint: OnboardingPainPoint; developmentHoursPerWeek: number }) => void;
 }
 
@@ -48,11 +50,18 @@ const STEP_LABELS: Record<Step, string> = {
   hours: 'Время',
 };
 
+const DEFAULT_SKIP_PROFILE = {
+  experience_level: '1–3 года',
+  pain_point: 'рост' as OnboardingPainPoint,
+  development_hours_per_week: 4,
+};
+
 export default function OnboardingQuiz({
   initialExperience,
   initialPainPoint,
   initialHours,
   onBack,
+  compactFromWizard = false,
   onComplete,
 }: Props) {
   const { user, refreshMe } = useAuth();
@@ -125,6 +134,28 @@ export default function OnboardingQuiz({
     }
   };
 
+  const skipToPlanWithDefaults = async () => {
+    if (!compactFromWizard) return;
+    setSaving(true);
+    setError('');
+    try {
+      const result = await saveOnboarding(DEFAULT_SKIP_PROFILE);
+      await refreshMe();
+      showToast('Профиль можно донастроить позже в кабинете.');
+      const recommendedScenario = deriveScenarioRecommendation(DEFAULT_SKIP_PROFILE.pain_point);
+      onComplete({
+        recommendedScenario: result.recommended_scenario || recommendedScenario,
+        painPoint: DEFAULT_SKIP_PROFILE.pain_point,
+        developmentHoursPerWeek: DEFAULT_SKIP_PROFILE.development_hours_per_week,
+      });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Не удалось сохранить профиль';
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const isLastStep = currentStep === 'hours';
 
   return (
@@ -139,6 +170,17 @@ export default function OnboardingQuiz({
           <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] md:text-4xl">
             Настроим ваш профиль
           </h1>
+          {compactFromWizard && (
+            <div className="mx-auto mt-4 max-w-md space-y-3 rounded-xl border border-[var(--line)] bg-[var(--chip)]/60 px-4 py-3 text-left">
+              <p className="text-sm text-[var(--muted)] leading-relaxed">
+                План уже сформирован — эти ответы помогают персонализировать кабинет и прогнозы.
+                Их можно изменить позже в настройках профиля.
+              </p>
+              <Button variant="secondary" className="w-full" onClick={skipToPlanWithDefaults} disabled={saving}>
+                {saving ? 'Сохраняем…' : 'Открыть мой план →'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Progress bar */}

@@ -337,10 +337,16 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
               <p className="text-xs text-(--color-text-muted) -mt-2">
                 Как только выполните задачу — перетащите её в нужный столбец. Прогресс обновится автоматически.
               </p>
-              {trackedTasks.length === 0 ? (
-                <p className="text-sm text-(--color-text-muted)">
-                  Сначала завершите хотя бы один план, чтобы получить персональные задачи.
+              {analyses.length > 0 && (
+                <p className="text-xs text-(--color-text-muted) -mt-1">
+                  Задачи ниже относятся к <span className="font-medium text-(--color-text-secondary)">последнему плану</span> в списке «Мои карьерные планы» — откройте другой план, чтобы сменить контекст.
                 </p>
+              )}
+              {trackedTasks.length === 0 ? (
+                <div className="rounded-xl border border-(--color-border) bg-(--color-surface-alt) px-4 py-3 text-sm text-(--color-text-secondary)">
+                  Здесь появятся задачи из последнего плана. Создайте новый план через кнопку выше или откройте
+                  готовый анализ в истории — если в плане есть раздел с практикой, задачи подтянутся сюда.
+                </div>
               ) : (
                 <>
                   {allPlanTasksDone && (

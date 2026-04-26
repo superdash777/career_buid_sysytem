@@ -32,6 +32,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAllSkills, setShowAllSkills] = useState(false);
+  const [loadingCycle, setLoadingCycle] = useState(0);
 
   useEffect(() => () => stopProfileAnalysisFaviconPulse(), []);
 
@@ -41,6 +42,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
 
   const handleGenerate = async () => {
     setLoading(true);
+    setLoadingCycle((c) => c + 1);
     setError('');
     startProfileAnalysisFaviconPulse();
     await requestAnalysisNotificationPermission();
@@ -97,6 +99,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
       <Layout step={2}>
         <div className="mx-auto max-w-lg px-4">
           <LoadingCarousel
+            key={loadingCycle}
             text="Анализ профиля"
             subtext="Этот шаг может занять до минуты."
             showSpinner={false}
@@ -128,9 +131,17 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
         </SoftOnboardingHint>
 
         {error && (
-          <Alert variant="error" onClose={() => setError('')}>
-            {error}
-          </Alert>
+          <div className="space-y-3">
+            <Alert variant="error" onClose={() => setError('')}>
+              {error}
+            </Alert>
+            <p className="text-sm text-(--color-text-secondary)">
+              Проверьте интернет и попробуйте снова. Если ошибка повторяется — подождите минуту: сервис мог быть перегружен.
+            </p>
+            <Button variant="secondary" onClick={handleGenerate}>
+              Повторить анализ
+            </Button>
+          </div>
         )}
 
         {/* Goal summary */}

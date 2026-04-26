@@ -22,6 +22,7 @@ import { healthCheck, fetchSharedAnalysis, ApiError } from './api/client';
 import type { AppState, PlanResponse, AnalysisRecord, Grade, Scenario, Skill, SharedAnalysisResponse, ExploreRole, GrowthAnalysis, SwitchAnalysis } from './types';
 import { GRADES, INITIAL_STATE } from './types';
 import { Loader2, Home } from 'lucide-react';
+import { PENDING_SCREEN_AFTER_ONBOARDING_KEY, hasPendingWizardResume } from './constants/wizardResume';
 
 type Screen =
   | 'public'
@@ -60,8 +61,6 @@ const SCREEN_ORDER: Screen[] = [
 
 const STORAGE_KEY = 'career_copilot_state';
 const PLAN_STORAGE_KEY = 'career_copilot_plan';
-/** After register + onboarding, return here instead of dashboard (wizard progress). */
-const PENDING_SCREEN_AFTER_ONBOARDING_KEY = 'career_copilot_resume_after_onboarding';
 
 const FLOW_WIZARD_SCREENS: ReadonlySet<Screen> = new Set([
   'quickstart',
@@ -612,8 +611,8 @@ export default function App() {
                   Сохраните результат и продолжайте
                 </h1>
                 <p className="text-sm text-(--color-text-secondary)">
-                  Вы получили черновик плана развития. Создайте аккаунт, чтобы сохранить историю
-                  и открыть трекинг прогресса.
+                  Черновик плана остаётся у вас в этой вкладке. Аккаунт нужен, чтобы не потерять результат при
+                  закрытии браузера и вести задачи на канбане в кабинете.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   <button
@@ -690,6 +689,7 @@ export default function App() {
         return (
           <ProtectedRoute>
             <OnboardingQuiz
+              compactFromWizard={hasPendingWizardResume()}
               onComplete={async (answers) => {
                 update({
                   scenario: answers.recommendedScenario,
