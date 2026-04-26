@@ -14,7 +14,7 @@ import {
   startProfileAnalysisFaviconPulse,
   stopProfileAnalysisFaviconPulse,
   requestAnalysisNotificationPermission,
-  notifyProfileAnalysisReadyIfBackground,
+  notifyProfileAnalysisReadyIfHadBackground,
 } from '../utils/profileAnalysisNotify';
 
 interface Props {
@@ -43,7 +43,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
     setLoading(true);
     setError('');
     startProfileAnalysisFaviconPulse();
-    void requestAnalysisNotificationPermission();
+    await requestAnalysisNotificationPermission();
     try {
       const scenario = (state.scenario || 'Следующий грейд') as Scenario;
       const plan = await buildPlan({
@@ -77,8 +77,9 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
         }
       }
 
+      const userWasAway = typeof document !== 'undefined' && document.visibilityState !== 'visible';
       onResult(enrichedPlan);
-      notifyProfileAnalysisReadyIfBackground();
+      notifyProfileAnalysisReadyIfHadBackground(userWasAway);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

@@ -55,17 +55,30 @@ export async function requestAnalysisNotificationPermission(): Promise<Notificat
   }
 }
 
-export function notifyProfileAnalysisReadyIfBackground(): void {
+/**
+ * Call with `userWasAway` = document had hidden state **before** navigation
+ * (e.g. before onResult), otherwise switching screen can flip visibility to visible
+ * synchronously and block the notification.
+ */
+export function notifyProfileAnalysisReadyIfHadBackground(userWasAway: boolean): void {
+  if (!userWasAway) return;
   if (typeof Notification === 'undefined') return;
   if (Notification.permission !== 'granted') return;
-  if (typeof document === 'undefined' || document.visibilityState === 'visible') return;
-  try {
-    new Notification('Career Copilot — анализ готов', {
-      body: 'Профиль обработан, можно смотреть результат.',
-      icon: FAVICON_DEFAULT,
-      tag: 'career-copilot-analysis-ready',
-    });
-  } catch {
-    /* ignore */
+  const show = () => {
+    try {
+      new Notification('Career Copilot — анализ готов', {
+        body: 'Профиль обработан, можно смотреть результат.',
+        icon: FAVICON_DEFAULT,
+        tag: `career-copilot-analysis-ready-${Date.now()}`,
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+  // After parent re-render, some browsers still report visible — run after paint
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(show);
+  } else {
+    setTimeout(show, 0);
   }
 }
