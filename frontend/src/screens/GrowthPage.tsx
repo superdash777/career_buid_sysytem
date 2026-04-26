@@ -253,17 +253,17 @@ export default function GrowthPage({
         <section className="pb-6 border-b border-[var(--line)]">
           <h1 className="text-2xl font-bold text-[var(--ink)] sm:text-[26px] leading-tight mb-4" style={{ fontFamily: 'var(--font-display)' }}>
             Ваш путь к{' '}
-            <em className="not-italic text-[#534AB7]" style={{ fontStyle: 'italic' }}>
+            <em className="not-italic text-[#5465ff]" style={{ fontStyle: 'italic' }}>
               {targetGrade} {profession}
             </em>
           </h1>
 
           <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <span className="inline-flex items-center rounded-full bg-[#534AB7] px-3.5 py-1 text-xs font-semibold text-white">
+            <span className="inline-flex items-center rounded-full bg-[#5465ff] px-3.5 py-1 text-xs font-semibold text-white">
               {currentGrade}
             </span>
             <ArrowRight className="h-3.5 w-3.5 text-[var(--muted)]" />
-            <span className="inline-flex items-center rounded-full border border-[#AFA9EC] bg-[#EEEDFE] px-3.5 py-1 text-xs font-semibold text-[#534AB7]">
+            <span className="inline-flex items-center rounded-full border border-[#AFA9EC] bg-[#EEEDFE] px-3.5 py-1 text-xs font-semibold text-[#5465ff]">
               {targetGrade}
             </span>
             <span className="text-sm text-[var(--muted)]">{profession}</span>
@@ -271,7 +271,7 @@ export default function GrowthPage({
 
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
-              <p className="text-xl font-bold text-[#534AB7]">{computedMatch}%</p>
+              <p className="text-xl font-bold text-[#5465ff]">{computedMatch}%</p>
               <p className="mt-0.5 text-[10px] text-[var(--muted)]">Готовность</p>
             </div>
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
@@ -315,9 +315,9 @@ export default function GrowthPage({
                     <Radar
                       name="Целевой"
                       dataKey="target"
-                      fill="#534AB7"
+                      fill="#5465ff"
                       fillOpacity={0.08}
-                      stroke="#534AB7"
+                      stroke="#5465ff"
                       strokeOpacity={0.4}
                       strokeWidth={1.5}
                       isAnimationActive={false}
@@ -327,7 +327,7 @@ export default function GrowthPage({
                       dataKey="current"
                       fill="#AFA9EC"
                       fillOpacity={0.45}
-                      stroke="#534AB7"
+                      stroke="#5465ff"
                       strokeWidth={1.5}
                       isAnimationActive={false}
                     />
@@ -341,7 +341,7 @@ export default function GrowthPage({
                   <span className="text-[10px] text-[var(--muted)]">Текущий</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-[#534AB7]" />
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#5465ff]" />
                   <span className="text-[10px] text-[var(--muted)]">Целевой ({targetGrade})</span>
                 </div>
               </div>

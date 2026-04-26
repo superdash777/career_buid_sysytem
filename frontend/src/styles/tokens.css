@@ -4,11 +4,11 @@
   --ink: #1a1d2e;
   --muted: #6b7194;
   --line: #e2e5f0;
-  --blue-deep: #534AB7;
+  --blue-deep: #5465ff;
   --accent-red: #ef4444;
   --accent-green: #10b981;
-  --chip: #eef2ff;
-  --shadow-soft: 0 4px 24px rgba(83, 74, 183, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --chip: #eef0ff;
+  --shadow-soft: 0 4px 24px rgba(84, 101, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 
   --color-surface: var(--bg);
   --color-surface-alt: var(--paper);
@@ -20,11 +20,11 @@
   --color-text-muted: var(--muted);
   --color-accent: var(--blue-deep);
   --color-accent-light: #eef2ff;
-  --color-accent-hover: #453DA1;
+  --color-accent-hover: #3d52e6;
 
-  --gradient-hero: linear-gradient(135deg, #534AB7 0%, #7c3aed 50%, #a855f7 100%);
-  --gradient-hero-soft: linear-gradient(135deg, #EEEDFE 0%, #f5f3ff 50%, #faf5ff 100%);
-  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(83, 74, 183, 0.06), transparent 70%);
+  --gradient-hero: linear-gradient(135deg, #5465ff 0%, #6366f1 45%, #7c3aed 100%);
+  --gradient-hero-soft: linear-gradient(135deg, #eef0ff 0%, #f0f4ff 50%, #f5f3ff 100%);
+  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(84, 101, 255, 0.08), transparent 70%);
 }
 
 .dark {
@@ -33,7 +33,7 @@
   --ink: #eef0f6;
   --muted: #8b90b3;
   --line: #262a3d;
-  --blue-deep: #818cf8;
+  --blue-deep: #7c8cff;
   --accent-red: #f87171;
   --accent-green: #34d399;
   --chip: #1e2236;
@@ -49,9 +49,9 @@
   --color-text-muted: var(--muted);
   --color-accent: var(--blue-deep);
   --color-accent-light: #1e2236;
-  --color-accent-hover: #a5b4fc;
+  --color-accent-hover: #93a3ff;
 
-  --gradient-hero: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
-  --gradient-hero-soft: linear-gradient(135deg, #171924 0%, #1a1730 50%, #1d1730 100%);
-  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(129, 140, 248, 0.06), transparent 70%);
+  --gradient-hero: linear-gradient(135deg, #5465ff 0%, #6366f1 45%, #7c3aed 100%);
+  --gradient-hero-soft: linear-gradient(135deg, #171924 0%, #1a1d30 50%, #1d1730 100%);
+  --gradient-glow: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(124, 140, 255, 0.08), transparent 70%);
 }

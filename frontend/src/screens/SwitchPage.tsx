@@ -148,21 +148,21 @@ export default function SwitchPage({
 
               {/* Middle */}
               <div className="bg-[var(--bg)] border-y sm:border-y-0 sm:border-x border-[var(--line)] p-4 flex flex-col items-center justify-center gap-1.5">
-                <span className="text-[28px] font-bold text-[#534AB7]" style={{ fontFamily: 'var(--font-display)' }}>
+                <span className="text-[28px] font-bold text-[#5465ff]" style={{ fontFamily: 'var(--font-display)' }}>
                   {matchPercent}%
                 </span>
                 <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">Совместимость</span>
-                <ArrowRight className="h-[18px] w-[18px] text-[#534AB7]" />
+                <ArrowRight className="h-[18px] w-[18px] text-[#5465ff]" />
               </div>
 
               {/* To */}
               <div className="bg-[#EEEDFE] p-4 flex flex-col justify-center">
-                <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#534AB7]/60 mb-1">Цель</span>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#5465ff]/60 mb-1">Цель</span>
                 <p className="text-[17px] font-bold text-[#26215C] leading-tight truncate" style={{ fontFamily: 'var(--font-display)' }}>
                   {toProfession}
                 </p>
-                <p className="text-[11px] text-[#534AB7]/75 mt-1 truncate">Целевой грейд · {toGrade}</p>
-                <span className="inline-flex self-start items-center rounded-full bg-[rgba(83,74,183,.12)] px-2.5 py-0.5 text-[10px] font-medium text-[#534AB7] mt-2">
+                <p className="text-[11px] text-[#5465ff]/75 mt-1 truncate">Целевой грейд · {toGrade}</p>
+                <span className="inline-flex self-start items-center rounded-full bg-[rgba(84,101,255,.14)] px-2.5 py-0.5 text-[10px] font-medium text-[#5465ff] mt-2">
                   {toGrade}
                 </span>
               </div>
@@ -180,7 +180,7 @@ export default function SwitchPage({
               <p className="mt-0.5 text-[10px] text-[var(--muted)]">Освоить с нуля</p>
             </div>
             <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-center shadow-[var(--shadow-soft)]">
-              <p className="text-xl font-bold text-[#534AB7]">{deepenSkills.length}</p>
+              <p className="text-xl font-bold text-[#5465ff]">{deepenSkills.length}</p>
               <p className="mt-0.5 text-[10px] text-[var(--muted)]">Углубить</p>
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function SwitchPage({
         {/* ---- Insight callout ---- */}
         <div className="flex items-start gap-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] px-3.5 py-3 my-4">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EEEDFE]">
-            <Sparkles className="h-3.5 w-3.5 text-[#534AB7]" />
+            <Sparkles className="h-3.5 w-3.5 text-[#5465ff]" />
           </div>
           <p className="text-[11px] leading-[1.65] text-[var(--muted)]">
             <strong className="text-[var(--ink)]">{matchPercent}% вашего опыта работает на новую роль.</strong>{' '}

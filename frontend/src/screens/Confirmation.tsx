@@ -97,13 +97,13 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
       <Layout step={3}>
         <div className="mx-auto max-w-lg px-4">
           <LoadingCarousel
-            text="Анализ профиля…"
+            text="Анализ профиля"
             subtext="Этот шаг может занять до минуты."
             showSpinner={false}
           />
           <p className="mt-4 text-center text-xs text-(--color-text-muted) px-2">
-            Иконка вкладки мигает, пока идёт анализ. Если разрешите уведомления в браузере, мы напомним,
-            когда результат будет готов — удобно, если переключитесь на другую вкладку.
+            Если разрешите уведомления в браузере, напомним, когда анализ завершится — удобно,
+            если переключитесь на другую вкладку.
           </p>
         </div>
       </Layout>
@@ -114,7 +114,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
     <Layout step={3}>
       <div className="space-y-8 slide-up">
         <div>
-          <MiniProgress current={3} total={3} label="Подтверждение" />
+          <MiniProgress current={3} total={3} label="Анализ" />
           <h1 className="mt-2 mb-2 text-3xl leading-tight text-(--color-text-primary) sm:text-4xl">
             Проверьте данные перед анализом
           </h1>
