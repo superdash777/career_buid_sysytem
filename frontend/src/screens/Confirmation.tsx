@@ -10,6 +10,12 @@ import type { AppState, PlanResponse, Scenario } from '../types';
 import { skillLevelLabel } from '../types';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
+import {
+  startProfileAnalysisFaviconPulse,
+  stopProfileAnalysisFaviconPulse,
+  requestAnalysisNotificationPermission,
+  notifyProfileAnalysisReadyIfBackground,
+} from '../utils/profileAnalysisNotify';
 
 interface Props {
   state: AppState;
@@ -26,21 +32,8 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAllSkills, setShowAllSkills] = useState(false);
-  const [tabSwitchNotice, setTabSwitchNotice] = useState(false);
 
-  useEffect(() => {
-    if (!loading) {
-      setTabSwitchNotice(false);
-      return;
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        setTabSwitchNotice(true);
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [loading]);
+  useEffect(() => () => stopProfileAnalysisFaviconPulse(), []);
 
   const sortedSkills = [...state.skills].sort((a, b) => a.name.localeCompare(b.name));
   const visibleSkills = showAllSkills ? sortedSkills : sortedSkills.slice(0, INITIAL_VISIBLE);
@@ -49,6 +42,8 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
+    startProfileAnalysisFaviconPulse();
+    void requestAnalysisNotificationPermission();
     try {
       const scenario = (state.scenario || 'Следующий грейд') as Scenario;
       const plan = await buildPlan({
@@ -83,6 +78,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
       }
 
       onResult(enrichedPlan);
+      notifyProfileAnalysisReadyIfBackground();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -90,6 +86,7 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
         setError('Не удалось получить план. Попробуйте снова.');
       }
     } finally {
+      stopProfileAnalysisFaviconPulse();
       setLoading(false);
     }
   };
@@ -98,22 +95,15 @@ export default function Confirmation({ state, onBack, onResult, isAuthenticated 
     return (
       <Layout step={3}>
         <div className="mx-auto max-w-lg px-4">
-          {tabSwitchNotice && (
-            <div className="mb-6">
-              <Alert
-                variant="info"
-                title="Анализ продолжается в этой вкладке"
-                onClose={() => setTabSwitchNotice(false)}
-              >
-                Вы переключились на другое окно. Не закрывайте вкладку — результат появится здесь, когда будет готов.
-              </Alert>
-            </div>
-          )}
           <LoadingCarousel
             text="Анализ профиля…"
             subtext="Этот шаг может занять до минуты."
             showSpinner={false}
           />
+          <p className="mt-4 text-center text-xs text-(--color-text-muted) px-2">
+            Иконка вкладки мигает, пока идёт анализ. Если разрешите уведомления в браузере, мы напомним,
+            когда результат будет готов — удобно, если переключитесь на другую вкладку.
+          </p>
         </div>
       </Layout>
     );
