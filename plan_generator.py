@@ -402,6 +402,10 @@ class PlanGenerator:
         last_error = None
         prompt_chars = len(prompt)
         start_ms = int(time.time() * 1000)
+        max_out = FOCUSED_PLAN_MAX_TOKENS
+        if scenario == "Исследование возможностей" and len(selected_skills) > 4:
+            # Больше навыков — длиннее JSON; ограничиваем верх, чтобы не раздувать стоимость бесконечно.
+            max_out = min(6000, FOCUSED_PLAN_MAX_TOKENS + 220 * (len(selected_skills) - 4))
         for attempt in range(3):
             try:
                 response = self.client.chat.completions.create(
@@ -411,7 +415,7 @@ class PlanGenerator:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.3,
-                    max_tokens=FOCUSED_PLAN_MAX_TOKENS,
+                    max_tokens=max_out,
                     response_format={"type": "json_object"},
                 )
                 parsed = json.loads(response.choices[0].message.content)

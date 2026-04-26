@@ -97,5 +97,8 @@ class Config:
     EXPLORE_REASONS_TOP_N = 5
     EXPLORE_ADD_SKILLS_TOP_N = 3
     EXPLORE_KEY_SKILLS_TOP_N = 8
+    # Explore: фокусный план по выбранным gap-навыкам (мин/макс)
+    EXPLORE_PLAN_MIN_SELECTED_SKILLS = int(os.getenv("EXPLORE_PLAN_MIN_SELECTED_SKILLS", "4"))
+    EXPLORE_PLAN_MAX_SELECTED_SKILLS = int(os.getenv("EXPLORE_PLAN_MAX_SELECTED_SKILLS", "10"))
 
     LEVEL_MAP = {1: "Basic", 2: "Proficiency", 3: "Advanced"}

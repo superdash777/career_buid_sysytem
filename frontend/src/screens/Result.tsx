@@ -23,7 +23,8 @@ interface Props {
   onOpenShare: (analysisId: string) => void;
 }
 
-const EXPLORE_REQUIRED_SKILLS_COUNT = 4;
+const EXPLORE_MIN_SKILLS = 4;
+const EXPLORE_MAX_SKILLS = 10;
 
 
 export default function Result({
@@ -161,7 +162,7 @@ function ExploreView({ data, appState, onBackToSkills }: {
         next.delete(skill);
         return next;
       }
-      if (next.size >= EXPLORE_REQUIRED_SKILLS_COUNT) {
+      if (next.size >= EXPLORE_MAX_SKILLS) {
         return prev;
       }
       next.add(skill);
@@ -214,8 +215,8 @@ function ExploreView({ data, appState, onBackToSkills }: {
 
   const handleGenerateRolePlan = async () => {
     if (!selectedRole) return;
-    if (selectedSkillsList.length !== EXPLORE_REQUIRED_SKILLS_COUNT) {
-      setPlanError(`Выберите ровно ${EXPLORE_REQUIRED_SKILLS_COUNT} навыка для генерации плана`);
+    if (selectedSkillsList.length < EXPLORE_MIN_SKILLS || selectedSkillsList.length > EXPLORE_MAX_SKILLS) {
+      setPlanError(`Выберите от ${EXPLORE_MIN_SKILLS} до ${EXPLORE_MAX_SKILLS} навыков для генерации плана`);
       return;
     }
     setPlanLoading(true);
@@ -352,7 +353,7 @@ function ExploreView({ data, appState, onBackToSkills }: {
           {(roleSkillsLoading || missingSkillsForRole.length > 0) && (
             <div className="mb-5">
               <p className="mb-2 text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
-                Нужно освоить (выберите {EXPLORE_REQUIRED_SKILLS_COUNT} навыка)
+                Нужно освоить (выберите от {EXPLORE_MIN_SKILLS} до {EXPLORE_MAX_SKILLS} навыков)
               </p>
               {roleSkillsLoading ? (
                 <p className="inline-flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -383,7 +384,7 @@ function ExploreView({ data, appState, onBackToSkills }: {
                     })}
                   </div>
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    Выбрано: {selectedSkillsList.length}/{EXPLORE_REQUIRED_SKILLS_COUNT}
+                    Выбрано: {selectedSkillsList.length} (нужно от {EXPLORE_MIN_SKILLS} до {EXPLORE_MAX_SKILLS})
                   </p>
                 </>
               )}
@@ -394,7 +395,11 @@ function ExploreView({ data, appState, onBackToSkills }: {
             <Button
               onClick={handleGenerateRolePlan}
               className="flex-1"
-              disabled={planLoading || selectedSkillsList.length !== EXPLORE_REQUIRED_SKILLS_COUNT}
+              disabled={
+                planLoading
+                || selectedSkillsList.length < EXPLORE_MIN_SKILLS
+                || selectedSkillsList.length > EXPLORE_MAX_SKILLS
+              }
             >
               {planLoading ? (
                 <>Генерируем...</>

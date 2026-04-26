@@ -979,8 +979,15 @@ def focused_plan_api(req: FocusedPlanRequest):
     """Генерирует фокусный план по выбранным навыкам. Возвращает {tasks, communication, learning}."""
     if not req.selected_skills:
         raise HTTPException(status_code=400, detail="Выберите хотя бы один навык")
-    if req.scenario == "Исследование возможностей" and len(req.selected_skills) != 4:
-        raise HTTPException(status_code=400, detail="Для плана выберите ровно 4 навыка")
+    if req.scenario == "Исследование возможностей":
+        n = len(req.selected_skills)
+        lo = Config.EXPLORE_PLAN_MIN_SELECTED_SKILLS
+        hi = Config.EXPLORE_PLAN_MAX_SELECTED_SKILLS
+        if n < lo or n > hi:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Для плана выберите от {lo} до {hi} навыков",
+            )
 
     grade_key = GRADE_MAP.get(req.grade, "Middle")
     grade_sequence = ["Junior", "Middle", "Senior", "Lead", "Expert"]
@@ -988,7 +995,11 @@ def focused_plan_api(req: FocusedPlanRequest):
     target_grade = grade_sequence[min(idx + 1, len(grade_sequence) - 1)]
 
     skill_details = []
-    selected_skills = req.selected_skills[:4] if req.scenario == "Исследование возможностей" else req.selected_skills[:10]
+    if req.scenario == "Исследование возможностей":
+        cap = Config.EXPLORE_PLAN_MAX_SELECTED_SKILLS
+        selected_skills = req.selected_skills[:cap]
+    else:
+        selected_skills = req.selected_skills[:10]
     for name in selected_skills:
         detail = data.get_skill_detail(name, target_grade)
         if detail:
