@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Исследование возможностей — Career Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f8f9fc;
+      --paper: #ffffff;
+      --ink: #1a1d2e;
+      --muted: #6b7194;
+      --line: #e2e5f0;
+      --blue-deep: #4f46e5;
+      --accent-red: #ef4444;
+      --accent-green: #10b981;
+      --chip: #eef2ff;
+      --shadow-soft: 0 4px 24px rgba(79, 70, 229, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      --color-surface: var(--bg);
+      --color-border: var(--line);
+      --color-text-primary: var(--ink);
+      --color-text-secondary: #3d4167;
+      --color-text-muted: var(--muted);
+      --color-accent: var(--blue-deep);
+      --font-sans: "Inter", Arial, sans-serif;
+      --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+      --gold: #c9973f;
+      --gold-light: rgba(201, 151, 63, 0.12);
+      --gold-bar: #d4a24a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+      letter-spacing: -0.01em;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 64px;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+
+    .header-left {
+      flex: 1;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .header .subtitle {
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--blue-deep);
+      color: var(--blue-deep);
+      transform: translateY(-1px);
+    }
+
+    /* ─── Card ─── */
+    .card {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      box-shadow: var(--shadow-soft);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    /* ─── Skills Profile ─── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .skills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .skill-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      transition: border-color 0.15s;
+    }
+
+    .skill-chip:hover {
+      border-color: var(--blue-deep);
+    }
+
+    .current-role {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .current-role strong {
+      color: var(--color-text-secondary);
+      font-weight: 600;
+    }
+
+    /* ─── Category Headers ─── */
+    .category-header {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      margin-top: 8px;
+    }
+
+    /* ─── Role Card ─── */
+    .role-card {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      box-shadow: var(--shadow-soft);
+      padding: 20px 24px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .role-card:hover {
+      border-color: var(--blue-deep);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(79, 70, 229, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .role-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .role-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+
+    .role-match {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .role-match.high { color: var(--accent-green); }
+    .role-match.medium { color: var(--blue-deep); }
+    .role-match.low { color: var(--gold); }
+
+    .role-bar-container {
+      position: relative;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--line);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .role-bar-blue {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      border-radius: 3px;
+      background: var(--blue-deep);
+      transition: width 0.6s ease-out;
+    }
+
+    .role-bar-gold {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      border-radius: 3px;
+      background: var(--gold-bar);
+      transition: width 0.6s ease-out;
+    }
+
+    .role-timeline {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      float: right;
+    }
+
+    .role-timeline.blue-bg {
+      background: var(--chip);
+      color: var(--blue-deep);
+    }
+
+    .role-timeline.gold-bg {
+      background: var(--gold-light);
+      color: var(--gold);
+    }
+
+    /* ─── Adjacent Grid ─── */
+    .adjacent-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .adjacent-card {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      box-shadow: var(--shadow-soft);
+      padding: 20px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .adjacent-card:hover {
+      border-color: var(--blue-deep);
+      transform: translateY(-1px);
+    }
+
+    .adjacent-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .adjacent-bar-container {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--line);
+      overflow: hidden;
+      margin-bottom: 8px;
+      max-width: 120px;
+    }
+
+    .adjacent-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s ease-out;
+    }
+
+    .adjacent-bar.gold { background: var(--gold-bar); }
+    .adjacent-bar.green { background: var(--accent-green); }
+
+    .adjacent-meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .adjacent-meta .pct {
+      font-weight: 600;
+    }
+
+    /* ─── Scroll indicator ─── */
+    .scroll-indicator {
+      display: flex;
+      justify-content: center;
+      padding: 24px 0 8px;
+    }
+
+    .scroll-arrow {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .scroll-arrow:hover {
+      border-color: var(--blue-deep);
+      color: var(--blue-deep);
+      transform: translateY(2px);
+    }
+
+    /* ─── Animations ─── */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-up {
+      animation: slideUp 0.45s ease-out both;
+    }
+
+    .slide-up-1 { animation-delay: 0s; }
+    .slide-up-2 { animation-delay: 0.06s; }
+    .slide-up-3 { animation-delay: 0.12s; }
+    .slide-up-4 { animation-delay: 0.18s; }
+    .slide-up-5 { animation-delay: 0.24s; }
+    .slide-up-6 { animation-delay: 0.30s; }
+    .slide-up-7 { animation-delay: 0.36s; }
+
+    @media (max-width: 600px) {
+      .container { padding: 24px 16px 48px; }
+      .header { flex-direction: column; gap: 16px; }
+      .header h1 { font-size: 24px; }
+      .adjacent-grid { grid-template-columns: 1fr; }
+      .role-name { font-size: 15px; }
+      .adjacent-name { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header slide-up slide-up-1">
+      <div class="header-left">
+        <div class="eyebrow">Исследование возможностей</div>
+        <h1>Куда ты можешь перейти</h1>
+        <div class="subtitle">На основе твоего профиля — 12 ролей</div>
+      </div>
+      <button class="btn-outline">Обновить профиль</button>
+    </div>
+
+    <!-- Skills Profile -->
+    <div class="card slide-up slide-up-2">
+      <div class="section-label">Твой профиль навыков</div>
+      <div class="skills-row">
+        <span class="skill-chip">Python</span>
+        <span class="skill-chip">FastAPI</span>
+        <span class="skill-chip">PostgreSQL</span>
+        <span class="skill-chip">Docker</span>
+        <span class="skill-chip">REST API</span>
+        <span class="skill-chip">Git</span>
+        <span class="skill-chip">Redis</span>
+        <span class="skill-chip">Linux</span>
+        <span class="skill-chip">pytest</span>
+      </div>
+      <div class="current-role">
+        Текущая роль: <strong>Middle Backend Developer</strong> · 3 года опыта
+      </div>
+    </div>
+
+    <!-- Closest Roles -->
+    <div class="category-header slide-up slide-up-3">Ближайшие роли — ≥60% совпадения</div>
+
+    <div class="role-card slide-up slide-up-3">
+      <div class="role-card-top">
+        <span class="role-name">Senior Backend Developer</span>
+        <span class="role-match high">92%</span>
+      </div>
+      <div class="role-bar-container">
+        <div class="role-bar-blue" style="width: 92%"></div>
+      </div>
+      <div>
+        <span class="role-timeline blue-bg">5–7 мес</span>
+      </div>
+    </div>
+
+    <div class="role-card slide-up slide-up-4">
+      <div class="role-card-top">
+        <span class="role-name">Tech Lead / Team Lead</span>
+        <span class="role-match medium">74%</span>
+      </div>
+      <div class="role-bar-container">
+        <div class="role-bar-blue" style="width: 74%"></div>
+      </div>
+      <div>
+        <span class="role-timeline blue-bg">8–12 мес</span>
+      </div>
+    </div>
+
+    <div class="role-card slide-up slide-up-5">
+      <div class="role-card-top">
+        <span class="role-name">Platform / DevOps Engineer</span>
+        <span class="role-match medium">67%</span>
+      </div>
+      <div class="role-bar-container">
+        <div class="role-bar-blue" style="width: 67%"></div>
+      </div>
+      <div>
+        <span class="role-timeline blue-bg">10–14 мес</span>
+      </div>
+    </div>
+
+    <!-- Adjacent Roles -->
+    <div class="category-header slide-up slide-up-6">Смежные роли — 30–60% совпадения</div>
+
+    <div class="adjacent-grid slide-up slide-up-6">
+      <div class="adjacent-card">
+        <div class="adjacent-name">Product Manager (Tech)</div>
+        <div class="adjacent-bar-container">
+          <div class="adjacent-bar gold" style="width: 48%"></div>
+        </div>
+        <div class="adjacent-meta"><span class="pct">48%</span> · 12–18 мес</div>
+      </div>
+
+      <div class="adjacent-card">
+        <div class="adjacent-name">Data Engineer</div>
+        <div class="adjacent-bar-container">
+          <div class="adjacent-bar gold" style="width: 55%"></div>
+        </div>
+        <div class="adjacent-meta"><span class="pct">55%</span> · 8–10 мес</div>
+      </div>
+
+      <div class="adjacent-card">
+        <div class="adjacent-name">Solutions Architect</div>
+        <div class="adjacent-bar-container">
+          <div class="adjacent-bar gold" style="width: 42%"></div>
+        </div>
+        <div class="adjacent-meta"><span class="pct">42%</span> · 14–18 мес</div>
+      </div>
+
+      <div class="adjacent-card">
+        <div class="adjacent-name">SRE Engineer</div>
+        <div class="adjacent-bar-container">
+          <div class="adjacent-bar green" style="width: 60%"></div>
+        </div>
+        <div class="adjacent-meta"><span class="pct">60%</span> · 7–9 мес</div>
+      </div>
+    </div>
+
+    <!-- Scroll Indicator -->
+    <div class="scroll-indicator slide-up slide-up-7">
+      <div class="scroll-arrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
