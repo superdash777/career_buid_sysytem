@@ -27,8 +27,8 @@ data/                    ← JSON-файлы (навыки, атлас)
 
 Файл `Dockerfile` уже есть в репозитории. Он делает:
 
-1. Стейдж 1 (Node 20): `npm ci` + `npm run build` → собирает `frontend/dist` (в образе задан `NODE_OPTIONS` с большим лимитом heap на случай нехватки памяти у билдера)
-2. Стейдж 2 (Python 3.12): `pip install -r requirements-docker.txt` (без Gradio/pandas/matplotlib для экономии места на диске билдера), затем копирование кода + `frontend/dist`
+1. Стейдж 1 (**Node 20 Alpine**): `npm ci` + `npm run build` → `frontend/dist` (меньше базовый образ, чем `debian-slim`; `NODE_OPTIONS` с увеличенным heap для `tsc`/`vite`)
+2. Стейдж 2 (**Python 3.12 slim**): `pip install -r requirements-docker.txt`, затем **явный `COPY` только нужных `.py` и каталога `data/`** (без `COPY . .` — меньше распаковка на диске билдера) + копирование `frontend/dist` из стейджа 1
 3. Запуск: `python api.py` (внутри — `uvicorn` на `PORT` из окружения Railway)
 
 В корне репозитория есть **`railway.toml`**, который фиксирует билдер **Dockerfile** (на случай, если в Dashboard выбран другой режим сборки).
@@ -37,8 +37,17 @@ data/                    ← JSON-файлы (навыки, атлас)
 
 Это обобщённая ошибка Railway: нужны **полные логи сборки** (Deployments → конкретный деплой → Build logs). Частые причины:
 
-- **Стейдж Python**: не успел скачаться/установиться `torch` или другой крупный пакет (таймаут сети, лимит диска). Повторите деплой или увеличьте лимиты плана. Если в логах **«no space left on device»** на этапе BuildKit — образ слишком тяжёлый для диска билдера; в репозитории для Docker используется урезанный **`requirements-docker.txt`** без Gradio и тулов eval.
-- **Стейдж Node**: падение `npm ci` (рассинхрон `package-lock.json` с `package.json`) или нехватка памяти на `tsc`/`vite build`.
+- **Стейдж Python**: не успел скачаться/установиться `torch` или другой крупный пакет (таймаут сети, лимит диска). Повторите деплой или увеличьте лимиты плана. Если в логах **«no space left on device»** на этапе BuildKit — либо образ слишком тяжёлый для диска билдера (в Docker используется **`requirements-docker.txt`** без Gradio/eval), либо **переполнен диск shared Metal-билдера** у Railway (ошибка может появиться даже на шаге записи `Dockerfile` при маленьком репозитории). Во втором случае: повторите деплой позже, напишите в поддержку Railway или используйте **образ из GHCR** (см. ниже).
+- **Стейдж Node**: падение `npm ci` (рассинхрон `package-lock.json` с `package.json`), нехватка памяти на `tsc`/`vite build` или редкая несовместимость нативных модулей с **Alpine** — тогда временно замените в корневом `Dockerfile` базу стейджа 1 на `node:20-slim` и пересоберите.
+
+### Обход Railway: образ из GitHub Container Registry (GHCR)
+
+В репозитории включён workflow **`.github/workflows/docker-ghcr.yml`**: при пуше в `main` образ собирается на **GitHub Actions** (обычно без проблемы «no space» на чтении Dockerfile) и публикуется в **`ghcr.io/<owner>/<repo>:latest`**.
+
+1. Убедитесь, что workflow прошёл зелёным (**Actions** → **Build and push Docker image to GHCR**).
+2. В GitHub → **Packages** откройте созданный пакет; при необходимости сделайте пакет **public** или выдайте Railway доступ по **PAT** с `read:packages`.
+3. В Railway создайте сервис **Deploy Docker image** (или переключите существующий источник на образ) и укажите тот же тег, например `ghcr.io/superdash777/career_buid_sysytem:latest`.
+4. Перенесите **Variables** (OpenAI, JWT, DB_PATH и т.д.) и при необходимости том **`/app/data`**.
 
 ### 2. Откройте Railway Dashboard
 

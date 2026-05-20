@@ -534,7 +534,7 @@ python3 scripts/threshold_analysis.py --dataset eval_dataset.json
 
 ## Деплой
 
-Приложение деплоится на Railway с автодеплоем из ветки `main`. Подробности: [docs/DEPLOY_RAILWAY.md](docs/DEPLOY_RAILWAY.md).
+Приложение деплоится на Railway с автодеплоем из ветки `main`. Подробности: [docs/DEPLOY_RAILWAY.md](docs/DEPLOY_RAILWAY.md). Если сборка на Railway падает с **no space left on device** на Metal builder, используйте образ из **GHCR** (workflow `.github/workflows/docker-ghcr.yml`, см. тот же документ).
 
 Multi-stage Docker-сборка:
 1. **Stage 1 (Node.js 20)** — `npm ci && npm run build` → статические файлы
