@@ -100,7 +100,9 @@ function ParamRow({
 
   return (
     <div
-      className={`cursor-pointer rounded-xl border p-3 transition-all duration-200 ${
+      className={`relative cursor-pointer rounded-xl border p-3 transition-all duration-200 ${
+        isActive ? 'z-20' : 'z-0'
+      } ${
         isActive
           ? 'border-[#AFA9EC] bg-[#EEEDFE]'
           : 'border-transparent hover:border-[var(--line)] hover:bg-[var(--bg)]'
@@ -112,7 +114,7 @@ function ParamRow({
         <DeltaBadge delta={delta} />
       </div>
 
-      <div className="relative h-[5px] rounded-full overflow-hidden mb-1.5">
+      <div className="pointer-events-none relative mb-1.5 h-[5px] overflow-hidden rounded-full">
         <div
           className="absolute inset-y-0 left-0 rounded-full bg-[var(--blue-deep)] opacity-20"
           style={{ width: `${(param.target / 5) * 100}%` }}
@@ -132,7 +134,10 @@ function ParamRow({
       </div>
 
       {isActive && (
-        <div className="mt-3 space-y-3 border-t border-[#AFA9EC]/30 pt-3 fade-in" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="relative z-10 mt-3 space-y-3 border-t border-[#AFA9EC]/30 pt-3 fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
           {param.description && (
             <p className="text-[11px] leading-relaxed text-[var(--muted)]">{param.description}</p>
           )}
@@ -297,13 +302,13 @@ export default function GrowthPage({
         {/* ---- Main two-column grid ---- */}
         <section className="border-t border-[var(--line)] pt-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
-            {/* Left — Radar chart */}
-            <div className="pr-0 sm:pr-5 sm:border-r sm:border-[var(--line)]">
+            {/* Left — Radar chart (min-w-0 + overflow: Recharts иначе может вылезать из ячейки и перехватывать клики над колонкой параметров, особенно в светлой теме) */}
+            <div className="min-w-0 overflow-hidden pr-0 sm:border-r sm:border-[var(--line)] sm:pr-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] mb-3">
                 Карьерный атлас
               </p>
 
-              <div className="w-full" style={{ height: 240 }}>
+              <div className="pointer-events-none w-full max-w-full" style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
                     <PolarGrid gridType="polygon" stroke="var(--line)" strokeWidth={0.75} />
@@ -348,7 +353,7 @@ export default function GrowthPage({
             </div>
 
             {/* Right — Params list */}
-            <div className="pl-0 sm:pl-5 mt-5 sm:mt-0">
+            <div className="relative z-10 mt-5 min-w-0 pl-0 sm:mt-0 sm:pl-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] mb-3">
                 Параметры роли
               </p>
