@@ -49,6 +49,12 @@ data/                    ← JSON-файлы (навыки, атлас)
 3. В Railway создайте сервис **Deploy Docker image** (или переключите существующий источник на образ) и укажите тот же тег, например `ghcr.io/superdash777/career_buid_sysytem:latest`.
 4. Перенесите **Variables** (OpenAI, JWT, DB_PATH и т.д.) и при необходимости том **`/app/data`**.
 
+### Если поддержка Railway подтвердила сбой билдера
+
+Сообщение вроде **«persistent infrastructure issue on the build machine»**, **«builder ran out of disk space before it could even read the Dockerfile»** означает: диск **конкретного** shared-билдера исчерпан **до** начала вашей сборки — это **не ошибка Dockerfile и не размер репозитория**. Повторные деплои могут снова попадать на тот же узел и падать, пока Railway не очистит диск или не перенесёт вас на другой билдер.
+
+**Что делать:** продолжить переписку с **Railway Support** (пусть сбросят/переведут билд) и **параллельно** выкатывать сервис с **готового образа из GHCR** по workflow выше — сборка идёт на GitHub Actions, не на проблемной машине Railway.
+
 ### 2. Откройте Railway Dashboard
 
 Идём в [railway.app](https://railway.app) → ваш проект.
