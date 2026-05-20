@@ -43,6 +43,8 @@ export interface GrowthPageProps {
   skillGaps: SkillGap[];
   skillStrong: { name: string; level: number }[];
   matchPercent: number;
+  /** Для подписи кнопки «Личный кабинет» / гостевой переход к авторизации */
+  isAuthenticated?: boolean;
   onBack: () => void;
   onGoToDashboard: () => void;
 }
@@ -177,6 +179,7 @@ export default function GrowthPage({
   radarData,
   skillGaps,
   skillStrong,
+  isAuthenticated = true,
   onBack,
   onGoToDashboard,
 }: GrowthPageProps) {
@@ -444,25 +447,27 @@ export default function GrowthPage({
         {focusedPlan && <FocusedPlanSection plan={focusedPlan} />}
 
         {/* ---- CTA bar ---- */}
-        <section className="border-t border-[var(--line)] pt-5 mt-5 flex flex-col sm:flex-row gap-2">
+        <section className="mt-5 flex flex-col flex-wrap gap-2 border-t border-[var(--line)] pt-5 sm:flex-row">
           {!focusedPlan ? (
-            <Button
-              className="flex-1"
-              onClick={handleBuildPlan}
-              disabled={planLoading}
-            >
-              {planLoading ? (
-                <><Sparkles className="h-4 w-4 animate-pulse" /> Генерируем...</>
-              ) : (
-                <>Составить план развития <ArrowRight className="h-4 w-4" /></>
-              )}
-            </Button>
+            <>
+              <Button
+                className="min-w-0 flex-1 sm:min-w-[220px]"
+                onClick={handleBuildPlan}
+                disabled={planLoading}
+              >
+                {planLoading ? (
+                  <><Sparkles className="h-4 w-4 animate-pulse" /> Генерируем...</>
+                ) : (
+                  <>Составить план развития <ArrowRight className="h-4 w-4" /></>
+                )}
+              </Button>
+              <Button variant="secondary" className="flex-1 sm:w-auto sm:flex-none" onClick={onGoToDashboard}>
+                {isAuthenticated ? 'Личный кабинет' : 'Войти и сохранить'}
+              </Button>
+            </>
           ) : (
-            <Button
-              className="flex-1"
-              onClick={onGoToDashboard}
-            >
-              Отслеживать прогресс <ArrowRight className="h-4 w-4" />
+            <Button className="flex-1" onClick={onGoToDashboard}>
+              Личный кабинет <ArrowRight className="h-4 w-4" />
             </Button>
           )}
         </section>

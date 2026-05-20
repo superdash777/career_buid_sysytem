@@ -863,6 +863,7 @@ export default function App() {
           return (
             <GrowthPage
               {...mapGrowthProps(plan.analysis, state)}
+              isAuthenticated={isAuthenticated}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />
@@ -872,6 +873,7 @@ export default function App() {
           return (
             <SwitchPage
               {...mapSwitchProps(plan.analysis, state)}
+              isAuthenticated={isAuthenticated}
               onBack={() => setScreen('skills')}
               onGoToDashboard={() => setScreen(isAuthenticated ? 'dashboard' : 'soft-gate')}
             />
