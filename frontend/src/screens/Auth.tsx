@@ -2,7 +2,9 @@ import { useState } from 'react';
 import Alert from '../components/Alert';
 import GridBg from '../components/layout/GridBg';
 import Button from '../components/ui/Button';
+import LegalModal from '../components/LegalModal';
 import { useAuth } from '../auth/AuthContext';
+import { CONSENT_FULL_TEXT, PRIVACY_FULL_TEXT } from '../legal/legalFullTexts';
 
 interface Props {
   initialMode?: 'login' | 'register';
@@ -27,10 +29,21 @@ export default function Auth({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+  const [purposeService, setPurposeService] = useState(false);
+  const [purposeResearch, setPurposeResearch] = useState(false);
+  const [purposeOpenAi, setPurposeOpenAi] = useState(false);
+
+  const purposesOk = purposeService && purposeResearch && purposeOpenAi;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (mode === 'register' && !purposesOk) {
+      setError('Отметьте все пункты согласия на обработку персональных данных.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'register') {
@@ -111,7 +124,69 @@ export default function Auth({
               </label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            {mode === 'register' && (
+              <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left text-sm leading-snug text-[var(--ink)]">
+                <p className="text-[var(--ink)]">
+                  Я даю согласие Операторам сервиса «CareerCopilot» (Ермакова Дарья Сергеевна, Соловьёва Дарья
+                  Александровна, г. Москва, e-mail:{' '}
+                  <a href="mailto:careercopilot@yandex.ru" className="font-medium text-[var(--blue-deep)] underline">
+                    careercopilot@yandex.ru
+                  </a>
+                  ) на обработку моих персональных данных на условиях, определённых в{' '}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    onClick={() => setShowPrivacy(true)}
+                  >
+                    Политике конфиденциальности
+                  </button>{' '}
+                  и{' '}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    onClick={() => setShowConsent(true)}
+                  >
+                    Согласии на обработку персональных данных
+                  </button>
+                  , в целях:
+                </p>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={purposeService}
+                    onChange={(e) => setPurposeService(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
+                  />
+                  <span>
+                    Работы сервиса: регистрация и вход, загрузка резюме, извлечение навыков, оценка соответствия роли и
+                    персональный план развития.
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={purposeResearch}
+                    onChange={(e) => setPurposeResearch(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
+                  />
+                  <span>Проведения исследований и демонстрации результатов учебного проекта «CareerCopilot».</span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={purposeOpenAi}
+                    onChange={(e) => setPurposeOpenAi(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
+                  />
+                  <span>
+                    Передачи обезличенного текста резюме в OpenAI (GPT-4o) для автоматического извлечения навыков
+                    (трансграничная передача).
+                  </span>
+                </label>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading || (mode === 'register' && !purposesOk)}>
               {loading
                 ? (mode === 'register' ? 'Создаем аккаунт...' : 'Входим...')
                 : (mode === 'register' ? 'Создать аккаунт' : 'Войти')
@@ -171,6 +246,17 @@ export default function Auth({
             </button>
           </div>
         )}
+
+        <LegalModal
+          open={showPrivacy}
+          title="Политика конфиденциальности и обработки персональных данных"
+          onClose={() => setShowPrivacy(false)}
+        >
+          <div className="whitespace-pre-wrap">{PRIVACY_FULL_TEXT}</div>
+        </LegalModal>
+        <LegalModal open={showConsent} title="Согласие на обработку персональных данных" onClose={() => setShowConsent(false)}>
+          <div className="whitespace-pre-wrap">{CONSENT_FULL_TEXT}</div>
+        </LegalModal>
       </div>
     </GridBg>
   );

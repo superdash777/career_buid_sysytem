@@ -15,6 +15,10 @@
 }
 
 @layer components {
+  .legal-dialog::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+
   .grid-bg-layer {
     background-image:
       radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line) 40%, transparent) 1px, transparent 0);
