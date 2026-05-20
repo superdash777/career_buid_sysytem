@@ -18,14 +18,14 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=180 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt ./
-# Fresh pip + wheel tooling reduces flaky "wheel" resolution; long timeout helps big wheels (torch).
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r requirements.txt
+COPY requirements-docker.txt ./requirements-docker.txt
+# Один слой: компилятор → pip → удалить build-essential, освободить место на билдере.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements-docker.txt \
+    && apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /root/.cache/pip
 
 COPY . .
 

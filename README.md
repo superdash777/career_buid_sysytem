@@ -318,7 +318,8 @@ career-copilot/
 │   ├── tsconfig.json
 │   └── eslint.config.js
 │
-├── requirements.txt
+├── requirements.txt          # полный набор (локально, Gradio main.py, eval)
+├── requirements-docker.txt   # только API для Docker / Railway (меньше зависимостей)
 ├── Dockerfile
 ├── Procfile
 └── docs/

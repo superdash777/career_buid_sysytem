@@ -17,3 +17,9 @@ docs/
 tests/
 README.md
 main_scrpt_fixed*.ipynb
+# Не нужны в runtime API-образе; уменьшают контекст сборки
+*.ipynb
+eval.py
+eval_dataset.json
+eval_results/
+eval_metrics/

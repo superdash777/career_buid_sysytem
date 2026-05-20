@@ -16,18 +16,19 @@
 В корне проекта должны быть:
 
 ```
-Dockerfile          ← мульти-стейдж: Node собирает фронт, Python запускает API
-railway.toml        ← config-as-code: билдер Dockerfile (рекомендуется для Railway)
-api.py              ← FastAPI с SPA-фолбэком
-frontend/           ← React-приложение (исходники)
-requirements.txt    ← Python-зависимости
-data/               ← JSON-файлы (навыки, атлас)
+Dockerfile               ← мульти-стейдж: Node собирает фронт, Python запускает API
+railway.toml             ← config-as-code: билдер Dockerfile
+requirements-docker.txt  ← зависимости только для API в Docker (без Gradio/eval — меньше диска на билдере)
+requirements.txt         ← полный набор для локальной разработки (Gradio, eval, …)
+api.py                   ← FastAPI с SPA-фолбэком
+frontend/                ← React-приложение (исходники)
+data/                    ← JSON-файлы (навыки, атлас)
 ```
 
 Файл `Dockerfile` уже есть в репозитории. Он делает:
 
 1. Стейдж 1 (Node 20): `npm ci` + `npm run build` → собирает `frontend/dist` (в образе задан `NODE_OPTIONS` с большим лимитом heap на случай нехватки памяти у билдера)
-2. Стейдж 2 (Python 3.12): обновление `pip`/`wheel`, затем `pip install` (увеличенный таймаут на скачивание тяжёлых колёс вроде `torch`) + копирование кода + `frontend/dist`
+2. Стейдж 2 (Python 3.12): `pip install -r requirements-docker.txt` (без Gradio/pandas/matplotlib для экономии места на диске билдера), затем копирование кода + `frontend/dist`
 3. Запуск: `python api.py` (внутри — `uvicorn` на `PORT` из окружения Railway)
 
 В корне репозитория есть **`railway.toml`**, который фиксирует билдер **Dockerfile** (на случай, если в Dashboard выбран другой режим сборки).
@@ -36,7 +37,7 @@ data/               ← JSON-файлы (навыки, атлас)
 
 Это обобщённая ошибка Railway: нужны **полные логи сборки** (Deployments → конкретный деплой → Build logs). Частые причины:
 
-- **Стейдж Python**: не успел скачаться/установиться `torch` или другой крупный пакет (таймаут сети, лимит диска). Повторите деплой или увеличьте лимиты плана.
+- **Стейдж Python**: не успел скачаться/установиться `torch` или другой крупный пакет (таймаут сети, лимит диска). Повторите деплой или увеличьте лимиты плана. Если в логах **«no space left on device»** на этапе BuildKit — образ слишком тяжёлый для диска билдера; в репозитории для Docker используется урезанный **`requirements-docker.txt`** без Gradio и тулов eval.
 - **Стейдж Node**: падение `npm ci` (рассинхрон `package-lock.json` с `package.json`) или нехватка памяти на `tsc`/`vite build`.
 
 ### 2. Откройте Railway Dashboard

@@ -1,3 +1,4 @@
+# Полный набор (Gradio UI в main.py, eval, ноутбуки). Для Docker-образа API см. requirements-docker.txt.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 gradio>=4.44,<5
