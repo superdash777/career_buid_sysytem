@@ -1,6 +1,10 @@
 # ---- Stage 1: build React frontend ----
 FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
+# Railway builders can be memory-tight; Vite/tsc benefit from a higher heap ceiling.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_AUDIT=false
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
@@ -10,12 +14,18 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=180 \
+    PYTHONUNBUFFERED=1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Fresh pip + wheel tooling reduces flaky "wheel" resolution; long timeout helps big wheels (torch).
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

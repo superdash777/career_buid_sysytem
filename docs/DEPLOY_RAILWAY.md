@@ -17,6 +17,7 @@
 
 ```
 Dockerfile          ← мульти-стейдж: Node собирает фронт, Python запускает API
+railway.toml        ← config-as-code: билдер Dockerfile (рекомендуется для Railway)
 api.py              ← FastAPI с SPA-фолбэком
 frontend/           ← React-приложение (исходники)
 requirements.txt    ← Python-зависимости
@@ -25,9 +26,18 @@ data/               ← JSON-файлы (навыки, атлас)
 
 Файл `Dockerfile` уже есть в репозитории. Он делает:
 
-1. Стейдж 1 (Node 20): `npm ci` + `npm run build` → собирает `frontend/dist`
-2. Стейдж 2 (Python 3.12): `pip install` + копирует всё + `frontend/dist`
-3. Запуск: `uvicorn api:app --host 0.0.0.0 --port $PORT`
+1. Стейдж 1 (Node 20): `npm ci` + `npm run build` → собирает `frontend/dist` (в образе задан `NODE_OPTIONS` с большим лимитом heap на случай нехватки памяти у билдера)
+2. Стейдж 2 (Python 3.12): обновление `pip`/`wheel`, затем `pip install` (увеличенный таймаут на скачивание тяжёлых колёс вроде `torch`) + копирование кода + `frontend/dist`
+3. Запуск: `python api.py` (внутри — `uvicorn` на `PORT` из окружения Railway)
+
+В корне репозитория есть **`railway.toml`**, который фиксирует билдер **Dockerfile** (на случай, если в Dashboard выбран другой режим сборки).
+
+### Сообщение «Build failed / failed to leave the wheelhouse»
+
+Это обобщённая ошибка Railway: нужны **полные логи сборки** (Deployments → конкретный деплой → Build logs). Частые причины:
+
+- **Стейдж Python**: не успел скачаться/установиться `torch` или другой крупный пакет (таймаут сети, лимит диска). Повторите деплой или увеличьте лимиты плана.
+- **Стейдж Node**: падение `npm ci` (рассинхрон `package-lock.json` с `package.json`) или нехватка памяти на `tsc`/`vite build`.
 
 ### 2. Откройте Railway Dashboard
 
