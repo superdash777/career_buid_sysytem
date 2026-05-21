@@ -18,3 +18,6 @@ venv/
 # Frontend build artifacts
 frontend/node_modules/
 frontend/dist/
+
+# Migration packages
+_migration/
