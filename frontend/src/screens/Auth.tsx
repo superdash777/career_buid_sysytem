@@ -37,7 +37,7 @@ export default function Auth({
     e.preventDefault();
     setError('');
     if (mode === 'register' && !consentAccepted) {
-      setError('Подтвердите согласие на обработку персональных данных.');
+      setError('Отметьте согласие: пункт «Формирования моего индивидуального плана…».');
       return;
     }
     setLoading(true);
@@ -121,38 +121,37 @@ export default function Auth({
             </div>
 
             {mode === 'register' && (
-              <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left text-sm leading-relaxed text-[var(--ink)]">
-                <p className="text-left text-[var(--ink)]">
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left text-sm leading-relaxed text-[var(--ink)]">
+                <p className="m-0 text-left text-[var(--ink)]">
                   Соглашаюсь на обработку персональных данных на условиях{' '}
                   <button
                     type="button"
-                    className="inline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    className="m-0 inline border-0 bg-transparent p-0 text-left align-baseline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowPrivacy(true)}
                   >
-                    политики конфиденциальности
+                    политики
                   </button>{' '}
                   и{' '}
                   <button
                     type="button"
-                    className="inline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    className="m-0 inline border-0 bg-transparent p-0 text-left align-baseline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowConsent(true)}
                   >
-                    согласия на обработку персональных данных
+                    согласии на обработку персональных данных
                   </button>
                   .
                 </p>
-                <p className="text-left font-medium text-[var(--ink)]">в целях</p>
-                <p className="text-left text-[var(--ink)]">
-                  Формирования моего индивидуального плана карьерного роста.
-                </p>
-                <label className="flex cursor-pointer items-start gap-3 text-left">
+                <p className="mb-0 mt-3 text-left font-medium text-[var(--ink)]">в целях</p>
+                <label className="mt-2 flex cursor-pointer items-start gap-2.5 text-left text-[var(--ink)]">
                   <input
                     type="checkbox"
                     checked={consentAccepted}
                     onChange={(e) => setConsentAccepted(e.target.checked)}
                     className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
                   />
-                  <span className="text-left">Подтверждаю согласие с формулировкой выше</span>
+                  <span className="min-w-0 flex-1 text-left leading-relaxed">
+                    Формирования моего индивидуального плана карьерного роста.
+                  </span>
                 </label>
               </div>
             )}
