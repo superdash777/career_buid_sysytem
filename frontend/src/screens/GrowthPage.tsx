@@ -1,10 +1,7 @@
 import { useState, useMemo } from 'react';
-import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis,
-  PolarRadiusAxis, ResponsiveContainer,
-} from 'recharts';
 import { ArrowLeft, ArrowRight, Pencil, Sparkles, Check } from 'lucide-react';
 import Layout from '../components/Layout';
+import GrowthAtlasRadar from '../components/GrowthAtlasRadar';
 import Button from '../components/ui/Button';
 import MonoLabel from '../components/ui/MonoLabel';
 import ProgressLoader from '../components/ProgressLoader';
@@ -41,8 +38,6 @@ const PARAM_LEVEL_LABELS: Record<number, string> = {
   4: 'Ведущий',
   5: 'Эксперт',
 };
-
-type RadarRow = { subject: string; level: number };
 
 export interface GrowthPageProps {
   profession: string;
@@ -228,16 +223,6 @@ export default function GrowthPage({
 
   const criticalSkillCount = skillGaps.filter(s => s.delta >= 2).length;
 
-  const targetRingData: RadarRow[] = useMemo(
-    () => localParams.map(p => ({ subject: p.label, level: p.target })),
-    [localParams]
-  );
-
-  const selfRingData: RadarRow[] = useMemo(
-    () => localParams.map(p => ({ subject: p.label, level: p.current })),
-    [localParams]
-  );
-
   const prioritySkills = skillGaps.filter(s => s.delta >= 2);
   const growSkills = skillGaps.filter(s => s.delta === 1);
 
@@ -330,50 +315,10 @@ export default function GrowthPage({
                 Карьерный атлас
               </p>
 
-              <div className="relative w-full max-w-full pointer-events-none" style={{ height: 240 }}>
-                {/* Два отдельных RadarChart: в Recharts 3.x две серии <Radar> в одном чарте могли
-                    получать один и тот же dataKey из селектора — движение ползунка «ехало» внешнее кольцо. */}
-                <div className="absolute inset-0 z-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={targetRingData}>
-                      <PolarGrid gridType="polygon" stroke="var(--line)" strokeWidth={0.75} />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fontSize: 9, fill: 'var(--muted)' }}
-                      />
-                      <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
-                      <Radar
-                        name="Целевой"
-                        dataKey="level"
-                        fill="#5465ff"
-                        fillOpacity={0.08}
-                        stroke="#5465ff"
-                        strokeOpacity={0.4}
-                        strokeWidth={1.5}
-                        isAnimationActive={false}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="absolute inset-0 z-10">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={selfRingData}>
-                      <PolarGrid gridType="polygon" stroke="transparent" />
-                      <PolarAngleAxis dataKey="subject" tick={false} />
-                      <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
-                      <Radar
-                        name="Текущий"
-                        dataKey="level"
-                        fill="#AFA9EC"
-                        fillOpacity={0.45}
-                        stroke="#5465ff"
-                        strokeWidth={1.5}
-                        isAnimationActive={false}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              <GrowthAtlasRadar
+                params={localParams.map(p => ({ label: p.label, current: p.current, target: p.target }))}
+                size={240}
+              />
 
               <div className="flex items-center justify-center gap-4 mt-2">
                 <div className="flex items-center gap-1.5">
