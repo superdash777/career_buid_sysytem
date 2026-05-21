@@ -42,8 +42,6 @@ const PARAM_LEVEL_LABELS: Record<number, string> = {
   5: 'Эксперт',
 };
 
-type RadarRow = { subject: string; level: number };
-
 export interface GrowthPageProps {
   profession: string;
   currentGrade: string;
@@ -228,13 +226,8 @@ export default function GrowthPage({
 
   const criticalSkillCount = skillGaps.filter(s => s.delta >= 2).length;
 
-  const targetRingData: RadarRow[] = useMemo(
-    () => localParams.map(p => ({ subject: p.label, level: p.target })),
-    [localParams]
-  );
-
-  const selfRingData: RadarRow[] = useMemo(
-    () => localParams.map(p => ({ subject: p.label, level: p.current })),
+  const combinedRadarData = useMemo(
+    () => localParams.map(p => ({ subject: p.label, current: p.current, target: p.target })),
     [localParams]
   );
 
@@ -324,53 +317,42 @@ export default function GrowthPage({
         {/* ---- Main two-column grid ---- */}
         <section className="border-t border-[var(--line)] pt-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
-            {/* Left — Radar chart (min-w-0 + overflow: Recharts иначе может вылезать из ячейки и перехватывать клики над колонкой параметров, особенно в светлой теме) */}
+            {/* Left — Radar chart */}
             <div className="min-w-0 overflow-hidden pr-0 sm:border-r sm:border-[var(--line)] sm:pr-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] mb-3">
                 Карьерный атлас
               </p>
 
-              <div className="relative w-full max-w-full pointer-events-none" style={{ height: 240 }}>
-                <div className="absolute inset-0 z-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={targetRingData}>
-                      <PolarGrid gridType="polygon" stroke="var(--line)" strokeWidth={0.75} />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fontSize: 9, fill: 'var(--muted)' }}
-                      />
-                      <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
-                      <Radar
-                        name="Целевой"
-                        dataKey="level"
-                        fill="#5465ff"
-                        fillOpacity={0.08}
-                        stroke="#5465ff"
-                        strokeOpacity={0.4}
-                        strokeWidth={1.5}
-                        isAnimationActive={false}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="absolute inset-0 z-10">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={selfRingData}>
-                      <PolarGrid gridType="polygon" stroke="transparent" />
-                      <PolarAngleAxis dataKey="subject" tick={false} />
-                      <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
-                      <Radar
-                        name="Текущий"
-                        dataKey="level"
-                        fill="#AFA9EC"
-                        fillOpacity={0.45}
-                        stroke="#5465ff"
-                        strokeWidth={1.5}
-                        isAnimationActive={false}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="w-full max-w-full pointer-events-none" style={{ height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={combinedRadarData}>
+                    <PolarGrid gridType="polygon" stroke="var(--line)" strokeWidth={0.75} />
+                    <PolarAngleAxis
+                      dataKey="subject"
+                      tick={{ fontSize: 9, fill: 'var(--muted)' }}
+                    />
+                    <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
+                    <Radar
+                      name="Целевой"
+                      dataKey="target"
+                      fill="#5465ff"
+                      fillOpacity={0.08}
+                      stroke="#5465ff"
+                      strokeOpacity={0.4}
+                      strokeWidth={1.5}
+                      isAnimationActive={false}
+                    />
+                    <Radar
+                      name="Текущий"
+                      dataKey="current"
+                      fill="#AFA9EC"
+                      fillOpacity={0.45}
+                      stroke="#5465ff"
+                      strokeWidth={1.5}
+                      isAnimationActive={false}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
               </div>
 
               <div className="flex items-center justify-center gap-4 mt-2">
