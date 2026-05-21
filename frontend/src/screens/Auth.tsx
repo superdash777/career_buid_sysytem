@@ -31,13 +31,16 @@ export default function Auth({
   const [error, setError] = useState('');
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
-  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentPurposePlan, setConsentPurposePlan] = useState(false);
+  const [consentPurposeInfo, setConsentPurposeInfo] = useState(false);
+
+  const consentPurposesOk = consentPurposePlan && consentPurposeInfo;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (mode === 'register' && !consentAccepted) {
-      setError('Отметьте согласие: пункт «Формирования моего индивидуального плана…».');
+    if (mode === 'register' && !consentPurposesOk) {
+      setError('Отметьте оба пункта под «в целях».');
       return;
     }
     setLoading(true);
@@ -137,26 +140,46 @@ export default function Auth({
                     className="m-0 inline border-0 bg-transparent p-0 text-left align-baseline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowConsent(true)}
                   >
-                    согласии на обработку персональных данных
+                    согласия на обработку персональных данных
                   </button>
-                  .
+                  {',\u00a0в целях:'}
                 </p>
-                <p className="mb-0 mt-3 text-left font-medium text-[var(--ink)]">в целях</p>
-                <label className="mt-2 flex cursor-pointer items-start gap-2.5 text-left text-[var(--ink)]">
-                  <input
-                    type="checkbox"
-                    checked={consentAccepted}
-                    onChange={(e) => setConsentAccepted(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
-                  />
-                  <span className="min-w-0 flex-1 text-left leading-relaxed">
-                    Формирования моего индивидуального плана карьерного роста.
-                  </span>
-                </label>
+                <div className="mt-3 space-y-2.5">
+                  <label
+                    htmlFor="auth-consent-plan"
+                    className="flex cursor-pointer items-start gap-2.5 text-left text-[var(--ink)]"
+                  >
+                    <input
+                      id="auth-consent-plan"
+                      type="checkbox"
+                      checked={consentPurposePlan}
+                      onChange={(e) => setConsentPurposePlan(e.target.checked)}
+                      className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
+                    />
+                    <span className="min-w-0 flex-1 text-left leading-relaxed">
+                      Формирования моего индивидуального плана карьерного роста.
+                    </span>
+                  </label>
+                  <label
+                    htmlFor="auth-consent-info"
+                    className="flex cursor-pointer items-start gap-2.5 text-left text-[var(--ink)]"
+                  >
+                    <input
+                      id="auth-consent-info"
+                      type="checkbox"
+                      checked={consentPurposeInfo}
+                      onChange={(e) => setConsentPurposeInfo(e.target.checked)}
+                      className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
+                    />
+                    <span className="min-w-0 flex-1 text-left leading-relaxed">
+                      Направления мне информации о возможностях сервиса.
+                    </span>
+                  </label>
+                </div>
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading || (mode === 'register' && !consentAccepted)}>
+            <Button type="submit" className="w-full" disabled={loading || (mode === 'register' && !consentPurposesOk)}>
               {loading
                 ? (mode === 'register' ? 'Создаем аккаунт...' : 'Входим...')
                 : (mode === 'register' ? 'Создать аккаунт' : 'Войти')
@@ -171,7 +194,7 @@ export default function Auth({
                 Уже есть аккаунт?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setError(''); setConsentAccepted(false); }}
+                  onClick={() => { setMode('login'); setError(''); setConsentPurposePlan(false); setConsentPurposeInfo(false); }}
                   className="font-semibold text-[var(--blue-deep)] hover:underline"
                 >
                   Войти
@@ -182,7 +205,7 @@ export default function Auth({
                 Нет аккаунта?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('register'); setError(''); setConsentAccepted(false); }}
+                  onClick={() => { setMode('register'); setError(''); setConsentPurposePlan(false); setConsentPurposeInfo(false); }}
                   className="font-semibold text-[var(--blue-deep)] hover:underline"
                 >
                   Создать
