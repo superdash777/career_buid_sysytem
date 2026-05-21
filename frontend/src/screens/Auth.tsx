@@ -31,17 +31,13 @@ export default function Auth({
   const [error, setError] = useState('');
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
-  const [purposeService, setPurposeService] = useState(false);
-  const [purposeResearch, setPurposeResearch] = useState(false);
-  const [purposeOpenAi, setPurposeOpenAi] = useState(false);
-
-  const purposesOk = purposeService && purposeResearch && purposeOpenAi;
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (mode === 'register' && !purposesOk) {
-      setError('Отметьте все пункты согласия на обработку персональных данных.');
+    if (mode === 'register' && !consentAccepted) {
+      setError('Подтвердите согласие на обработку персональных данных.');
       return;
     }
     setLoading(true);
@@ -125,68 +121,43 @@ export default function Auth({
             </div>
 
             {mode === 'register' && (
-              <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left text-sm leading-snug text-[var(--ink)]">
-                <p className="text-[var(--ink)]">
-                  Я даю согласие Операторам сервиса «CareerCopilot» (Ермакова Дарья Сергеевна, Соловьёва Дарья
-                  Александровна, г. Москва, e-mail:{' '}
-                  <a href="mailto:careercopilot@yandex.ru" className="font-medium text-[var(--blue-deep)] underline">
-                    careercopilot@yandex.ru
-                  </a>
-                  ) на обработку моих персональных данных на условиях, определённых в{' '}
+              <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left text-sm leading-relaxed text-[var(--ink)]">
+                <p className="text-left text-[var(--ink)]">
+                  Соглашаюсь на обработку персональных данных на условиях{' '}
                   <button
                     type="button"
-                    className="font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    className="inline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowPrivacy(true)}
                   >
-                    Политике конфиденциальности
+                    политики конфиденциальности
                   </button>{' '}
                   и{' '}
                   <button
                     type="button"
-                    className="font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    className="inline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowConsent(true)}
                   >
-                    Согласии на обработку персональных данных
+                    согласия на обработку персональных данных
                   </button>
-                  , в целях:
+                  .
                 </p>
-                <label className="flex cursor-pointer items-start gap-3">
+                <p className="text-left font-medium text-[var(--ink)]">в целях</p>
+                <p className="text-left text-[var(--ink)]">
+                  Формирования моего индивидуального плана карьерного роста.
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 text-left">
                   <input
                     type="checkbox"
-                    checked={purposeService}
-                    onChange={(e) => setPurposeService(e.target.checked)}
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
                     className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
                   />
-                  <span>
-                    Работы сервиса: регистрация и вход, загрузка резюме, извлечение навыков, оценка соответствия роли и
-                    персональный план развития.
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={purposeResearch}
-                    onChange={(e) => setPurposeResearch(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
-                  />
-                  <span>Проведения исследований и демонстрации результатов учебного проекта «CareerCopilot».</span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={purposeOpenAi}
-                    onChange={(e) => setPurposeOpenAi(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 rounded border-[var(--line)] text-[var(--blue-deep)] focus:ring-[var(--blue-deep)]"
-                  />
-                  <span>
-                    Передачи обезличенного текста резюме в OpenAI (GPT-4o) для автоматического извлечения навыков
-                    (трансграничная передача).
-                  </span>
+                  <span className="text-left">Подтверждаю согласие с формулировкой выше</span>
                 </label>
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading || (mode === 'register' && !purposesOk)}>
+            <Button type="submit" className="w-full" disabled={loading || (mode === 'register' && !consentAccepted)}>
               {loading
                 ? (mode === 'register' ? 'Создаем аккаунт...' : 'Входим...')
                 : (mode === 'register' ? 'Создать аккаунт' : 'Войти')
@@ -201,7 +172,7 @@ export default function Auth({
                 Уже есть аккаунт?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setError(''); }}
+                  onClick={() => { setMode('login'); setError(''); setConsentAccepted(false); }}
                   className="font-semibold text-[var(--blue-deep)] hover:underline"
                 >
                   Войти
@@ -212,7 +183,7 @@ export default function Auth({
                 Нет аккаунта?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('register'); setError(''); }}
+                  onClick={() => { setMode('register'); setError(''); setConsentAccepted(false); }}
                   className="font-semibold text-[var(--blue-deep)] hover:underline"
                 >
                   Создать
