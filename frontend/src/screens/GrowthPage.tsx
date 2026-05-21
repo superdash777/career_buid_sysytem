@@ -33,6 +33,23 @@ interface SkillGap {
   description?: string;
 }
 
+/** Как `data_loader.PARAM_ORDINAL_NAMES` — подпись уровня при правке ползунка */
+const PARAM_LEVEL_LABELS: Record<number, string> = {
+  1: 'Младший',
+  2: 'Специалист',
+  3: 'Старший',
+  4: 'Ведущий',
+  5: 'Эксперт',
+};
+
+/** Данные для Recharts: избегаем ключей `current`/`target` у точки графика (редкие коллизии в стеке polar). */
+type GrowthRadarDatum = {
+  subject: string;
+  selfLevel: number;
+  roleTargetLevel: number;
+  fullMark: number;
+};
+
 export interface GrowthPageProps {
   profession: string;
   currentGrade: string;
@@ -190,8 +207,13 @@ export default function GrowthPage({
   const [planError, setPlanError] = useState('');
 
   const updateParam = (key: string, newCurrent: number) => {
+    const v = Math.min(5, Math.max(1, Math.round(Number(newCurrent))));
     setLocalParams(prev =>
-      prev.map(p => p.key === key ? { ...p, current: newCurrent } : p)
+      prev.map(p =>
+        p.key === key
+          ? { ...p, current: v, currentLabel: PARAM_LEVEL_LABELS[v] ?? String(v) }
+          : p
+      )
     );
   };
 
@@ -212,12 +234,16 @@ export default function GrowthPage({
 
   const criticalSkillCount = skillGaps.filter(s => s.delta >= 2).length;
 
-  const chartData = localParams.map(p => ({
-    subject: p.label,
-    current: p.current,
-    target: p.target,
-    fullMark: 5,
-  }));
+  const chartData: GrowthRadarDatum[] = useMemo(
+    () =>
+      localParams.map(p => ({
+        subject: p.label,
+        selfLevel: p.current,
+        roleTargetLevel: p.target,
+        fullMark: 5,
+      })),
+    [localParams]
+  );
 
   const prioritySkills = skillGaps.filter(s => s.delta >= 2);
   const growSkills = skillGaps.filter(s => s.delta === 1);
@@ -321,8 +347,9 @@ export default function GrowthPage({
                     />
                     <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
                     <Radar
+                      id="growth-radar-role-target"
                       name="Целевой"
-                      dataKey="target"
+                      dataKey="roleTargetLevel"
                       fill="#5465ff"
                       fillOpacity={0.08}
                       stroke="#5465ff"
@@ -331,8 +358,9 @@ export default function GrowthPage({
                       isAnimationActive={false}
                     />
                     <Radar
+                      id="growth-radar-self"
                       name="Текущий"
-                      dataKey="current"
+                      dataKey="selfLevel"
                       fill="#AFA9EC"
                       fillOpacity={0.45}
                       stroke="#5465ff"
