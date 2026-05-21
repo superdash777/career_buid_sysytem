@@ -137,12 +137,18 @@ export default function Auth({
                   и{' '}
                   <button
                     type="button"
-                    className="m-0 inline border-0 bg-transparent p-0 text-left align-baseline font-semibold text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2 hover:text-[var(--color-accent-hover)]"
+                    className="m-0 inline max-w-full border-0 bg-transparent p-0 text-left align-baseline font-semibold hover:text-[var(--color-accent-hover)]"
                     onClick={() => setShowConsent(true)}
                   >
-                    согласия на обработку персональных данных
+                    <span className="text-[var(--blue-deep)] underline decoration-[var(--blue-deep)] underline-offset-2">
+                      согласия на обработку персональных данных
+                    </span>
+                    {/* U+2060: не даём переносу оторвать «, в целях:» от конца ссылки */}
+                    <span className="whitespace-nowrap font-normal text-[var(--ink)] no-underline">
+                      {'\u2060'}
+                      {',\u00a0в\u00a0целях:'}
+                    </span>
                   </button>
-                  {',\u00a0в целях:'}
                 </p>
                 <div className="mt-3 space-y-2.5">
                   <label
