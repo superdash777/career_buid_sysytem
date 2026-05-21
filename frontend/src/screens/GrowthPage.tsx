@@ -333,7 +333,7 @@ export default function GrowthPage({
                     />
                     <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
                     <Radar
-                      name="Целевой"
+                      name="Текущий"
                       dataKey="target"
                       fill="#5465ff"
                       fillOpacity={0.08}
@@ -343,7 +343,7 @@ export default function GrowthPage({
                       isAnimationActive={false}
                     />
                     <Radar
-                      name="Текущий"
+                      name="Целевой"
                       dataKey="current"
                       fill="#AFA9EC"
                       fillOpacity={0.45}
@@ -358,11 +358,11 @@ export default function GrowthPage({
               <div className="flex items-center justify-center gap-4 mt-2">
                 <div className="flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-[#AFA9EC]" />
-                  <span className="text-[10px] text-[var(--muted)]">Текущий</span>
+                  <span className="text-[10px] text-[var(--muted)]">Целевой ({targetGrade})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-[#5465ff]" />
-                  <span className="text-[10px] text-[var(--muted)]">Целевой ({targetGrade})</span>
+                  <span className="text-[10px] text-[var(--muted)]">Текущий</span>
                 </div>
               </div>
             </div>
