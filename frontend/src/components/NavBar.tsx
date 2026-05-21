@@ -1,6 +1,7 @@
 import { useTheme } from '../useTheme';
 import { useAuth } from '../auth/AuthContext';
-import { Sun, Moon, LogOut, Users } from 'lucide-react';
+import { Sun, Moon, LogOut, Users, LayoutDashboard } from 'lucide-react';
+import { useGoToDashboard } from '../navigation/goToDashboardContext';
 import Button from './ui/Button';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams }: Props) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
+  const goToDashboard = useGoToDashboard();
   return (
     <div className="flex items-center justify-between py-4">
       {showBrand ? (
@@ -45,6 +47,17 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
 
         {user && (
           <button
+            type="button"
+            onClick={goToDashboard}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--blue-deep)] transition-colors hover:border-[var(--blue-deep)] hover:bg-[var(--paper)]"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Личный кабинет
+          </button>
+        )}
+        {user && (
+          <button
+            type="button"
             onClick={logout}
             className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
           >

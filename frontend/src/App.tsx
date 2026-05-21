@@ -15,6 +15,7 @@ import NavBar from './components/NavBar';
 import ShareCard from './components/ShareCard';
 import ToastContainer from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
+import { GoToDashboardProvider } from './navigation/goToDashboardContext';
 import { useAuth } from './auth/AuthContext';
 import type { SessionInvalidReason } from './types';
 import { healthCheck, fetchSharedAnalysis, ApiError, createAnalysis } from './api/client';
@@ -482,31 +483,9 @@ export default function App() {
     setScreen(isAuthenticated ? 'dashboard' : 'public', true);
   };
 
-  if (serviceDown) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
-        <div className="max-w-md w-full">
-          <div className="mb-4"><NavBar /></div>
-          <Alert variant="warning" title="Сервис временно недоступен">
-            Попробуйте обновить страницу через минуту.
-          </Alert>
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => {
-                healthCheck().then((ok) => {
-                  if (ok) setServiceDown(false);
-                });
-              }}
-              className="btn-secondary text-sm"
-            >
-              Проверить снова
-            </button>
-          </div>
-        </div>
-        <ToastContainer />
-      </div>
-    );
-  }
+  const goToDashboard = useCallback(() => {
+    setScreen('dashboard', true);
+  }, [setScreen]);
 
   const renderScreen = () => {
     if (screen === 'share') {
@@ -916,9 +895,35 @@ export default function App() {
   };
 
   return (
-    <>
-      {renderScreen()}
-      <ToastContainer />
-    </>
+    <GoToDashboardProvider value={goToDashboard}>
+      {serviceDown ? (
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-(--color-surface)">
+          <div className="max-w-md w-full">
+            <div className="mb-4"><NavBar /></div>
+            <Alert variant="warning" title="Сервис временно недоступен">
+              Попробуйте обновить страницу через минуту.
+            </Alert>
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => {
+                  healthCheck().then((ok) => {
+                    if (ok) setServiceDown(false);
+                  });
+                }}
+                className="btn-secondary text-sm"
+              >
+                Проверить снова
+              </button>
+            </div>
+          </div>
+          <ToastContainer />
+        </div>
+      ) : (
+        <>
+          {renderScreen()}
+          <ToastContainer />
+        </>
+      )}
+    </GoToDashboardProvider>
   );
 }
