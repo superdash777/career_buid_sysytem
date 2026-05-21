@@ -6,12 +6,20 @@ import Button from './ui/Button';
 
 interface Props {
   showBrand?: boolean;
+  /** На экране самого кабинета ссылка не нужна — пользователь уже там. */
+  hidePersonalCabinet?: boolean;
   onLogin?: () => void;
   onRegister?: () => void;
   onTeams?: () => void;
 }
 
-export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams }: Props) {
+export default function NavBar({
+  showBrand = true,
+  hidePersonalCabinet = false,
+  onLogin,
+  onRegister,
+  onTeams,
+}: Props) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const goToDashboard = useGoToDashboard();
@@ -45,7 +53,7 @@ export default function NavBar({ showBrand = true, onLogin, onRegister, onTeams 
           </Button>
         )}
 
-        {user && (
+        {user && !hidePersonalCabinet && (
           <button
             type="button"
             onClick={goToDashboard}

@@ -247,7 +247,7 @@ export default function Dashboard({ onBack, onStartNew, onOpenAnalysis }: Props)
   };
 
   return (
-    <Layout step={0} showStepper={false}>
+    <Layout step={0} showStepper={false} hidePersonalCabinet>
       <div className="space-y-6 slide-up">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
