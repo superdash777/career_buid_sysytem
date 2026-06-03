@@ -37,6 +37,7 @@
 | NLP | pymorphy3 (лемматизация RU), NLTK Snowball (стемминг EN), Sentence-Transformers, RapidFuzz (нечёткое сопоставление) |
 | Эмбеддинги | multilingual-e5-large-instruct (1024-d), paraphrase-multilingual-MiniLM-L12-v2 (384-d, fallback) |
 | Векторная БД | Qdrant Cloud (REST API, cosine similarity) |
+| БД | SQLite (stdlib) — пользователи, анализы, прогресс, refresh-сессии |
 | Генеративный ИИ | OpenAI GPT-4o (temperature 0.3, structured output) |
 | Инфраструктура | Railway (Docker multi-stage: Node 20 → Python 3.12-slim) |
 
